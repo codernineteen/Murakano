@@ -14,7 +14,6 @@ MKWindow::~MKWindow()
 {
     glfwDestroyWindow(_window);
     glfwTerminate();
-    std::cout << "MKWindow and glfw resources destroyed" << std::endl;
 }
 
 void MKWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height)
