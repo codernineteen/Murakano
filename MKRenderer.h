@@ -4,6 +4,7 @@
 #include "Utilities.h"
 #include "MKWindow.h"
 #include "MKInstance.h"
+#include "MKValidationLayer.h"
 
 // [MKRenderer class]
 // - Responsibility :
@@ -20,5 +21,6 @@ public:
 private:
 	MKWindow _window;
 	MKInstance _instance;
+	MKValidationLayer _validationLayer;
 };
 

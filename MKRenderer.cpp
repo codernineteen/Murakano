@@ -1,16 +1,11 @@
-#include <iostream>
 #include "MKRenderer.h"
 
 
 MKRenderer::MKRenderer() 
-	: _window(false),
-	  _instance()
+	: _window(false), _instance() 
 {}
 
-MKRenderer::~MKRenderer()
-{
-	std::cout << "MKRenderer Destroyed" << std::endl;
-}
+MKRenderer::~MKRenderer(){}
 
 void MKRenderer::Render()
 {
