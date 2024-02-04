@@ -5,4 +5,3 @@ int main()
 	MKRenderer renderer;
 	renderer.Render();
 }
-
