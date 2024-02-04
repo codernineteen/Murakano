@@ -7,7 +7,6 @@
 #endif
 
 #include "Utilities.h"
-#include "MKInstance.h"
 
 // [MKWindow class]
 // - Responsibility :
@@ -15,18 +14,19 @@
 class MKValidationLayer
 {
 public:
-	MKValidationLayer(std::shared_ptr<MKInstance> pMkInstance);
+	MKValidationLayer();
 	~MKValidationLayer();
 
-    bool checkValidationLayerSupport();
-    void setupDebugMessenger();
+    bool CheckValidationLayerSupport();
+    void SetupDebugMessenger(VkInstance instance);
     // get the address of proxy function of vkCreateDebugUtilsMessengerEXT function
-    VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger
-    );
-    void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator);
+    // reusuable function to populate VkDebugUtilsMessengerCreateInfoEXT struct for instance creation
+    void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo); 
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, const VkAllocationCallbacks* pAllocator);
 
 private:
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(            // VKAPI_ATTR and VKAPI_CALL ensure correct function signature
+    static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(            // VKAPI_ATTR and VKAPI_CALL ensure correct function signature
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,     // severity of message. we can use comparision operator to check severity.
         VkDebugUtilsMessageTypeFlagsEXT messageType,                // message types. ex) unrelated to spec , violate spec , potential non-optimal use of api
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,  // member of this struct is 'pMessage, pObjects, objectCount'
@@ -39,9 +39,8 @@ private:
 
 private:
     VkDebugUtilsMessengerEXT _debugMessenger;
-    std::shared_ptr<MKInstance> _pMkInstance;
 
-private:
+public:
     const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 	};
