@@ -5,15 +5,16 @@ MKWindow::MKWindow(bool isResizable)
     glfwInit(); // initialize glfw
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // disable OpenGL context
     glfwWindowHint(GLFW_RESIZABLE, isResizable ? GLFW_TRUE : GLFW_FALSE); // disable resize screen
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Murakano", nullptr, nullptr); // create window
-    glfwSetWindowUserPointer(window, this); // store an arbitrary pointer in the callback.
-    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    _window = glfwCreateWindow(WIDTH, HEIGHT, "Murakano", nullptr, nullptr); // create window
+    glfwSetWindowUserPointer(_window, this); // store an arbitrary pointer in the callback.
+    glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 }
 
 MKWindow::~MKWindow()
 {
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(_window);
     glfwTerminate();
+    std::cout << "MKWindow and glfw resources destroyed" << std::endl;
 }
 
 void MKWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height)

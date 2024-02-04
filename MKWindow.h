@@ -1,6 +1,6 @@
 #pragma once
 
-#define GLFW3_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
 
 // external
 #include <GLFW/glfw3.h>
@@ -9,14 +9,14 @@
 #include "Utilities.h"
 
 // global
-const int WIDTH = 1920;
-const int HEIGHT = 1080;
+const int WIDTH = 1680;
+const int HEIGHT = 1050;
 
 // [MKWindow class]
 // - Responsibility :
-//     - abstraction of window system using GLFW
+//    - abstraction of window system using GLFW
 // - Dependency :
-//     GLFW
+//    - GLFW
 class MKWindow
 {
 public:
@@ -24,13 +24,16 @@ public:
 	MKWindow(bool isResizable);
 	~MKWindow();
 	inline void PollEvents() {	glfwPollEvents(); }
-	inline bool ShouldClose() { return glfwWindowShouldClose(window); }
+	inline bool ShouldClose() { return glfwWindowShouldClose(_window); }
 
 private:
 	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
-private:
-	GLFWwindow* window;
+public:
 	bool framebufferResized = false;
+
+private:
+	GLFWwindow* _window;
+
 };
 
