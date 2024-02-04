@@ -1,13 +1,15 @@
 #pragma once
 
 // internal
+#include "Utilities.h"
 #include "MKWindow.h"
+#include "MKInstance.h"
 
 // [MKRenderer class]
 // - Responsibility :
-//     This class is top-level class of whole system and make abstraction of rendering pipeline for high-level user.
+//    This class is top-level class of whole system and make abstraction of rendering pipeline for high-level user.
 // - Dependency :
-//     MKWindow
+//    MKWindow
 class MKRenderer
 {
 public:
@@ -16,6 +18,7 @@ public:
 	void Render();
 
 private:
-	MKWindow window;
+	MKWindow _window;
+	MKInstance _instance;
 };
 

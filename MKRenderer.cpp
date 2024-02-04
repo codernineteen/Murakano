@@ -1,17 +1,21 @@
+#include <iostream>
 #include "MKRenderer.h"
 
-MKRenderer::MKRenderer()
-{
-	window = MKWindow(false);
-}
+
+MKRenderer::MKRenderer() 
+	: _window(false),
+	  _instance()
+{}
 
 MKRenderer::~MKRenderer()
 {
+	std::cout << "MKRenderer Destroyed" << std::endl;
 }
 
 void MKRenderer::Render()
 {
-	while (!window.ShouldClose()) {
-		window.PollEvents();
+	while (!_window.ShouldClose()) 
+	{
+		_window.PollEvents();
 	}
 }
