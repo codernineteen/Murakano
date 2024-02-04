@@ -2,6 +2,7 @@
 
 // internal
 #include "Utilities.h"
+#include "MKValidationLayer.h"
 
 // [MKInstance class]
 // - Responsibility:
@@ -24,6 +25,7 @@ private:
 	bool CheckExtensionSupport(std::vector<const char*>& requiredExtensions);
 
 private:
-	VkInstance _vkInstance;
+	VkInstance        _vkInstance;
+	MKValidationLayer _mkValidationLayer;
 };
 

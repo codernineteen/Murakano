@@ -1,6 +1,7 @@
 #include "MKInstance.h"
 
-MKInstance::MKInstance()
+MKInstance::MKInstance() 
+    : _mkValidationLayer()
 {
     // specify application create info
 	VkApplicationInfo appInfo{};
@@ -12,7 +13,7 @@ MKInstance::MKInstance()
     appInfo.apiVersion = VK_API_VERSION_1_3; // Murakano using v1.3.268 vulkan api.
 
     auto extension = GetRequiredExtensions();
-
+ 
     // specify instance create info
 	VkInstanceCreateInfo instanceInfo{};
 	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -20,17 +21,35 @@ MKInstance::MKInstance()
     instanceInfo.enabledExtensionCount = static_cast<uint32_t>(extension.size());
     instanceInfo.ppEnabledExtensionNames = extension.data();
 
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        _mkValidationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
+        instanceInfo.enabledLayerCount = static_cast<uint32_t>(_mkValidationLayer.validationLayers.size());
+        instanceInfo.ppEnabledLayerNames = _mkValidationLayer.validationLayers.data();
+        instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+    }
+    else
+    {
+        instanceInfo.enabledLayerCount = 0;
+        instanceInfo.pNext = nullptr;
+    }
+
     // create VkInstance
     if(vkCreateInstance(&instanceInfo, nullptr, &_vkInstance) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create instance");
     }
+
+    _mkValidationLayer.SetupDebugMessenger(_vkInstance);
 }
 
 MKInstance::~MKInstance()
 {
+    if (ENABLE_VALIDATION_LAYERS) {
+        _mkValidationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
+    }
     vkDestroyInstance(_vkInstance, nullptr);
-    std::cout << "MKInstance and VkInstance resources destroyed" << std::endl;
 }
 
 std::vector<const char*> MKInstance::GetRequiredExtensions()
@@ -45,7 +64,10 @@ std::vector<const char*> MKInstance::GetRequiredExtensions()
         throw std::runtime_error("Required extensions are not supported");
     }
 
-    // TODO : add validation
+    if(ENABLE_VALIDATION_LAYERS)
+	{
+		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
 
     return extensions;
 }
@@ -57,9 +79,6 @@ std::vector<VkExtensionProperties> MKInstance::GetAvailableExtensions()
 
     std::vector<VkExtensionProperties> extensions(extensionCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-    for (const auto& e : extensions)
-        std::cout << "\t " << e.extensionName << std::endl;
    
     return extensions;
 }
