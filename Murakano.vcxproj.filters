@@ -30,6 +30,12 @@
     <ClCompile Include="MKWindow.cpp">
       <Filter>Source Files\Classes</Filter>
     </ClCompile>
+    <ClCompile Include="MKInstance.cpp">
+      <Filter>Source Files\Classes</Filter>
+    </ClCompile>
+    <ClCompile Include="MKValidationLayer.cpp">
+      <Filter>Source Files\Classes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MKRenderer.h">
@@ -40,6 +46,12 @@
     </ClInclude>
     <ClInclude Include="Utilities.h">
       <Filter>Source Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="MKInstance.h">
+      <Filter>Source Files\Classes</Filter>
+    </ClInclude>
+    <ClInclude Include="MKValidationLayer.h">
+      <Filter>Source Files\Classes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
