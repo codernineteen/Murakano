@@ -8,6 +8,10 @@
 
 #include "Utilities.h"
 
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
 // [MKWindow class]
 // - Responsibility :
 //    - Vulkan validation layers setup
@@ -39,10 +43,5 @@ private:
 
 private:
     VkDebugUtilsMessengerEXT _debugMessenger;
-
-public:
-    const std::vector<const char*> validationLayers = {
-		"VK_LAYER_KHRONOS_validation"
-	};
 };
 

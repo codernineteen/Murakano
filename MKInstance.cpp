@@ -25,8 +25,8 @@ MKInstance::MKInstance()
     if (ENABLE_VALIDATION_LAYERS)
     {
         _mkValidationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
-        instanceInfo.enabledLayerCount = static_cast<uint32_t>(_mkValidationLayer.validationLayers.size());
-        instanceInfo.ppEnabledLayerNames = _mkValidationLayer.validationLayers.data();
+        instanceInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        instanceInfo.ppEnabledLayerNames = validationLayers.data();
         instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
     }
     else
