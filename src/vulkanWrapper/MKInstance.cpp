@@ -1,7 +1,7 @@
 #include "MKInstance.h"
 
 MKInstance::MKInstance() 
-    : _mkValidationLayer()
+    : _validationLayer()
 {
     // specify application create info
 	VkApplicationInfo appInfo{};
@@ -24,7 +24,7 @@ MKInstance::MKInstance()
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if (ENABLE_VALIDATION_LAYERS)
     {
-        _mkValidationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
+        _validationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
         instanceInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         instanceInfo.ppEnabledLayerNames = validationLayers.data();
         instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
@@ -41,13 +41,13 @@ MKInstance::MKInstance()
 		throw std::runtime_error("Failed to create instance");
     }
 
-    _mkValidationLayer.SetupDebugMessenger(_vkInstance);
+    _validationLayer.SetupDebugMessenger(_vkInstance);
 }
 
 MKInstance::~MKInstance()
 {
     if (ENABLE_VALIDATION_LAYERS) {
-        _mkValidationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
+        _validationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
     }
     vkDestroyInstance(_vkInstance, nullptr);
 }

@@ -1,8 +1,10 @@
 #include "MKDevice.h"
 
-MKDevice::MKDevice(const MKInstance& mkInstance)
+MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
+	: _mkWindowRef(windowRef), _mkInstanceRef(instanceRef)
 {
-	PickPhysicalDevice(mkInstance);
+	CreateWindowSurface();
+	PickPhysicalDevice();
 
 	QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
 
@@ -33,7 +35,7 @@ MKDevice::MKDevice(const MKInstance& mkInstance)
 	if (ENABLE_VALIDATION_LAYERS) 
 	{
 		deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		deviceCreateInfo.ppEnabledLayerNames = nullptr;
+		deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 	}
 	else
 	{
@@ -53,13 +55,14 @@ MKDevice::MKDevice(const MKInstance& mkInstance)
 
 MKDevice::~MKDevice()
 {
+	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _surface, nullptr);
 	vkDestroyDevice(_logicalDevice, nullptr);
 }
 
-void MKDevice::PickPhysicalDevice(const MKInstance& mkInstance)
+void MKDevice::PickPhysicalDevice()
 {
 	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(mkInstance.GetVkInstance(), &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(_mkInstanceRef.GetVkInstance(), &deviceCount, nullptr);
 
 	if (deviceCount == 0)
 	{
@@ -67,7 +70,7 @@ void MKDevice::PickPhysicalDevice(const MKInstance& mkInstance)
 	}
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(mkInstance.GetVkInstance(), &deviceCount, devices.data());
+	vkEnumeratePhysicalDevices(_mkInstanceRef.GetVkInstance(), &deviceCount, devices.data());
 
 	// rate a score for each device and pick the highest score.
 	std::multimap<int, VkPhysicalDevice> candidates;
@@ -102,7 +105,7 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 		score += 1000;
 
 	// Check device extension support, queue families, isDeviceExtensionSupportedswap chain support
-	bool extensionsSupported = isDeviceExtensionSupported(device);
+	bool extensionsSupported = IsDeviceExtensionSupported(device);
 	QueueFamilyIndices indices = FindQueueFamilies(device);
 	SwapChainSupportDetails details = QuerySwapChainSupport(device);
 
@@ -158,7 +161,7 @@ MKDevice::SwapChainSupportDetails MKDevice::QuerySwapChainSupport(VkPhysicalDevi
 		details.formats.resize(formatCount);										
 		vkGetPhysicalDeviceSurfaceFormatsKHR(device, _surface, &formatCount, details.formats.data());
 	}
-
+	
 	uint32_t presentModeCount;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface, &presentModeCount, nullptr);	// get present modes
 
@@ -170,7 +173,7 @@ MKDevice::SwapChainSupportDetails MKDevice::QuerySwapChainSupport(VkPhysicalDevi
 	return details;
 }
 
-bool MKDevice::isDeviceExtensionSupported(VkPhysicalDevice device)
+bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 {
 	uint32_t availableExtensionCount;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &availableExtensionCount, nullptr);
@@ -182,4 +185,62 @@ bool MKDevice::isDeviceExtensionSupported(VkPhysicalDevice device)
 		requiredExtensions.erase(extension.extensionName); // erase extension name from set
 
 	return requiredExtensions.empty();
+}
+
+void MKDevice::CreateWindowSurface()
+{
+	if (glfwCreateWindowSurface(_mkInstanceRef.GetVkInstance(), _mkWindowRef.GetWindow(), nullptr, &_surface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create window surface");
+	}
+}
+
+VkSurfaceFormatKHR MKDevice::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+{
+	for (const auto& availableFormat : availableFormats) 
+	{
+		// target format		: VK_FORMAT_B8G8R8A8_SRGB (32 bits per pixel)
+		// target color space	: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+		if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			return availableFormat;
+	}
+
+	return availableFormats[0];
+}
+
+VkPresentModeKHR MKDevice::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+{
+	for (const auto& availablePresentMode : availablePresentModes)
+	{
+		// target present mode			: VK_PRESENT_MODE_MAILBOX_KHR (triple buffering)
+		// VK_PRESENT_MODE_MAILBOX_KHR	: presentation engine waits for the next vertical blanking period to update image.(no tearing can be observed.)
+		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) 
+			return availablePresentMode;
+	}
+
+	return VK_PRESENT_MODE_FIFO_KHR; // guaranteed to be available
+}
+
+VkExtent2D MKDevice::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+{	
+	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) 
+	{
+		return capabilities.currentExtent;
+	}
+	else
+	{
+		// To avoid resolution mismatch between screen coordinates and the window in pixel,
+		// We need to clamp the resolution not to exceed the max and min extent.
+		int width, height;
+		glfwGetFramebufferSize(_mkWindowRef.GetWindow(), &width, &height);
+
+		VkExtent2D actualExtent = {
+			static_cast<uint32_t>(width),
+			static_cast<uint32_t>(height)
+		};
+		actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+		actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+		return actualExtent;
+	}
 }

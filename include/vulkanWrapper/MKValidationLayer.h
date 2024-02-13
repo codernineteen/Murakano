@@ -1,9 +1,9 @@
 #pragma once
 
-#ifdef DEBUG_MURAKANO
- #define ENABLE_VALIDATION_LAYERS 1
-#else
+#ifdef NDEBUG
  #define ENABLE_VALIDATION_LAYERS 0
+#else
+ #define ENABLE_VALIDATION_LAYERS 1
 #endif
 
 #include "Utilities.h"

@@ -5,6 +5,8 @@
 #include "MKWindow.h"
 #include "MKInstance.h"
 #include "MKValidationLayer.h"
+#include "MKDevice.h"
+#include "MKSwapchain.h"
 
 // [MKRenderer class]
 // - Responsibility :
@@ -19,8 +21,9 @@ public:
 	void Render();
 
 private:
-	MKWindow _window;
-	MKInstance _instance;
-	MKValidationLayer _validationLayer;
+	MKWindow	_window;
+	MKInstance	_instance;
+	MKDevice	_device;
+	MKSwapchain _swapchain;
 };
 
