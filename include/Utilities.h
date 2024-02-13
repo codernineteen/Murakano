@@ -12,3 +12,4 @@
 #include <vector>
 #include <set>
 #include <memory> // for smart pointers
+#include <algorithm>
