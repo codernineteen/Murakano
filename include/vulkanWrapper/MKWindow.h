@@ -25,6 +25,7 @@ public:
 	~MKWindow();
 	inline void PollEvents() {	glfwPollEvents(); }
 	inline bool ShouldClose() { return glfwWindowShouldClose(_window); }
+	GLFWwindow* GetWindow() const { return _window; }
 
 private:
 	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -34,6 +35,5 @@ public:
 
 private:
 	GLFWwindow* _window;
-
 };
 
