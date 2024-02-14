@@ -9,7 +9,7 @@
 #include "MKInstance.h"
 
 
-// [MKWindow class]
+// [MKDevice class]
 // - Responsibility :
 //	  - responsible for finding a suitable physical device and creating a logical device.
 // - Dependency :
