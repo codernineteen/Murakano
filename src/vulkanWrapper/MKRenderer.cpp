@@ -2,7 +2,12 @@
 
 
 MKRenderer::MKRenderer() 
-	: _window(false), _instance(), _device(_window, _instance), _swapchain(_device)
+	: 
+	_window(false), 
+	_instance(), 
+	_device(_window, _instance), 
+	_swapchain(_device), 
+	_graphicsPipeline(_device, _swapchain)
 {}
 
 MKRenderer::~MKRenderer(){}
