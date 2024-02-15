@@ -1,3 +1,5 @@
+####################### Application build #######################
+
 #This file based on : https://github.com/meemknight/cmakeSetup Version 1.0.0
 
 include(./.env.cmake OPTIONAL RESULT_VARIABLE LOCAL_ENV)
@@ -12,7 +14,7 @@ cmake_minimum_required(VERSION 3.16)
 option(PRODUCTION_BUILD "Make this a production build" OFF)
 #DELETE THE OUT FOLDER AFTER CHANGING THIS BECAUSE VISUAL STUDIO DOESN'T SEEM TO RECOGNIZE THIS CHANGE AND REBUILD!
 
-
+set(PROJECT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
@@ -38,15 +40,9 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(thirdparty/glfw)
 
 # find vulkan sdk
-if (DEFINED VULKAN_SDK_PATH)
-	set(Vulkan_INCLUDE_DIRS "${VULKAN_SDK_PATH}/Include")
-	set(Vulkan_LIBRARIES "${VULKAN_SDK_PATH}/Lib")
-	set(Vulkan_FOUND "True")
-else()
-	find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
-	message(STATUS "Found Vulkan: $ENV{VULKAN_SDK}")
-endif()
-
+find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
+message(STATUS "Found Vulkan: $ENV{VULKAN_SDK}")
+set(Vulkan_FOUND "True")
 if (NOT Vulkan_FOUND)
     message(FATAL_ERROR "Could not find Vulkan library!")
 else()
@@ -98,8 +94,43 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURC
 # external includes
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 
-#target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glm glfw 
-#	glad stb_image stb_truetype gl2d raudio imgui safeSave profilerLib enet glui)
-
 #enet not working yet on linux for some reason
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES})
+
+
+####################### Shader build #######################
+
+# Based on Brendan Galea's game engine series : https://pastebin.com/jzk262hg
+find_program(GLSL_VALIDATOR glslangValidator HINTS
+  ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
+  /usr/bin 
+  /usr/local/bin 
+  ${VULKAN_SDK_PATH}/Bin
+  ${VULKAN_SDK_PATH}/Bin32
+  $ENV{VULKAN_SDK}/Bin/ 
+  $ENV{VULKAN_SDK}/Bin32/
+)
+
+# get all .vert and .frag files in shaders directory
+file(GLOB_RECURSE GLSL_SOURCE_FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp"
+)
+
+foreach(GLSL ${GLSL_SOURCE_FILES})
+  get_filename_component(FILE_NAME ${GLSL} NAME_WE) # build spir-v without extension and directory path
+  set(SPIRV "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
+  add_custom_command(
+    OUTPUT ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
+    DEPENDS ${GLSL})
+  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endforeach(GLSL)
+
+add_custom_target(
+	Shaders
+	DEPENDS ${SPIRV_BINARY_FILES}
+)
+
+add_dependencies(${CMAKE_PROJECT_NAME} Shaders) # add shader buld as a dependency of the main project

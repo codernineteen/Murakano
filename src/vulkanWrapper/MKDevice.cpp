@@ -6,7 +6,7 @@ MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 	CreateWindowSurface();
 	PickPhysicalDevice();
 
-	QueueFamilyIndices indices = FindQueueFamilies(_physicalDevice);
+	QueueFamilyIndices indices = FindQueueFamilies(_vkPhysicalDevice);
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -43,20 +43,20 @@ MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 		deviceCreateInfo.ppEnabledLayerNames = nullptr;											// layers
 	}
 
-	if (vkCreateDevice(_physicalDevice, &deviceCreateInfo, nullptr, &_logicalDevice) != VK_SUCCESS)
+	if (vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create logical device!");
 	}
 
 	// retrieve queue handle from logical device
-	vkGetDeviceQueue(_logicalDevice, indices.graphicsFamily.value(), 0, &_graphicsQueue);
-	vkGetDeviceQueue(_logicalDevice, indices.presentFamily.value(), 0, &_presentQueue);
+	vkGetDeviceQueue(_vkLogicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
+	vkGetDeviceQueue(_vkLogicalDevice, indices.presentFamily.value(), 0, &_vkPresentQueue);
 }
 
 MKDevice::~MKDevice()
 {
-	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _surface, nullptr);
-	vkDestroyDevice(_logicalDevice, nullptr);
+	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _vkSurface, nullptr);
+	vkDestroyDevice(_vkLogicalDevice, nullptr);
 }
 
 void MKDevice::PickPhysicalDevice()
@@ -82,7 +82,7 @@ void MKDevice::PickPhysicalDevice()
 
 	if (candidates.rbegin()->first > 0)								// last key is the highest score
 	{
-		_physicalDevice = candidates.rbegin()->second;
+		_vkPhysicalDevice = candidates.rbegin()->second;
 	}
 	else
 	{
@@ -133,7 +133,7 @@ MKDevice::QueueFamilyIndices MKDevice::FindQueueFamilies(VkPhysicalDevice device
 		}
 
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _vkSurface, &presentSupport);
 		
 		// assign index to 'present family'
 		if (presentSupport) 
@@ -153,21 +153,21 @@ MKDevice::SwapChainSupportDetails MKDevice::QuerySwapChainSupport(VkPhysicalDevi
 {
 	SwapChainSupportDetails details;
 
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, _surface, &details.capabilities);			// get surface capabilities
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, _vkSurface, &details.capabilities);			// get surface capabilities
 
 	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, _surface, &formatCount, nullptr);				// get surface formats
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, _vkSurface, &formatCount, nullptr);				// get surface formats
 	if (formatCount != 0) {
 		details.formats.resize(formatCount);										
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, _surface, &formatCount, details.formats.data());
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, _vkSurface, &formatCount, details.formats.data());
 	}
 	
 	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface, &presentModeCount, nullptr);	// get present modes
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, _vkSurface, &presentModeCount, nullptr);	// get present modes
 
 	if (presentModeCount != 0) {
 		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface, &presentModeCount, details.presentModes.data());
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, _vkSurface, &presentModeCount, details.presentModes.data());
 	}
 
 	return details;
@@ -189,7 +189,7 @@ bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 
 void MKDevice::CreateWindowSurface()
 {
-	if (glfwCreateWindowSurface(_mkInstanceRef.GetVkInstance(), _mkWindowRef.GetWindow(), nullptr, &_surface) != VK_SUCCESS)
+	if (glfwCreateWindowSurface(_mkInstanceRef.GetVkInstance(), _mkWindowRef.GetWindow(), nullptr, &_vkSurface) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create window surface");
 	}
