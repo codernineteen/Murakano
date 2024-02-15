@@ -67,12 +67,10 @@ public:
 
 private:
 	VkShaderModule CreateShaderModule(const std::vector<char>& code);
-    void CreateRenderPass();
 
 private:
 	VkPipeline			_vkGraphicsPipeline;
 	VkPipelineLayout	_vkPipelineLayout;
-    VkRenderPass		_vkRenderPass;
 
 private:
 	MKDevice&			    _mkDeviceRef;
