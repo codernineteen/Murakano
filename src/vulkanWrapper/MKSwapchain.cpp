@@ -1,5 +1,8 @@
 #include "MKSwapchain.h"
 
+/*
+-----------	PUBLIC ------------
+*/
 
 MKSwapchain::MKSwapchain(MKDevice& deviceRef) 
 	: _mkDeviceRef(deviceRef)
@@ -67,17 +70,22 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 
 MKSwapchain::~MKSwapchain()
 {
+	for(auto framebuffer : _vkSwapchainFramebuffers)
+		vkDestroyFramebuffer(_mkDeviceRef.GetDevice(), framebuffer, nullptr);
+
 	for (auto imageView : _vkSwapchainImageViews)
 		vkDestroyImageView(_mkDeviceRef.GetDevice(), imageView, nullptr);
+
 	vkDestroySwapchainKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, nullptr);
 }
 
-VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat imageFormat, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
 	VkImageViewCreateInfo imageViewCreateInfo{};
 	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	imageViewCreateInfo.image = image;
 	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
+	imageViewCreateInfo.format = imageFormat;						// follw the format of the given swapchain image
 	imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
 	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
 	imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
@@ -91,10 +99,14 @@ VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat format, VkImage
 	return imageView;
 }
 
+/*
+-----------	PRIVATE ------------
+*/
+
 void MKSwapchain::CreateSwapchainImageViews()
 {
 	_vkSwapchainImageViews.resize(_vkSwapchainImages.size());
-
+	std::cout << _vkSwapchainImageFormat << std::endl;
 	for (size_t i = 0; i < _vkSwapchainImages.size(); i++)
 	{
 		_vkSwapchainImageViews[i] = CreateImageView(_vkSwapchainImages[i], _vkSwapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
