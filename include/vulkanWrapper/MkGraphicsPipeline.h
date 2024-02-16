@@ -2,6 +2,7 @@
 
 // internal
 #include "Utilities.h"
+#include "Global.h"
 #include "MKDevice.h"
 #include "MKSwapchain.h"
 
@@ -64,15 +65,17 @@ class MKGraphicsPipeline
 public:
 	MKGraphicsPipeline(MKDevice& mkDeviceRef, const MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
+    void DrawFrame();
 
 private:
-	VkShaderModule CreateShaderModule(const std::vector<char>& code);
+	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
+    void            RecordFrameBuffferCommand(uint32_t swapchainImageIndex);
 
 private:
-	VkPipeline			_vkGraphicsPipeline;
-	VkPipelineLayout	_vkPipelineLayout;
+	VkPipeline		  _vkGraphicsPipeline;
+	VkPipelineLayout  _vkPipelineLayout;
 
 private:
-	MKDevice&			    _mkDeviceRef;
-    const MKSwapchain&		_mkSwapchainRef;
+	MKDevice&	        _mkDeviceRef;
+    const MKSwapchain&  _mkSwapchainRef;
 };

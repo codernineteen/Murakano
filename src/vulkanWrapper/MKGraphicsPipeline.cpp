@@ -1,5 +1,8 @@
 #include "MkGraphicsPipeline.h" 
 
+/*
+-----------	PUBLIC ------------
+*/
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, const MKSwapchain& mkSwapchainRef)
 	: _mkDeviceRef(mkDeviceRef), _mkSwapchainRef(mkSwapchainRef)
 {
@@ -151,6 +154,65 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
 }
 
+void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32_t swapchainImageIndex)
+{
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0;					// Optional
+	beginInfo.pInheritanceInfo = nullptr;	// Optional
+
+	auto commandBuffer = GCommandService->GetCommandBuffer(_mkSwapchainRef.GetCurrentFrame());
+	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+		throw std::runtime_error("failed to begin recording command buffer!");
+
+	// store swapchain extent for common usage.
+	auto swapchainExtent = _mkSwapchainRef.GetSwapchainExtent();
+
+	// specify render pass information
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = _mkSwapchainRef.RequestRenderPass();
+	renderPassInfo.framebuffer = _mkSwapchainRef.GetCurrentFramebuffer();
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = swapchainExtent;
+
+	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0] = { {{0.0f, 0.0f, 0.0f, 1.0f}} }; // clear color
+	clearValues[1] = { 1.0f, 0 }; // clear depth
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // start render pass
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(swapchainExtent.width);
+	viewport.height = static_cast<float>(swapchainExtent.height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = swapchainExtent;
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	vkCmdEndRenderPass(commandBuffer);
+
+	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+		throw std::runtime_error("failed to record command buffer!");
+}
+
+
+
+/*
+-----------	PRIVATE ------------
+*/
+
 VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& code)
 {
 	VkShaderModuleCreateInfo createInfo = {};
@@ -163,4 +225,9 @@ VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& c
 		throw std::runtime_error("failed to create shader module!");
 	
 	return shaderModule;
+}
+
+void MKGraphicsPipeline::DrawFrame()
+{
+
 }
