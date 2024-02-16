@@ -6,6 +6,7 @@
 
 // internal
 #include "Utilities.h"
+#include "Global.h"
 #include "MKInstance.h"
 
 
