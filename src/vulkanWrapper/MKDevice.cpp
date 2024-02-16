@@ -3,6 +3,7 @@
 MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 	: _mkWindowRef(windowRef), _mkInstanceRef(instanceRef)
 {
+
 	CreateWindowSurface();
 	PickPhysicalDevice();
 
@@ -55,6 +56,8 @@ MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 
 MKDevice::~MKDevice()
 {
+	delete GCommandService; // command service shoule be deleted before destroying logical device.
+
 	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _vkSurface, nullptr);
 	vkDestroyDevice(_vkLogicalDevice, nullptr);
 }
