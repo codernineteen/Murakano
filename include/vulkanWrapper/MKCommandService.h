@@ -1,21 +1,34 @@
 #pragma once
 
-#define MAX_FRAMES_IN_FLIGHT 2
-
 #include "Utilities.h"
 #include "MKDevice.h"
+
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 class MKCommandService
 {
 public:
+	/* constructor , destructor */
 	MKCommandService();
 	~MKCommandService();
 
-	void			InitCommandService(MKDevice* mkDeviceRef);
+	/* getter */
 	VkCommandBuffer GetCommandBuffer(uint32_t currentFrame) { return _vkCommandBuffers[currentFrame]; }
 
+	/* supported service */
+	void InitCommandService(MKDevice* mkDeviceRef);
+	void SubmitCommandBufferToQueue(
+			uint32_t currentFrame, 
+			VkSemaphore waitSemaphores[],
+			VkPipelineStageFlags waitStages[],
+			VkSemaphore signalSemaphores[],
+			VkQueue loadedQueue, 
+			VkFence fence = nullptr
+		 );
+	void ResetCommandBuffer(uint32_t currentFrame);
+
 private:
-	void CreateCommandPool(VkCommandPool commandPool, VkCommandPoolCreateFlags commandFlag);
+	void CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag);
 	void CreateCommandBuffers();
 
 private:
