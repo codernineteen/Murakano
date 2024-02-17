@@ -1,21 +1,24 @@
 #include "MKRenderer.h"
 
-
 MKRenderer::MKRenderer() 
 	: 
-	_window(false), 
-	_instance(), 
-	_device(_window, _instance), 
-	_swapchain(_device), 
-	_graphicsPipeline(_device, _swapchain)
-{}
+	_mkWindow(false), 
+	_mkInstance(), 
+	_mkDevice(_mkWindow, _mkInstance), 
+	_mkSwapchain(_mkDevice),
+	_mkGraphicsPipeline(_mkDevice, _mkSwapchain)
+{
+}
 
-MKRenderer::~MKRenderer(){}
+MKRenderer::~MKRenderer() 
+{
+}
 
 void MKRenderer::Render()
 {
-	while (!_window.ShouldClose()) 
+	while (!_mkWindow.ShouldClose()) 
 	{
-		_window.PollEvents();
+		_mkWindow.PollEvents();
+		_mkGraphicsPipeline.DrawFrame();
 	}
 }

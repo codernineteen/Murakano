@@ -8,6 +8,7 @@
 #include "MKDevice.h"
 #include "MKSwapchain.h"
 #include "MkGraphicsPipeline.h"
+#include "MKCommandService.h"
 
 // [MKRenderer class]
 // - Responsibility :
@@ -22,10 +23,10 @@ public:
 	void Render();
 
 private:
-	MKWindow			_window;
-	MKInstance			_instance;
-	MKDevice			_device;
-	MKSwapchain			_swapchain;
-	MKGraphicsPipeline	_graphicsPipeline;
+	MKWindow			_mkWindow;
+	MKInstance			_mkInstance;
+	MKDevice			_mkDevice;
+	MKSwapchain			_mkSwapchain;
+	MKGraphicsPipeline	_mkGraphicsPipeline;
 };
 

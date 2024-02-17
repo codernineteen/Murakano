@@ -1,8 +1,10 @@
 #include "MKDevice.h"
+#include "MKCommandService.h"
 
 MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 	: _mkWindowRef(windowRef), _mkInstanceRef(instanceRef)
 {
+
 	CreateWindowSurface();
 	PickPhysicalDevice();
 
@@ -51,10 +53,15 @@ MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
 	// retrieve queue handle from logical device
 	vkGetDeviceQueue(_vkLogicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
 	vkGetDeviceQueue(_vkLogicalDevice, indices.presentFamily.value(), 0, &_vkPresentQueue);
+
+	// initialize command service
+	GCommandService->InitCommandService(this);
 }
 
 MKDevice::~MKDevice()
 {
+	delete GCommandService; // command service shoule be deleted before destroying logical device.
+
 	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _vkSurface, nullptr);
 	vkDestroyDevice(_vkLogicalDevice, nullptr);
 }
