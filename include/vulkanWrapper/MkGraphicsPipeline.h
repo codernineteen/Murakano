@@ -63,19 +63,26 @@ struct Vertex
 class MKGraphicsPipeline 
 {
 public:
-	MKGraphicsPipeline(MKDevice& mkDeviceRef, const MKSwapchain& mkSwapchainRef);
+	MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
     void DrawFrame();
 
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
-    void            RecordFrameBuffferCommand(uint32_t swapchainImageIndex);
+    void 		    CreateSyncObjects();
+    inline void     RecordFrameBuffferCommand(uint32_t swapchainImageIndex);
 
 private:
-	VkPipeline		  _vkGraphicsPipeline;
-	VkPipelineLayout  _vkPipelineLayout;
+    /* pipeline instance */
+	VkPipeline		          _vkGraphicsPipeline;
+	VkPipelineLayout          _vkPipelineLayout;
+    /* sync objects */
+    std::vector<VkSemaphore>  _vkImageAvailableSemaphores;
+    std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
+    std::vector<VkFence>      _vkInFlightFences;
 
 private:
-	MKDevice&	        _mkDeviceRef;
-    const MKSwapchain&  _mkSwapchainRef;
+	MKDevice&	  _mkDeviceRef;
+    MKSwapchain&  _mkSwapchainRef;
+    uint32_t 	  _currentFrame = 0;
 };
