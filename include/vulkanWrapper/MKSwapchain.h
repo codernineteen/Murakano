@@ -18,14 +18,17 @@ public:
 	~MKSwapchain();
 
 public:
-	// getters
-	VkFormat	   GetSwapchainImageFormat()  const { return _vkSwapchainImageFormat; }
-	VkExtent2D	   GetSwapchainExtent()	      const { return _vkSwapchainExtent; }
-	VkFramebuffer  GetCurrentFramebuffer()    const { return _vkSwapchainFramebuffers[_currentFrame]; }
-	uint32_t	   GetCurrentFrame()          const { return _currentFrame; }
-	VkRenderPass   RequestRenderPass()        const { return _mkRenderPassPtr->GetRenderPass(); }
+	/* getters */
+	VkSwapchainKHR  GetSwapchain()			            const { return _vkSwapchain; }
+	VkFormat	    GetSwapchainImageFormat()           const { return _vkSwapchainImageFormat; }
+	VkExtent2D	    GetSwapchainExtent()	            const { return _vkSwapchainExtent; }
+	VkFramebuffer   GetFramebuffer(uint32_t imageIndex) const { return _vkSwapchainFramebuffers[imageIndex]; }
+	VkRenderPass    RequestRenderPass()                 const { return _mkRenderPassPtr->GetRenderPass(); }
 
-	// reusable image view creation
+	/* setters */
+	void		   SetFrameBufferResized(bool isResized) { _framebufferResized = isResized; }
+
+	/* reusuable image creation */
 	VkImageView    CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
 private:
@@ -41,7 +44,7 @@ private:
 	VkExtent2D					_vkSwapchainExtent;
 		
 private:
-	MKDevice&						_mkDeviceRef;
-	std::shared_ptr<MKRenderPass>	_mkRenderPassPtr;
-	uint32_t						_currentFrame = 0;
+	MKDevice&					   _mkDeviceRef;
+	std::shared_ptr<MKRenderPass>  _mkRenderPassPtr;
+	bool						   _framebufferResized = false;
 };

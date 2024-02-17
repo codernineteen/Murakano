@@ -60,12 +60,13 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	// store swapchain format and extent
 	_vkSwapchainImageFormat = surfaceFormat.format;
 	_vkSwapchainExtent = actualExtent;
-
+	
+	// create render pass as shared resource. (this should be advance before creating framebuffers)
+	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
-	
-	// create render pass
-	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
+	// create framebuffers for each image view
+	CreateFrameBuffers();
 }
 
 MKSwapchain::~MKSwapchain()
