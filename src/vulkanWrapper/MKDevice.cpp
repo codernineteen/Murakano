@@ -1,7 +1,7 @@
 #include "MKDevice.h"
 #include "MKCommandService.h"
 
-MKDevice::MKDevice(const MKWindow& windowRef,const MKInstance& instanceRef)
+MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	: _mkWindowRef(windowRef), _mkInstanceRef(instanceRef)
 {
 
