@@ -279,7 +279,7 @@ void MKGraphicsPipeline::DrawFrame()
 	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, _vkImageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-		//recreateSwapChain();
+		_mkSwapchainRef.RecreateSwapchain();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -326,8 +326,8 @@ void MKGraphicsPipeline::DrawFrame()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) 
 	{
 		// swapchain recreation is required at this moment.
-		_mkSwapchainRef.SetFrameBufferResized(false);
-		// recreateSwapChain();
+		_mkSwapchainRef.RequestFramebufferResize(false);
+		_mkSwapchainRef.RecreateSwapchain();
 	}
 	else if (result != VK_SUCCESS)
 		throw std::runtime_error("failed to present swap chain image!");

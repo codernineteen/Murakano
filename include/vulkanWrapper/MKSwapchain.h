@@ -19,19 +19,22 @@ public:
 
 public:
 	/* getters */
-	VkSwapchainKHR  GetSwapchain()			            const { return _vkSwapchain; }
-	VkFormat	    GetSwapchainImageFormat()           const { return _vkSwapchainImageFormat; }
-	VkExtent2D	    GetSwapchainExtent()	            const { return _vkSwapchainExtent; }
-	VkFramebuffer   GetFramebuffer(uint32_t imageIndex) const { return _vkSwapchainFramebuffers[imageIndex]; }
-	VkRenderPass    RequestRenderPass()                 const { return _mkRenderPassPtr->GetRenderPass(); }
+	VkSwapchainKHR GetSwapchain()			           const { return _vkSwapchain; }
+	VkFormat	   GetSwapchainImageFormat()           const { return _vkSwapchainImageFormat; }
+	VkExtent2D	   GetSwapchainExtent()	               const { return _vkSwapchainExtent; }
+	VkFramebuffer  GetFramebuffer(uint32_t imageIndex) const { return _vkSwapchainFramebuffers[imageIndex]; }
+	VkRenderPass   RequestRenderPass()                 const { return _mkRenderPassPtr->GetRenderPass(); }
 
 	/* setters */
-	void		   SetFrameBufferResized(bool isResized) { _framebufferResized = isResized; }
+	void		   RequestFramebufferResize(bool isResized) { _mkDeviceRef.SetFrameBufferResized(isResized); }
+	void           DestroySwapchainResources();
+	void           RecreateSwapchain();
 
 	/* reusuable image creation */
 	VkImageView    CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
 private:
+	void CreateSwapchain();
 	void CreateSwapchainImageViews();
 	void CreateFrameBuffers();
 
@@ -46,5 +49,4 @@ private:
 private:
 	MKDevice&					   _mkDeviceRef;
 	std::shared_ptr<MKRenderPass>  _mkRenderPassPtr;
-	bool						   _framebufferResized = false;
 };
