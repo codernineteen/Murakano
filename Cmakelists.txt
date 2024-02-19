@@ -97,8 +97,41 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 #enet not working yet on linux for some reason
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES})
 
+####################### HLSL Shader build #######################
+# get all hlsl files in shaders directory
+set(DXC_PATH "C:/VulkanDev/Murakano/thirdparty/hlsl.bin/Debug/bin") # YOU NEED TO CHANGE THIS TO YOUR DXC PATH
+find_program(DXC_EXECUTABLE dxc PATHS ${DXC_PATH} NO_DEFAULT_PATH)
+message(STATUS ${DXC_EXECUTABLE})
 
-####################### Shader build #######################
+# Define shader model versions as variables
+set(VERTEX_SHADER_MODEL vs_6_3)
+set(FRAGMENT_SHADER_MODEL ps_6_3)
+
+# Compile Vertex Shader
+file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/vertex.hlsl")
+get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
+set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/output/spir-v/${FILE_NAME}.spv")
+add_custom_command(
+    OUTPUT  ${HLSL_SPIRV_OUTPUT}
+    COMMAND ${DXC_EXECUTABLE} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
+    DEPENDS ${HLSL_VERTEX}
+)
+list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+
+# Compile Fragment Shader
+file(GLOB_RECURSE HLSL_FRAG "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/fragment.hlsl")
+get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
+set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/output/spir-v/${FILE_NAME}.spv")
+add_custom_command(
+    OUTPUT  ${HLSL_SPIRV_OUTPUT}
+    COMMAND ${DXC_EXECUTABLE} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
+    DEPENDS ${HLSL_FRAG}
+)
+list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+
+
+
+####################### GLSL Shader build #######################
 
 # Based on Brendan Galea's game engine series : https://pastebin.com/jzk262hg
 find_program(GLSL_VALIDATOR glslangValidator HINTS
@@ -113,14 +146,14 @@ find_program(GLSL_VALIDATOR glslangValidator HINTS
 
 # get all .vert and .frag files in shaders directory
 file(GLOB_RECURSE GLSL_SOURCE_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.frag"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.vert"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.comp"
 )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
   get_filename_component(FILE_NAME ${GLSL} NAME_WE) # build spir-v without extension and directory path
-  set(SPIRV "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
+  set(SPIRV "${CMAKE_CURRENT_SOURCE_DIR}/shaders/output/spir-v/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
     COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
@@ -128,9 +161,11 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
 
+
+# Custom target for Shaders
 add_custom_target(
-	Shaders
-	DEPENDS ${SPIRV_BINARY_FILES}
+    Shaders
+    DEPENDS ${HLSL_SPIRV_BINARY_FILES} ${SPIRV_BINARY_FILES}
 )
 
 add_dependencies(${CMAKE_PROJECT_NAME} Shaders) # add shader buld as a dependency of the main project
