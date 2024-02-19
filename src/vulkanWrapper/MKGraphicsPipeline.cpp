@@ -6,8 +6,8 @@
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 	: _mkDeviceRef(mkDeviceRef), _mkSwapchainRef(mkSwapchainRef)
 {
-	auto vertShaderCode = util::ReadFile("../../../shaders/vertexShader.spv");
-	auto fragShaderCode = util::ReadFile("../../../shaders/fragmentShader.spv");
+	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertex.spv");
+	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragment.spv");
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
