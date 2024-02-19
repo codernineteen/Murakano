@@ -38,15 +38,19 @@ public:
 	};
 
 public:
-	MKDevice(const MKWindow& windowRef, const MKInstance& instanceRef);
+	MKDevice(MKWindow& windowRef, const MKInstance& instanceRef);
 	~MKDevice();
 
-	/* getter */
+	/* getters */
 	inline VkPhysicalDevice  GetPhysicalDevice()  const { return _vkPhysicalDevice; }
 	inline VkDevice		     GetDevice()		  const { return _vkLogicalDevice; }
 	inline VkSurfaceKHR	     GetSurface()		  const { return _vkSurface; }
 	inline VkQueue			 GetGraphicsQueue()   const { return _vkGraphicsQueue; }
 	inline VkQueue			 GetPresentQueue()	  const { return _vkPresentQueue; }
+	inline MKWindow&         GetWindowRef()		  const { return _mkWindowRef; }
+
+	/* setters */
+	inline void              SetFrameBufferResized(bool isResized) { _mkWindowRef.framebufferResized = isResized; }
 
 	// support checkers
 	SwapChainSupportDetails  QuerySwapChainSupport(VkPhysicalDevice device);
@@ -73,7 +77,7 @@ private:
 
 private:
 	const MKInstance&  _mkInstanceRef;
-	const MKWindow&	   _mkWindowRef;
+	MKWindow&	       _mkWindowRef;
 
 public:
 	const std::vector<const char*> deviceExtensions = {

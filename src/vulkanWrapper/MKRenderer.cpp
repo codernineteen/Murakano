@@ -2,7 +2,7 @@
 
 MKRenderer::MKRenderer() 
 	: 
-	_mkWindow(false), 
+	_mkWindow(true), 
 	_mkInstance(), 
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),

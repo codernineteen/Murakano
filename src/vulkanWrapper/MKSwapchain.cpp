@@ -7,6 +7,77 @@
 MKSwapchain::MKSwapchain(MKDevice& deviceRef) 
 	: _mkDeviceRef(deviceRef)
 {
+	CreateSwapchain();
+	// create render pass as shared resource. (this should be advance before creating framebuffers)
+	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
+	// create image views mapped to teh swapchain images.
+	CreateSwapchainImageViews();
+	// create framebuffers for each image view
+	CreateFrameBuffers();
+}
+
+MKSwapchain::~MKSwapchain()
+{
+	DestroySwapchainResources();
+}
+
+void MKSwapchain::DestroySwapchainResources()
+{
+	for (auto framebuffer : _vkSwapchainFramebuffers)
+		vkDestroyFramebuffer(_mkDeviceRef.GetDevice(), framebuffer, nullptr);
+
+	for (auto imageView : _vkSwapchainImageViews)
+		vkDestroyImageView(_mkDeviceRef.GetDevice(), imageView, nullptr);
+
+	vkDestroySwapchainKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, nullptr);
+}
+
+void MKSwapchain::RecreateSwapchain()
+{
+	// handling window minimization
+	int width = 0, height = 0;
+	glfwGetFramebufferSize(_mkDeviceRef.GetWindowRef().GetWindow(), &width, &height);
+	while (width == 0 || height == 0) {
+		glfwGetFramebufferSize(_mkDeviceRef.GetWindowRef().GetWindow(), &width, &height);
+		glfwWaitEvents();
+	}
+
+	vkDeviceWaitIdle(_mkDeviceRef.GetDevice()); // wait until the device is idle
+
+	DestroySwapchainResources();
+
+	// TODO : recreating render pass may be needed later.
+	CreateSwapchain();
+	CreateSwapchainImageViews();
+	CreateFrameBuffers();
+}
+
+VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat imageFormat, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+{
+	VkImageViewCreateInfo imageViewCreateInfo{};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.image = image;
+	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
+	imageViewCreateInfo.format = imageFormat;						// follw the format of the given swapchain image
+	imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
+	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
+	imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
+	imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+	VkImageView imageView;
+	if (vkCreateImageView(_mkDeviceRef.GetDevice(), &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
+		throw std::runtime_error("Failed to create image views");
+
+	return imageView;
+}
+
+/*
+-----------	PRIVATE ------------
+*/
+
+void MKSwapchain::CreateSwapchain()
+{
 	MKDevice::SwapChainSupportDetails supportDetails = _mkDeviceRef.QuerySwapChainSupport(_mkDeviceRef.GetPhysicalDevice());
 	VkSurfaceFormatKHR surfaceFormat = _mkDeviceRef.ChooseSwapSurfaceFormat(supportDetails.formats);
 	VkPresentModeKHR presentMode = _mkDeviceRef.ChooseSwapPresentMode(supportDetails.presentModes);
@@ -60,49 +131,7 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	// store swapchain format and extent
 	_vkSwapchainImageFormat = surfaceFormat.format;
 	_vkSwapchainExtent = actualExtent;
-	
-	// create render pass as shared resource. (this should be advance before creating framebuffers)
-	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
-	// create image views mapped to teh swapchain images.
-	CreateSwapchainImageViews();
-	// create framebuffers for each image view
-	CreateFrameBuffers();
 }
-
-MKSwapchain::~MKSwapchain()
-{
-	for(auto framebuffer : _vkSwapchainFramebuffers)
-		vkDestroyFramebuffer(_mkDeviceRef.GetDevice(), framebuffer, nullptr);
-
-	for (auto imageView : _vkSwapchainImageViews)
-		vkDestroyImageView(_mkDeviceRef.GetDevice(), imageView, nullptr);
-
-	vkDestroySwapchainKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, nullptr);
-}
-
-VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat imageFormat, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
-{
-	VkImageViewCreateInfo imageViewCreateInfo{};
-	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	imageViewCreateInfo.image = image;
-	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
-	imageViewCreateInfo.format = imageFormat;						// follw the format of the given swapchain image
-	imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
-	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
-	imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
-	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
-	imageViewCreateInfo.subresourceRange.layerCount = 1;
-
-	VkImageView imageView;
-	if (vkCreateImageView(_mkDeviceRef.GetDevice(), &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
-		throw std::runtime_error("Failed to create image views");
-
-	return imageView;
-}
-
-/*
------------	PRIVATE ------------
-*/
 
 void MKSwapchain::CreateSwapchainImageViews()
 {
