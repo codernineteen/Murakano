@@ -51,7 +51,7 @@ endif()
 
 
 # Define MY_SOURCES to be a list of all the source files for my game 
-file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp")
 
 
 add_executable("${CMAKE_PROJECT_NAME}")
@@ -89,10 +89,12 @@ if(MSVC) # If using the VS compiler...
 
 endif()
 
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/vulkanWrapper/")
-# external includes
-target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+####################### Include directories #######################
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Vulkan/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Templates/")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Commons/")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
+target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS}) # include vulkan headers
 
 #enet not working yet on linux for some reason
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES})
