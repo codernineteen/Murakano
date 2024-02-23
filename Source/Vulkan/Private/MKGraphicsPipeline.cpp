@@ -241,7 +241,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
 	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
-	vkCmdDraw(commandBuffer, SafeStaticCast<size_t, uint32>(vertices.size()), 1, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, SafeStaticCast<size_t, uint32>(indices.size()), 1, 0, 0, 0);
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
