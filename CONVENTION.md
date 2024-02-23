@@ -1,7 +1,6 @@
 # class naming convention
 
 # 0. General rule
-
 ## 0.1 block scope convention
 - All scopes should be start next line of the statement.
 - ex)
@@ -18,6 +17,17 @@
 	```cpp
 		if (condition) 
 			return something;
+	```
+
+## 0.3 comment convetion
+- If it is a single line comment in `*.cpp` files, use `//`
+- If it is a single line comment in `*.h` files, use `/**/`
+- If it is a multi line comment, follow below format
+- ex)
+	```cpp
+		/**
+		* Comment something
+		*/
 	```
 
 # 1. Class convention

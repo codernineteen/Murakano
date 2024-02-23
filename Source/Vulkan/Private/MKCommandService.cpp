@@ -8,7 +8,6 @@ MKCommandService::MKCommandService()
 MKCommandService::~MKCommandService()
 {
 	vkDestroyCommandPool(_mkDevicePtr->GetDevice(), _vkCommandPool, nullptr);
-	vkDestroyCommandPool(_mkDevicePtr->GetDevice(), _vkTransferCommandPool, nullptr);
 }
 
 void MKCommandService::InitCommandService(MKDevice* mkDevicePtr)
@@ -16,8 +15,41 @@ void MKCommandService::InitCommandService(MKDevice* mkDevicePtr)
 	// assign device pointer
 	_mkDevicePtr = mkDevicePtr;
 	CreateCommandPool(&_vkCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-	CreateCommandPool(&_vkTransferCommandPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 	CreateCommandBuffers();
+}
+
+void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = _vkCommandPool;
+	allocInfo.commandBufferCount = 1;
+
+	vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Let the driver knows that this is single time command submission.
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+}
+
+void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	// Aslternatively, a fence could be used to wait for the command buffer to complete.
+	vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue()); 
+
+	// free the command buffer right away.
+	vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);
 }
 
 void MKCommandService::SubmitCommandBufferToQueue(
