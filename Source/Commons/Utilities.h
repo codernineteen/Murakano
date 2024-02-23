@@ -3,12 +3,6 @@
 // vulkan
 #include <vulkan/vulkan.h>
 
-// glfw
-#include <GLFW/glfw3.h>
-
-// glm
-#include <glm/glm.hpp>
-
 // std
 #include <iostream>
 #include <fstream>

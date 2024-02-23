@@ -136,7 +136,6 @@ void MKSwapchain::CreateSwapchain()
 void MKSwapchain::CreateSwapchainImageViews()
 {
 	_vkSwapchainImageViews.resize(_vkSwapchainImages.size());
-	std::cout << _vkSwapchainImageFormat << std::endl;
 	for (size_t i = 0; i < _vkSwapchainImages.size(); i++)
 	{
 		_vkSwapchainImageViews[i] = CreateImageView(_vkSwapchainImages[i], _vkSwapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);

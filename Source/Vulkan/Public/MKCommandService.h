@@ -17,6 +17,8 @@ public:
 
 	/* supported service */
 	void InitCommandService(MKDevice* mkDeviceRef);
+	void BeginSingleTimeCommands(VkCommandBuffer& commandBuffer);
+	void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void SubmitCommandBufferToQueue(
 			uint32 currentFrame, 
 			VkSemaphore waitSemaphores[],
@@ -34,6 +36,5 @@ private:
 private:
 	MKDevice*						_mkDevicePtr			= nullptr;
 	VkCommandPool					_vkCommandPool			= VK_NULL_HANDLE;
-	VkCommandPool					_vkTransferCommandPool	= VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer>	_vkCommandBuffers		= std::vector<VkCommandBuffer>();
 };

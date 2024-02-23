@@ -3,56 +3,9 @@
 // internal
 #include "Utilities.h"
 #include "Global.h"
+#include "Vertex.h"
 #include "MKDevice.h"
 #include "MKSwapchain.h"
-
-struct Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription  getBindingDescription() 
-    {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;                             // index of the binding in the array of bindings
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // how to move between data after each vertex
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() 
-    {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-        // position attribute
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos); // 'offsetof macro' to get offset of the member from the start of the struct
-
-        // color attribute
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        // texture coordinate attribute
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-
-    bool operator==(const Vertex& other) const 
-    {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-};
-
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -69,20 +22,37 @@ public:
 
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
-    void 		    CreateSyncObjects();
-    inline void     RecordFrameBuffferCommand(uint32 swapchainImageIndex);
+    void            CreateSyncObjects();
+    /* a helper function to create a Vkbuffer,allocate its memory and binding them together */
+    void            CreateBuffer(VkDeviceSize size, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+    /* actual buffer creation logic */
+    void            CreateVertexBuffer();
+    /* index buffer creation*/
+    void            CreateIndexBuffer();
+    /* Frame buffer commands recording and calling command service interfaces */
+    void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
+    /* type filtering for memoryTypebits and find appropriate target depending on memory property flags */
+    uint32          FindMemoryType(uint32 typeFilter, VkMemoryPropertyFlags properties);
+    /* copy buffer to another buffer */
+    void            CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 private:
     /* pipeline instance */
-	VkPipeline		          _vkGraphicsPipeline;
+	VkPipeline	              _vkGraphicsPipeline;
 	VkPipelineLayout          _vkPipelineLayout;
     /* sync objects */
     std::vector<VkSemaphore>  _vkImageAvailableSemaphores;
     std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
     std::vector<VkFence>      _vkInFlightFences;
+    /* vertex buffer */
+    VkBuffer                  _vkVertexBuffer;
+    VkDeviceMemory            _vkVertexBufferMemory;
+    /* index buffer */
+    VkBuffer                  _vkIndexBuffer;
+    VkDeviceMemory            _vkIndexBufferMemory;
 
 private:
-	MKDevice&	  _mkDeviceRef;
+	MKDevice&     _mkDeviceRef;
     MKSwapchain&  _mkSwapchainRef;
-    uint32 	  _currentFrame = 0;
+    uint32        _currentFrame = 0;
 };
