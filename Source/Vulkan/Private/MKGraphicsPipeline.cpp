@@ -1,5 +1,16 @@
 #include "MkGraphicsPipeline.h" 
 
+const std::vector<Vertex> vertices = {
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+const std::vector<uint16> indices = {
+	0, 1, 2, 2, 3, 0
+};
+
 /*
 -----------	PUBLIC ------------
 */
@@ -34,17 +45,13 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 	// vertex description
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	auto bindingDescription = Vertex::GetBindingDescription();
+	auto attributeDescriptions = Vertex::GetAttributeDescriptions();
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-	/*vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
 	vertexInputInfo.vertexAttributeDescriptionCount = SafeStaticCast<size_t, uint32>(attributeDescriptions.size());
 	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();*/
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 	// input assembly
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -149,6 +156,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create sync objects
 	CreateSyncObjects();
 
+	// create vertex buffer
+	CreateVertexBuffer();
+
+	// create index buffer
+	CreateIndexBuffer();
+
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), vertShaderModule, nullptr);
@@ -156,6 +169,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
+	// destroy buffers
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkIndexBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkIndexBufferMemory, nullptr);
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkVertexBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkVertexBufferMemory, nullptr);
+
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
@@ -198,7 +217,9 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.clearValueCount = SafeStaticCast<size_t, uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // start render pass
+	// begin render pass
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
+	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
 
 	VkViewport viewport{};
@@ -215,13 +236,145 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	scissor.extent = swapchainExtent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
+	vkCmdDraw(commandBuffer, SafeStaticCast<size_t, uint32>(vertices.size()), 1, 0, 0);
+
+	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		throw std::runtime_error("failed to record command buffer!");
 }
 
+void MKGraphicsPipeline::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) 
+{
+	// specify buffer creation info
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = size;                                   // size of the buffer in bytes
+	bufferInfo.usage = bufferUsage;                           // indicate the purpose of the data in the buffer
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;       // buffer will only be used by the graphics queue family
+
+	if (vkCreateBuffer(_mkDeviceRef.GetDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS) 
+		throw std::runtime_error("failed to create buffer!");
+
+	// query memory requirements for the buffer
+	/**
+	* VKMemoryRequirements specification
+	* 1. size : the size of the required amount of memory in bytes
+	* 2. alignment : the offset in bytes where the buffer begins in the allocated region of memory
+	* 3. memoryTypeBits : a bitmask and contains one bit set for every supported memory type for the resource. 'Bit i' is set if and only if the memory type i in the VkPhysicalDeviceMemoryProperties structure for the physical device is supported for the resource.
+	*/
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(_mkDeviceRef.GetDevice(), buffer, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
+
+	if (vkAllocateMemory(_mkDeviceRef.GetDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) 
+		throw std::runtime_error("failed to allocate buffer memory!");
+
+	// Associate allocated memory with the buffer by calling 'vkBindBufferMemory'
+	vkBindBufferMemory(_mkDeviceRef.GetDevice(), buffer, bufferMemory, 0);
+}
+
+void MKGraphicsPipeline::CreateVertexBuffer() 
+{
+	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	
+	/**
+	* Staging buffer : temporary host-visible buffer 
+	* - usage : source of memory transfer operation
+	* - property : host-visible, host-coherent
+	*/
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+
+	/**
+	* Device local buffer : actual vertex buffer
+	* - usage : destination of memory transfer operation, vertex buffer
+	* - property : device local
+	* Note that we can't map memory for device-local buffer, but can copy data to it.
+	*/
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vkVertexBuffer, _vkVertexBufferMemory);
+	CopyBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
+
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+}
+
+void MKGraphicsPipeline::CreateIndexBuffer() 
+{
+	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+
+	/**
+	* Device local buffer : actual index buffer
+	* - usage : destination of memory transfer operation, index buffer
+	* - property : device local
+	*/
+	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vkIndexBuffer, _vkIndexBufferMemory);
+	CopyBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
+
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+}
+
+void MKGraphicsPipeline::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+{
+	// specify copy command
+	VkCommandBuffer commandBuffer;
+	GCommandService->BeginSingleTimeCommands(commandBuffer);
+
+	VkBufferCopy copyRegion{};
+	copyRegion.srcOffset = 0; // Optional
+	copyRegion.dstOffset = 0; // Optional
+	copyRegion.size = size;
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	GCommandService->EndSingleTimeCommands(commandBuffer);
+}
+
+uint32 MKGraphicsPipeline::FindMemoryType(uint32 typeFilter, VkMemoryPropertyFlags properties) 
+{
+	/**
+	* VKPhysicalDeviceMemoryProperties specification
+	* 1. memoryTypes : different types of memory like device local, host visible, coherent, and cached
+	* 2. memoryHeaps : distinct memory resources like dedicated VRAM and swap space in RAM for example (this can affect performance)
+	*/
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(_mkDeviceRef.GetPhysicalDevice(), &memProperties);
+
+	for (uint32 i = 0; i < memProperties.memoryTypeCount; i++) 
+	{
+		// 1. typeFilter is a one-bit bitmask and we can find a match by iterating over each type bit and checking if it is set in the typeFilter
+		// 2. If matched index's memory type has all the properties we need, then return the index.
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) 
+			return i;
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
+}
 
 
 /*
@@ -265,11 +418,12 @@ void MKGraphicsPipeline::CreateSyncObjects()
 	}
 }
 
+
 void MKGraphicsPipeline::DrawFrame()
 {
 	auto device = _mkDeviceRef.GetDevice();
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
-	
+
 	// 1. wait until the previous frame is finished
 	vkWaitForFences(device, 1, &_vkInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
