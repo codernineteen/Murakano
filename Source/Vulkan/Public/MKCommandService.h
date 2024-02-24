@@ -34,7 +34,7 @@ private:
 	void CreateCommandBuffers();
 
 private:
-	MKDevice*						_mkDevicePtr			= nullptr;
-	VkCommandPool					_vkCommandPool			= VK_NULL_HANDLE;
-	std::vector<VkCommandBuffer>	_vkCommandBuffers		= std::vector<VkCommandBuffer>();
+	MKDevice*						_mkDevicePtr = nullptr;
+	VkCommandPool					_vkCommandPool = VK_NULL_HANDLE;
+	std::vector<VkCommandBuffer>	_vkCommandBuffers = std::vector<VkCommandBuffer>();
 };

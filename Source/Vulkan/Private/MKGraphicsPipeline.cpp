@@ -15,10 +15,21 @@ const std::vector<uint16> indices = {
 -----------	PUBLIC ------------
 */
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
-	: _mkDeviceRef(mkDeviceRef), _mkSwapchainRef(mkSwapchainRef)
+	: 
+	_mkDeviceRef(mkDeviceRef), 
+	_mkSwapchainRef(mkSwapchainRef), 
+	_mkDescriptor(mkDeviceRef, _mkSwapchainRef.GetSwapchainExtent())
 {
+#ifdef USE_HLSL
+	// HLSL shader codes
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertex.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragment.spv");
+#else
+	// GLSL shader codes
+	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
+	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
+#endif
+
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
@@ -39,7 +50,6 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	fragShaderStageInfo.pName = "main";
 	fragShaderStageInfo.pSpecializationInfo = nullptr;
 
-
 	// shader stages
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
@@ -59,9 +69,11 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;	// keep the triangle list topology without restarting the assembly
 
-	// viewport and scissor rectangle
-	// viewport - defines transformation from image to framebuffer
-	// scissor  - defines in which regions pixels will be stored
+	/**
+	* viewport and scissor rectangle
+	* - viewport : transformation from image to framebuffer
+	* - scissor  : in which regions pixels will be stored
+	*/
 	VkPipelineViewportStateCreateInfo viewportState{};	// viewport and scissor rectangle
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;					// number of viewports
@@ -80,7 +92,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;							// thickness of lines in terms of number of fragments
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;			// back face culling setting
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE; // vertex order for faces to be considered front-facing
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be considered front-facing
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;				// Optional
 	rasterizer.depthBiasClamp = 0.0f;						// Optional
@@ -123,8 +135,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// TODO : pipeline layout (need to specify descriptor)
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;				// a descriptor set layout for uniform buffer object is set
-	pipelineLayoutInfo.pSetLayouts = nullptr;
+	pipelineLayoutInfo.setLayoutCount = 1;				                        // a descriptor set layout for uniform buffer object is set
+	pipelineLayoutInfo.pSetLayouts = _mkDescriptor.GetDescriptorSetLayoutPtr(); // specify descriptor set layout
 	pipelineLayoutInfo.pushConstantRangeCount = 0;		// Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;	// Optional
 
@@ -241,6 +253,17 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
 	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
+	
+	vkCmdBindDescriptorSets(
+		commandBuffer, 
+		VK_PIPELINE_BIND_POINT_GRAPHICS, 
+		_vkPipelineLayout, 
+		0, 
+		1, 
+		_mkDescriptor.GetDescriptorSetPtr(_currentFrame), 
+		0, 
+		nullptr
+	);
 	vkCmdDrawIndexed(commandBuffer, SafeStaticCast<size_t, uint32>(indices.size()), 1, 0, 0, 0);
 
 	// end render pass
@@ -248,40 +271,6 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		throw std::runtime_error("failed to record command buffer!");
-}
-
-void MKGraphicsPipeline::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) 
-{
-	// specify buffer creation info
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = size;                                   // size of the buffer in bytes
-	bufferInfo.usage = bufferUsage;                           // indicate the purpose of the data in the buffer
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;       // buffer will only be used by the graphics queue family
-
-	if (vkCreateBuffer(_mkDeviceRef.GetDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS) 
-		throw std::runtime_error("failed to create buffer!");
-
-	// query memory requirements for the buffer
-	/**
-	* VKMemoryRequirements specification
-	* 1. size : the size of the required amount of memory in bytes
-	* 2. alignment : the offset in bytes where the buffer begins in the allocated region of memory
-	* 3. memoryTypeBits : a bitmask and contains one bit set for every supported memory type for the resource. 'Bit i' is set if and only if the memory type i in the VkPhysicalDeviceMemoryProperties structure for the physical device is supported for the resource.
-	*/
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(_mkDeviceRef.GetDevice(), buffer, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
-
-	if (vkAllocateMemory(_mkDeviceRef.GetDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) 
-		throw std::runtime_error("failed to allocate buffer memory!");
-
-	// Associate allocated memory with the buffer by calling 'vkBindBufferMemory'
-	vkBindBufferMemory(_mkDeviceRef.GetDevice(), buffer, bufferMemory, 0);
 }
 
 void MKGraphicsPipeline::CreateVertexBuffer() 
@@ -295,7 +284,13 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	*/
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, stagingBufferMemory
+	);
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -308,7 +303,12 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	* - property : device local
 	* Note that we can't map memory for device-local buffer, but can copy data to it.
 	*/
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vkVertexBuffer, _vkVertexBufferMemory);
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		_vkVertexBuffer, _vkVertexBufferMemory);
 	CopyBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
 
 	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
@@ -321,7 +321,13 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, stagingBufferMemory
+	);
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -333,7 +339,13 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 	* - usage : destination of memory transfer operation, index buffer
 	* - property : device local
 	*/
-	CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _vkIndexBuffer, _vkIndexBufferMemory);
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		_vkIndexBuffer, _vkIndexBufferMemory
+	);
 	CopyBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
 
 	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
@@ -354,28 +366,6 @@ void MKGraphicsPipeline::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDe
 
 	GCommandService->EndSingleTimeCommands(commandBuffer);
 }
-
-uint32 MKGraphicsPipeline::FindMemoryType(uint32 typeFilter, VkMemoryPropertyFlags properties) 
-{
-	/**
-	* VKPhysicalDeviceMemoryProperties specification
-	* 1. memoryTypes : different types of memory like device local, host visible, coherent, and cached
-	* 2. memoryHeaps : distinct memory resources like dedicated VRAM and swap space in RAM for example (this can affect performance)
-	*/
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(_mkDeviceRef.GetPhysicalDevice(), &memProperties);
-
-	for (uint32 i = 0; i < memProperties.memoryTypeCount; i++) 
-	{
-		// 1. typeFilter is a one-bit bitmask and we can find a match by iterating over each type bit and checking if it is set in the typeFilter
-		// 2. If matched index's memory type has all the properties we need, then return the index.
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) 
-			return i;
-	}
-
-	throw std::runtime_error("failed to find suitable memory type!");
-}
-
 
 /*
 -----------	PRIVATE ------------
@@ -439,7 +429,7 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	// updateUniformBuffer(currentFrame);
+	_mkDescriptor.UpdateUniformBuffer(_currentFrame);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
