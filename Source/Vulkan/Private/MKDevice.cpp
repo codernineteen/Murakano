@@ -50,7 +50,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 		throw std::runtime_error("failed to create logical device!");
 	}
 
-	// retrieve queue handle from logical device
+	// retrieve queue handles from logical device
 	vkGetDeviceQueue(_vkLogicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
 	vkGetDeviceQueue(_vkLogicalDevice, indices.presentFamily.value(), 0, &_vkPresentQueue);
 
@@ -135,9 +135,8 @@ MKDevice::QueueFamilyIndices MKDevice::FindQueueFamilies(VkPhysicalDevice device
 	int i = 0;													// index for each queue family in whole queue families
 	for (const auto& queueFamily : queueFamilies) 
 	{
-		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {	// check if queue family supports graphics
+		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)     // check if queue family supports graphics
 			indices.graphicsFamily = i;							// assign index to 'graphics family'
-		}
 
 		VkBool32 presentSupport = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _vkSurface, &presentSupport);

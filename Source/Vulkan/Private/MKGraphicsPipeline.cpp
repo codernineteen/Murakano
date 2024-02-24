@@ -1,13 +1,35 @@
 #include "MkGraphicsPipeline.h" 
 
+const std::vector<Vertex> vertices = {
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+const std::vector<uint16> indices = {
+	0, 1, 2, 2, 3, 0
+};
+
 /*
 -----------	PUBLIC ------------
 */
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
-	: _mkDeviceRef(mkDeviceRef), _mkSwapchainRef(mkSwapchainRef)
+	: 
+	_mkDeviceRef(mkDeviceRef), 
+	_mkSwapchainRef(mkSwapchainRef), 
+	_mkDescriptor(mkDeviceRef, _mkSwapchainRef.GetSwapchainExtent())
 {
+#ifdef USE_HLSL
+	// HLSL shader codes
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertex.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragment.spv");
+#else
+	// GLSL shader codes
+	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
+	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
+#endif
+
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
@@ -28,23 +50,18 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	fragShaderStageInfo.pName = "main";
 	fragShaderStageInfo.pSpecializationInfo = nullptr;
 
-
 	// shader stages
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
 	// vertex description
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	auto bindingDescription = Vertex::GetBindingDescription();
+	auto attributeDescriptions = Vertex::GetAttributeDescriptions();
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-	/*vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
 	vertexInputInfo.vertexAttributeDescriptionCount = SafeStaticCast<size_t, uint32>(attributeDescriptions.size());
 	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();*/
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 	// input assembly
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -52,9 +69,11 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;	// keep the triangle list topology without restarting the assembly
 
-	// viewport and scissor rectangle
-	// viewport - defines transformation from image to framebuffer
-	// scissor  - defines in which regions pixels will be stored
+	/**
+	* viewport and scissor rectangle
+	* - viewport : transformation from image to framebuffer
+	* - scissor  : in which regions pixels will be stored
+	*/
 	VkPipelineViewportStateCreateInfo viewportState{};	// viewport and scissor rectangle
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;					// number of viewports
@@ -73,7 +92,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;							// thickness of lines in terms of number of fragments
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;			// back face culling setting
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE; // vertex order for faces to be considered front-facing
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be considered front-facing
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;				// Optional
 	rasterizer.depthBiasClamp = 0.0f;						// Optional
@@ -116,8 +135,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// TODO : pipeline layout (need to specify descriptor)
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;				// a descriptor set layout for uniform buffer object is set
-	pipelineLayoutInfo.pSetLayouts = nullptr;
+	pipelineLayoutInfo.setLayoutCount = 1;				                        // a descriptor set layout for uniform buffer object is set
+	pipelineLayoutInfo.pSetLayouts = _mkDescriptor.GetDescriptorSetLayoutPtr(); // specify descriptor set layout
 	pipelineLayoutInfo.pushConstantRangeCount = 0;		// Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;	// Optional
 
@@ -149,6 +168,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create sync objects
 	CreateSyncObjects();
 
+	// create vertex buffer
+	CreateVertexBuffer();
+
+	// create index buffer
+	CreateIndexBuffer();
+
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), vertShaderModule, nullptr);
@@ -156,6 +181,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
+	// destroy buffers
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkIndexBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkIndexBufferMemory, nullptr);
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkVertexBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkVertexBufferMemory, nullptr);
+
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
@@ -198,7 +229,9 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.clearValueCount = SafeStaticCast<size_t, uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // start render pass
+	// begin render pass
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
+	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
 
 	VkViewport viewport{};
@@ -215,14 +248,124 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	scissor.extent = swapchainExtent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
+	
+	vkCmdBindDescriptorSets(
+		commandBuffer, 
+		VK_PIPELINE_BIND_POINT_GRAPHICS, 
+		_vkPipelineLayout, 
+		0, 
+		1, 
+		_mkDescriptor.GetDescriptorSetPtr(_currentFrame), 
+		0, 
+		nullptr
+	);
+	vkCmdDrawIndexed(commandBuffer, SafeStaticCast<size_t, uint32>(indices.size()), 1, 0, 0, 0);
+
+	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		throw std::runtime_error("failed to record command buffer!");
 }
 
+void MKGraphicsPipeline::CreateVertexBuffer() 
+{
+	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	
+	/**
+	* Staging buffer : temporary host-visible buffer 
+	* - usage : source of memory transfer operation
+	* - property : host-visible, host-coherent
+	*/
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, stagingBufferMemory
+	);
 
+	void* data;
+	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+
+	/**
+	* Device local buffer : actual vertex buffer
+	* - usage : destination of memory transfer operation, vertex buffer
+	* - property : device local
+	* Note that we can't map memory for device-local buffer, but can copy data to it.
+	*/
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		_vkVertexBuffer, _vkVertexBufferMemory);
+	CopyBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
+
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+}
+
+void MKGraphicsPipeline::CreateIndexBuffer() 
+{
+	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, stagingBufferMemory
+	);
+
+	void* data;
+	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+
+	/**
+	* Device local buffer : actual index buffer
+	* - usage : destination of memory transfer operation, index buffer
+	* - property : device local
+	*/
+	util::CreateBuffer(
+		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		_vkIndexBuffer, _vkIndexBufferMemory
+	);
+	CopyBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
+
+	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+}
+
+void MKGraphicsPipeline::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
+{
+	// specify copy command
+	VkCommandBuffer commandBuffer;
+	GCommandService->BeginSingleTimeCommands(commandBuffer);
+
+	VkBufferCopy copyRegion{};
+	copyRegion.srcOffset = 0; // Optional
+	copyRegion.dstOffset = 0; // Optional
+	copyRegion.size = size;
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	GCommandService->EndSingleTimeCommands(commandBuffer);
+}
 
 /*
 -----------	PRIVATE ------------
@@ -265,11 +408,12 @@ void MKGraphicsPipeline::CreateSyncObjects()
 	}
 }
 
+
 void MKGraphicsPipeline::DrawFrame()
 {
 	auto device = _mkDeviceRef.GetDevice();
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
-	
+
 	// 1. wait until the previous frame is finished
 	vkWaitForFences(device, 1, &_vkInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -285,7 +429,7 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	// updateUniformBuffer(currentFrame);
+	_mkDescriptor.UpdateUniformBuffer(_currentFrame);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually

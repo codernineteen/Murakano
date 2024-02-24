@@ -27,7 +27,7 @@ endif()
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE) #link time optimization
 
-project(Murakano)
+project(Murakano VERSION 0.1.0)
 
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -38,6 +38,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 
 add_subdirectory(thirdparty/glfw)
+add_subdirectory(thirdparty/DirectXMath)
 
 # find vulkan sdk
 find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
@@ -52,7 +53,6 @@ endif()
 
 # Define MY_SOURCES to be a list of all the source files for my game 
 file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp")
-
 
 add_executable("${CMAKE_PROJECT_NAME}")
 
@@ -91,10 +91,13 @@ endif()
 
 ####################### Include directories #######################
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Vulkan/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Data/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Templates/")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Commons/")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
+
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS}) # include vulkan headers
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/DirectXMath/Inc")
 
 #enet not working yet on linux for some reason
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES})
@@ -106,13 +109,13 @@ find_program(DXC_EXECUTABLE dxc PATHS ${DXC_PATH} NO_DEFAULT_PATH)
 message(STATUS ${DXC_EXECUTABLE})
 
 # Define shader model versions as variables
-set(VERTEX_SHADER_MODEL vs_6_3)
-set(FRAGMENT_SHADER_MODEL ps_6_3)
+set(VERTEX_SHADER_MODEL vs_6_0)
+set(FRAGMENT_SHADER_MODEL ps_6_0)
 
 # Compile Vertex Shader
-file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/vertex.hlsl")
+file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/vertex.hlsl")
 get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/output/spir-v/${FILE_NAME}.spv")
+set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
 add_custom_command(
     OUTPUT  ${HLSL_SPIRV_OUTPUT}
     COMMAND ${DXC_EXECUTABLE} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
@@ -121,9 +124,9 @@ add_custom_command(
 list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
 
 # Compile Fragment Shader
-file(GLOB_RECURSE HLSL_FRAG "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/fragment.hlsl")
+file(GLOB_RECURSE HLSL_FRAG "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/fragment.hlsl")
 get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/output/spir-v/${FILE_NAME}.spv")
+set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
 add_custom_command(
     OUTPUT  ${HLSL_SPIRV_OUTPUT}
     COMMAND ${DXC_EXECUTABLE} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
