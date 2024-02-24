@@ -38,6 +38,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 
 add_subdirectory(thirdparty/glfw)
+add_subdirectory(thirdparty/DirectXMath)
 
 # find vulkan sdk
 find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
@@ -91,14 +92,12 @@ endif()
 ####################### Include directories #######################
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Vulkan/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Geometry/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Data/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Templates/")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Commons/")
 
-#file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h")
-#target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${HEADER_FILES})
-
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS}) # include vulkan headers
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/DirectXMath/Inc")
 
 #enet not working yet on linux for some reason
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES})
@@ -110,8 +109,8 @@ find_program(DXC_EXECUTABLE dxc PATHS ${DXC_PATH} NO_DEFAULT_PATH)
 message(STATUS ${DXC_EXECUTABLE})
 
 # Define shader model versions as variables
-set(VERTEX_SHADER_MODEL vs_6_3)
-set(FRAGMENT_SHADER_MODEL ps_6_3)
+set(VERTEX_SHADER_MODEL vs_6_0)
+set(FRAGMENT_SHADER_MODEL ps_6_0)
 
 # Compile Vertex Shader
 file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/vertex.hlsl")
