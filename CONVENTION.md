@@ -111,7 +111,7 @@ The rest of members follow the space of the member whose type name is the longes
 	```
 
 
-- function spacing follow same rules, but the rule applied on every category.
+- function spacing follow same rules, but the rule applied on each category.
 If a group of function is const, there should be space mathcing of them either.
 - ex)
 	```cpp
@@ -131,6 +131,16 @@ If a group of function is const, there should be space mathcing of them either.
 - ex)
 	```cpp
 		/* getters */
-		VkSwapchainKHR  GetSwapchain()			            const { return _vkSwapchain; }
+		VkSwapchainKHR  GetSwapchain() const { return _vkSwapchain; }
 	```
 - If not, implement the function in separate cpp file which included the header file holding the signature of it.
+
+# 2. namespace convention
+- All of the namespace should be named in lowercase.
+- ex)
+	```cpp
+	namespace util
+	{
+		// ...
+	}
+	```
