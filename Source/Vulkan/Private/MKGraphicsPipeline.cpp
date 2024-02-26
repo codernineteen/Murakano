@@ -18,7 +18,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef), 
-	_mkDescriptor(mkDeviceRef, _mkSwapchainRef.GetSwapchainExtent())
+	_mkDescriptorManager(mkDeviceRef, _mkSwapchainRef.GetSwapchainExtent())
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -136,7 +136,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;				                        // a descriptor set layout for uniform buffer object is set
-	pipelineLayoutInfo.pSetLayouts = _mkDescriptor.GetDescriptorSetLayoutPtr(); // specify descriptor set layout
+	pipelineLayoutInfo.pSetLayouts = _mkDescriptorManager.GetDescriptorSetLayoutPtr(); // specify descriptor set layout
 	pipelineLayoutInfo.pushConstantRangeCount = 0;		// Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;	// Optional
 
@@ -260,7 +260,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		_vkPipelineLayout, 
 		0, 
 		1, 
-		_mkDescriptor.GetDescriptorSetPtr(_currentFrame), 
+		_mkDescriptorManager.GetDescriptorSetPtr(_currentFrame), 
 		0, 
 		nullptr
 	);
@@ -309,7 +309,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
 		_vkVertexBuffer, _vkVertexBufferMemory);
-	CopyBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
+	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
 
 	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
 	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
@@ -346,25 +346,10 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
 		_vkIndexBuffer, _vkIndexBufferMemory
 	);
-	CopyBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
+	CopyBufferToBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
 
 	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
 	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
-}
-
-void MKGraphicsPipeline::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) 
-{
-	// specify copy command
-	VkCommandBuffer commandBuffer;
-	GCommandService->BeginSingleTimeCommands(commandBuffer);
-
-	VkBufferCopy copyRegion{};
-	copyRegion.srcOffset = 0; // Optional
-	copyRegion.dstOffset = 0; // Optional
-	copyRegion.size = size;
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-	GCommandService->EndSingleTimeCommands(commandBuffer);
 }
 
 /*
@@ -429,7 +414,7 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	_mkDescriptor.UpdateUniformBuffer(_currentFrame);
+	_mkDescriptorManager.UpdateUniformBuffer(_currentFrame);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
@@ -477,4 +462,14 @@ void MKGraphicsPipeline::DrawFrame()
 		throw std::runtime_error("failed to present swap chain image!");
 
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; // circular update of current frame.
+}
+
+void MKGraphicsPipeline::CopyBufferToBuffer(VkBuffer src, VkBuffer dest, VkDeviceSize size)
+{
+	// a command to copy buffer to buffer.
+	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
+		VkBufferCopy copyRegion{};
+		copyRegion.size = size;
+		vkCmdCopyBuffer(commandBuffer, src, dest, 1, &copyRegion);
+	});
 }
