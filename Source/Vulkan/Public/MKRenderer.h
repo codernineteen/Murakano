@@ -26,7 +26,7 @@ private:
 	MKWindow			_mkWindow;
 	MKInstance			_mkInstance;
 	MKDevice			_mkDevice;
-	MKSwapchain			_mkSwapchain;
+	MKSwapchain	        _mkSwapchain;
 	MKGraphicsPipeline	_mkGraphicsPipeline;
 };
 

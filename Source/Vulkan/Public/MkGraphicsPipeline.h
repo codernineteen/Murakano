@@ -8,7 +8,7 @@
 #include "Vertex.h"
 #include "MKDevice.h"
 #include "MKSwapchain.h"
-#include "MKDescriptor.h"
+#include "MKDescriptorManager.h"
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -32,8 +32,8 @@ private:
     void            CreateIndexBuffer();
     /* Frame buffer commands recording and calling command service interfaces */
     void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
-    /* copy buffer to another buffer */
-    void            CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    /* copy source buffer to destination buffer */
+    void            CopyBufferToBuffer(VkBuffer src, VkBuffer dest, VkDeviceSize);
 
 private:
     /* pipeline instance */
@@ -51,8 +51,8 @@ private:
     VkDeviceMemory            _vkIndexBufferMemory;
 
 private:
-	MKDevice&     _mkDeviceRef;
-    MKSwapchain&  _mkSwapchainRef;
-    MKDescriptor  _mkDescriptor;
-    uint32        _currentFrame = 0;
+	MKDevice&            _mkDeviceRef;
+    MKSwapchain&         _mkSwapchainRef;
+    MKDescriptorManager  _mkDescriptorManager;
+    uint32               _currentFrame = 0;
 };
