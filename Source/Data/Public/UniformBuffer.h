@@ -7,5 +7,5 @@ namespace dx = DirectX;
 struct UniformBufferObject
 {
 	/* (model x view x projection) transformation matrix */
-	dx::XMMATRIX mvpMat = dx::XMMatrixIdentity(); // initialize to identity matrix
+	alignas (16)dx::XMMATRIX mvpMat = dx::XMMatrixIdentity(); // initialize to identity matrix
 };
