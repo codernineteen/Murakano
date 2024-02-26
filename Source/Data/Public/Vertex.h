@@ -7,6 +7,7 @@ struct Vertex
 {
     glm::vec2 pos;
     glm::vec3 color;
+    glm::vec2 texCoord;
 
     // getter for vertex bindging description
     static VkVertexInputBindingDescription  GetBindingDescription()
@@ -20,9 +21,9 @@ struct Vertex
     }
 
     // getter for vertex attribute description
-    static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions()
+    static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions()
     {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{}; // attribute description struct
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{}; // attribute description struct
 
         /**
         * VkVertexInputAttributeDescription specification
@@ -43,6 +44,12 @@ struct Vertex
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, color);
 
+        // texture coordinate attribute
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
         return attributeDescriptions;
     }
 
@@ -50,4 +57,15 @@ struct Vertex
     {
         return pos == other.pos && color == other.color;
     }
+};
+
+const std::vector<Vertex> vertices = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+};
+
+const std::vector<uint16> indices = {
+    0, 1, 2, 2, 3, 0
 };
