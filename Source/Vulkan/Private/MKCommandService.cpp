@@ -18,40 +18,6 @@ void MKCommandService::InitCommandService(MKDevice* mkDevicePtr)
 	CreateCommandBuffers();
 }
 
-void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
-{
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = _vkCommandPool;
-	allocInfo.commandBufferCount = 1;
-
-	vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Let the driver knows that this is single time command submission.
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-}
-
-void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
-{
-	vkEndCommandBuffer(commandBuffer);
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
-
-	vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	// Aslternatively, a fence could be used to wait for the command buffer to complete.
-	vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue()); 
-
-	// free the command buffer right away.
-	vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);
-}
-
 void MKCommandService::SubmitCommandBufferToQueue(
 	uint32 currentFrame, 
 	VkSemaphore waitSemaphores[], 
@@ -85,6 +51,10 @@ void MKCommandService::ResetCommandBuffer(uint32 currentFrame)
 	vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0);
 }
 
+/**
+* ---------------- Private -------------------- 
+*/
+
 void MKCommandService::CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag)
 {
 	// find queue family indices
@@ -115,3 +85,36 @@ void MKCommandService::CreateCommandBuffers()
 		throw std::runtime_error("failed to allocate command buffers!");
 }
 
+void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = _vkCommandPool;
+	allocInfo.commandBufferCount = 1;
+
+	vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Let the driver knows that this is single time command submission.
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+}
+
+void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	// Aslternatively, a fence could be used to wait for the command buffer to complete.
+	vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue());
+
+	// free the command buffer right away.
+	vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);
+}
