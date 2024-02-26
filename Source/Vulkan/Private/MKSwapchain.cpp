@@ -52,26 +52,6 @@ void MKSwapchain::RecreateSwapchain()
 	CreateFrameBuffers();
 }
 
-VkImageView MKSwapchain::CreateImageView(VkImage image, VkFormat imageFormat, VkImageAspectFlags aspectFlags, uint32 mipLevels)
-{
-	VkImageViewCreateInfo imageViewCreateInfo{};
-	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	imageViewCreateInfo.image = image;
-	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
-	imageViewCreateInfo.format = imageFormat;						// follw the format of the given swapchain image
-	imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
-	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
-	imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
-	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
-	imageViewCreateInfo.subresourceRange.layerCount = 1;
-
-	VkImageView imageView;
-	if (vkCreateImageView(_mkDeviceRef.GetDevice(), &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
-		throw std::runtime_error("Failed to create image views");
-
-	return imageView;
-}
-
 /*
 -----------	PRIVATE ------------
 */
@@ -138,7 +118,14 @@ void MKSwapchain::CreateSwapchainImageViews()
 	_vkSwapchainImageViews.resize(_vkSwapchainImages.size());
 	for (size_t i = 0; i < _vkSwapchainImages.size(); i++)
 	{
-		_vkSwapchainImageViews[i] = CreateImageView(_vkSwapchainImages[i], _vkSwapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		util::CreateImageView(
+			_mkDeviceRef.GetDevice(), 
+			_vkSwapchainImages[i],
+			_vkSwapchainImageViews[i],
+			_vkSwapchainImageFormat, 
+			VK_IMAGE_ASPECT_COLOR_BIT, 
+			1
+		);
 	}
 }
 

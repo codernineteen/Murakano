@@ -22,16 +22,13 @@ public:
 	VkSwapchainKHR GetSwapchain()			           const { return _vkSwapchain; }
 	VkFormat	   GetSwapchainImageFormat()           const { return _vkSwapchainImageFormat; }
 	VkExtent2D	   GetSwapchainExtent()	               const { return _vkSwapchainExtent; }
-	VkFramebuffer  GetFramebuffer(uint32 imageIndex) const { return _vkSwapchainFramebuffers[imageIndex]; }
+	VkFramebuffer  GetFramebuffer(uint32 imageIndex)   const { return _vkSwapchainFramebuffers[imageIndex]; }
 	VkRenderPass   RequestRenderPass()                 const { return _mkRenderPassPtr->GetRenderPass(); }
 
 	/* setters */
 	void		   RequestFramebufferResize(bool isResized) { _mkDeviceRef.SetFrameBufferResized(isResized); }
 	void           DestroySwapchainResources();
 	void           RecreateSwapchain();
-
-	/* reusuable image creation */
-	VkImageView    CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32 mipLevels);
 
 private:
 	void CreateSwapchain();

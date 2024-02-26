@@ -55,6 +55,9 @@ public:
 	// support checkers
 	SwapChainSupportDetails  QuerySwapChainSupport(VkPhysicalDevice device);
 	QueueFamilyIndices		 FindQueueFamilies(VkPhysicalDevice device);
+
+	// common apis
+	void WaitUntilDeviceIdle() { vkDeviceWaitIdle(_vkLogicalDevice); }
 	
 	// Belows are related to swapchain creation.
 	// I located these functions in Device class for consistency vecause one of them requires window refernce.

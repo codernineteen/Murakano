@@ -8,10 +8,12 @@ MKRenderer::MKRenderer()
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain)
 {
+
 }
 
 MKRenderer::~MKRenderer() 
 {
+
 }
 
 void MKRenderer::Render()
@@ -21,4 +23,6 @@ void MKRenderer::Render()
 		_mkWindow.PollEvents();
 		_mkGraphicsPipeline.DrawFrame();
 	}
+
+	_mkDevice.WaitUntilDeviceIdle();
 }
