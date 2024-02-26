@@ -13,7 +13,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-	float queuePriority = 1.0f; // priority of the queue for scheduling purposes . ranged from 0.0 to 1.0
+	float queuePriority = 1.0f;                             // priority of the queue for scheduling purposes . ranged from 0.0 to 1.0
 	for (uint32 queueFamily : uniqueQueueFamilies)
 	{
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
@@ -24,16 +24,18 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
-	// TODO : specify the set of device features
+	// specify the set of device features
 	VkPhysicalDeviceFeatures deviceFeatures = {};
+	deviceFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
 
+	// specify device creation info
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();								// queue create info
-	deviceCreateInfo.queueCreateInfoCount = SafeStaticCast<size_t, uint32>(queueCreateInfos.size());		// number of queue create infos
-	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;										// device features
-	deviceCreateInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(deviceExtensions.size());	// number of device extensions
-	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();							// device extensions
+	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();								       // queue create info
+	deviceCreateInfo.queueCreateInfoCount = SafeStaticCast<size_t, uint32>(queueCreateInfos.size());   // number of queue create infos
+	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;										       // device features
+	deviceCreateInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(deviceExtensions.size());  // number of device extensions
+	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();							       // device extensions
 	if (ENABLE_VALIDATION_LAYERS) 
 	{
 		deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
@@ -41,8 +43,8 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	}
 	else
 	{
-		deviceCreateInfo.enabledLayerCount = 0;													// number of layers
-		deviceCreateInfo.ppEnabledLayerNames = nullptr;											// layers
+		deviceCreateInfo.enabledLayerCount = 0;													        // number of layers
+		deviceCreateInfo.ppEnabledLayerNames = nullptr;											        // layers
 	}
 
 	if (vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice) != VK_SUCCESS)
@@ -88,13 +90,9 @@ void MKDevice::PickPhysicalDevice()
 	}
 
 	if (candidates.rbegin()->first > 0)								// last key is the highest score
-	{
 		_vkPhysicalDevice = candidates.rbegin()->second;
-	}
 	else
-	{
 		throw std::runtime_error("failed to find a suitable GPU");	// if highest score is 0, throw exception
-	}
 }
 
 int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
@@ -116,7 +114,13 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 	QueueFamilyIndices indices = FindQueueFamilies(device);
 	SwapChainSupportDetails details = QuerySwapChainSupport(device);
 
-	if(!indices.isComplete() || !extensionsSupported || details.formats.empty() || details.presentModes.empty())
+	if(
+		!indices.isComplete() || 
+		!extensionsSupported || 
+		details.formats.empty() || 
+		details.presentModes.empty() ||
+		!deviceFeatures.samplerAnisotropy
+	)
 		score = 0;
 
 	return score;
