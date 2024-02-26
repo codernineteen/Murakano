@@ -28,6 +28,9 @@ public:
 	void                   CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 private:
+	/* create uniform buffer object*/
+	void CreateUniformBuffer();
+
 	/* create texture image and view */
 	void CreateTextureImage();
 	void CreateTextureImageView();
