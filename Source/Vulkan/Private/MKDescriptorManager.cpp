@@ -3,10 +3,25 @@
 MKDescriptorManager::MKDescriptorManager(MKDevice& mkDeviceRef, const VkExtent2D& swapchainExtent)
     : _mkDeviceRef(mkDeviceRef), _vkSwapchainExtent(swapchainExtent)
 {
+
     /**
-    * Uniform buffer Object layout binding
-    * : every binding needs to be described through VkDescriptorSetLayoutBinding
+    * Create Descriptor resources
+    * 1. uniform buffer object
+    * 2. texture sampler
     */
+    CreateUniformBuffer();
+    CreateTextureImage();
+    CreateTextureImageView();
+    CreateTextureSampler();
+
+    /**
+    * Descriptor set layout binding
+    *  1. uniform buffer object layout binding
+    *  2. texture sampler layout binding
+    * Every binding to the set needs to be described through VkDescriptorSetLayoutBinding before creating VkDescriptorSetLayout.
+    */
+
+    // uniform buffer object layout binding
 	VkDescriptorSetLayoutBinding uboLayoutBinding = {};
 	uboLayoutBinding.binding = 0;                                         // layout(binding = 0)
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;  
@@ -14,56 +29,43 @@ MKDescriptorManager::MKDescriptorManager(MKDevice& mkDeviceRef, const VkExtent2D
 	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr;
 
-    // combine layout binding into single descriptor set layout
+
+    // texture sampler layout binding
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    // combine layout bindings into single descriptor set layout
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 1;
-	layoutInfo.pBindings = &uboLayoutBinding;
+	layoutInfo.bindingCount = SafeStaticCast<size_t, uint32>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
 
     // create descriptor set layout
     if (vkCreateDescriptorSetLayout(_mkDeviceRef.GetDevice(), &layoutInfo, nullptr, &_vkDescriptorSetLayout) != VK_SUCCESS)
 		throw std::runtime_error("failed to create descriptor set layout!");
-	
-    // create uniform buffer object
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-    _vkUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    _vkUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-    _vkUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
-    {
-        util::CreateBuffer(
-            _mkDeviceRef.GetPhysicalDevice(), 
-            _mkDeviceRef.GetDevice(), bufferSize, 
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-            _vkUniformBuffers[i], 
-            _vkUniformBuffersMemory[i]
-        );
-
-        // persistent mapping without unmapping memory.
-        vkMapMemory(_mkDeviceRef.GetDevice(), _vkUniformBuffersMemory[i], 0, bufferSize, 0, &_vkUniformBuffersMapped[i]);
-    }
-
-    /**
-    * Texture sampler layout binding
-    */
 
     /**
     * Create Descriptor Pool
-    * 1. specify descriptor pool size
-    * 2. specify descriptor pool creation info
+    *  1. specify descriptor pool size
+    *  2. specify descriptor pool creation info
+    * Descriptor pool size should be matched with size of descriptor set layout bindings.
     */
-    VkDescriptorPoolSize poolSize = {};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                                         // descriptor type for uniform buffer object
-    poolSize.descriptorCount = SafeStaticCast<uint32, uint32_t>(MAX_FRAMES_IN_FLIGHT);         // descriptor count for each frame in flight
+    std::array<VkDescriptorPoolSize,2> poolSizes = {};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                                         // descriptor type for uniform buffer object
+    poolSizes[0].descriptorCount = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);         // descriptor count for each frame in flight
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
-    poolInfo.maxSets = SafeStaticCast<uint32, uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = SafeStaticCast<int, uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     if(vkCreateDescriptorPool(_mkDeviceRef.GetDevice(), &poolInfo, nullptr, &_vkDescriptorPool) != VK_SUCCESS)
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -84,30 +86,45 @@ MKDescriptorManager::MKDescriptorManager(MKDevice& mkDeviceRef, const VkExtent2D
     // populate descriptor set with actual buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
+        // buffer descriptor
 		VkDescriptorBufferInfo bufferInfo = {};
 		bufferInfo.buffer = _vkUniformBuffers[i];
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
-		VkWriteDescriptorSet descriptorWrite = {};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = _vkDescriptorSets[i];
-		descriptorWrite.dstBinding = 0;             // binding = 0
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pBufferInfo = &bufferInfo;
-        descriptorWrite.pImageInfo = nullptr;       // Optional
-        descriptorWrite.pTexelBufferView = nullptr; // Optional
+        // sampler descriptor
+        VkDescriptorImageInfo imageInfo = {};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = _vkTextureImageView;
+        imageInfo.sampler = _vkTextureSampler;
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+        // ubo descriptor write
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstSet = _vkDescriptorSets[i];
+		descriptorWrites[0].dstBinding = 0;             // binding = 0
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[0].descriptorCount = 1;
+		descriptorWrites[0].pBufferInfo = &bufferInfo;  // assign buffer info
+        // texture sampler descriptor write
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = _vkDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;             // binding = 1
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;    // assing image info
 
         // update descriptor set with specified VkWriteDescriptorSet
-		vkUpdateDescriptorSets(_mkDeviceRef.GetDevice(), 1, &descriptorWrite, 0, nullptr);
+		vkUpdateDescriptorSets(
+            _mkDeviceRef.GetDevice(), 
+            SafeStaticCast<size_t, uint32>(descriptorWrites.size()), 
+            descriptorWrites.data(), 
+            0, 
+            nullptr
+        );
 	}
-
-    // create texture image and view
-	CreateTextureImage();
-    CreateTextureImageView();
-    CreateTextureSampler();
 }
 
 MKDescriptorManager::~MKDescriptorManager()
@@ -173,6 +190,31 @@ void MKDescriptorManager::UpdateUniformBuffer(uint32 currentFrame)
 /**
 * ---------- private ----------
 */
+void MKDescriptorManager::CreateUniformBuffer()
+{
+    // create uniform buffer object
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    _vkUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    _vkUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    _vkUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        util::CreateBuffer(
+            _mkDeviceRef.GetPhysicalDevice(),
+            _mkDeviceRef.GetDevice(), bufferSize,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            _vkUniformBuffers[i],
+            _vkUniformBuffersMemory[i]
+        );
+
+        // persistent mapping without unmapping memory.
+        vkMapMemory(_mkDeviceRef.GetDevice(), _vkUniformBuffersMemory[i], 0, bufferSize, 0, &_vkUniformBuffersMapped[i]);
+    }
+}
+
 void MKDescriptorManager::CreateTextureImage() 
 {
     int texWidth, texHeight, texChannels;
