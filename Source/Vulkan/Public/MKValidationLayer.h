@@ -1,11 +1,5 @@
 #pragma once
 
-#ifdef NDEBUG
- #define ENABLE_VALIDATION_LAYERS 0
-#else
- #define ENABLE_VALIDATION_LAYERS 1
-#endif
-
 #include "Utilities.h"
 
 const std::vector<const char*> validationLayers = {

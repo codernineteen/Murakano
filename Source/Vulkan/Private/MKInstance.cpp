@@ -22,18 +22,15 @@ MKInstance::MKInstance()
     instanceInfo.ppEnabledExtensionNames = extension.data();
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    if (ENABLE_VALIDATION_LAYERS)
-    {
-        _validationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
-        instanceInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
-        instanceInfo.ppEnabledLayerNames = validationLayers.data();
-        instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-    }
-    else
-    {
-        instanceInfo.enabledLayerCount = 0;
-        instanceInfo.pNext = nullptr;
-    }
+#ifdef NDEBUG
+    instanceInfo.enabledLayerCount = 0;
+    instanceInfo.pNext = nullptr;
+#else
+    _validationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
+    instanceInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
+    instanceInfo.ppEnabledLayerNames = validationLayers.data();
+    instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+#endif
 
     // create VkInstance
     if(vkCreateInstance(&instanceInfo, nullptr, &_vkInstance) != VK_SUCCESS)
@@ -46,10 +43,16 @@ MKInstance::MKInstance()
 
 MKInstance::~MKInstance()
 {
-    if (ENABLE_VALIDATION_LAYERS) {
-        _validationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
-    }
+#ifndef NDEBUG
+    _validationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
+    std::clog << "[MURAKANO] : debug utils messenger destroyed" << std::endl;
+#endif
+
     vkDestroyInstance(_vkInstance, nullptr);
+
+#ifndef NDEBUG
+    std::clog << "[MURAKANO] : vulkan instance destroyed" << std::endl;
+#endif
 }
 
 std::vector<const char*> MKInstance::GetRequiredExtensions()
@@ -64,10 +67,9 @@ std::vector<const char*> MKInstance::GetRequiredExtensions()
         throw std::runtime_error("Required extensions are not supported");
     }
 
-    if(ENABLE_VALIDATION_LAYERS)
-	{
+#ifndef NDEBUG
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
+#endif
 
     return extensions;
 }

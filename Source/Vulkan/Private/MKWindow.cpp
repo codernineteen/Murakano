@@ -14,6 +14,10 @@ MKWindow::~MKWindow()
 {
     glfwDestroyWindow(_window);
     glfwTerminate();
+
+#ifndef NDEBUG
+    std::clog << "[MURAKANO] : glfw window destroyed" << std::endl;
+#endif
 }
 
 void MKWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height)

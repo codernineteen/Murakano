@@ -82,4 +82,8 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 MKRenderPass::~MKRenderPass()
 {
 	vkDestroyRenderPass(_mkDeviceRef.GetDevice(), _vkRenderPass, nullptr);
+
+#ifndef NDEBUG
+	std::clog << "[MURAKANO] : render pass destroyed" << std::endl;
+#endif
 }
