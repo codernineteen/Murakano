@@ -186,6 +186,13 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	// destroy pipeline and pipeline layout
 	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkGraphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
+
+#ifndef NDEBUG
+	std::clog << "[MURAKANO] : index buffer destroyed and memory freed" << std::endl;
+	std::clog << "[MURAKANO] : vertex buffer destroyed and memory freed" << std::endl;
+	std::clog << "[MURAKANO] : sync objects destroyed" << std::endl;
+	std::clog << "[MURAKANO] : graphics pipeline and its layout destroyed" << std::endl;
+#endif
 }
 
 void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)

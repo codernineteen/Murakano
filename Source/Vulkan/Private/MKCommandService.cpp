@@ -8,6 +8,10 @@ MKCommandService::MKCommandService()
 MKCommandService::~MKCommandService()
 {
 	vkDestroyCommandPool(_mkDevicePtr->GetDevice(), _vkCommandPool, nullptr);
+
+#ifndef NDEBUG
+	std::clog << "[MURAKANO] : command pool destroyed" << std::endl;
+#endif
 }
 
 void MKCommandService::InitCommandService(MKDevice* mkDevicePtr)

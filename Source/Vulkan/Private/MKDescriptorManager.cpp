@@ -147,6 +147,15 @@ MKDescriptorManager::~MKDescriptorManager()
 
     // destroy descriptor set layout
     vkDestroyDescriptorSetLayout(_mkDeviceRef.GetDevice(), _vkDescriptorSetLayout, nullptr);
+
+#ifndef NDEBUG
+    std::clog << "[MURAKANO] : combined image sampler destroyed" << std::endl;
+    std::clog << "[MURAKANO] : texture image view destroyed" << std::endl;
+    std::clog << "[MURAKANO] : texture image destroyed and freed its memory" << std::endl;
+    std::clog << "[MURAKANO] : uniform buffer objects destroyed" << std::endl;
+    std::clog << "[MURAKANO] : descriptor pool destroyed" << std::endl;
+    std::clog << "[MURAKANO] : descriptor set layout destroyed" << std::endl;
+#endif
 }
 
 void MKDescriptorManager::UpdateUniformBuffer(uint32 currentFrame)

@@ -36,17 +36,13 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;										       // device features
 	deviceCreateInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(deviceExtensions.size());  // number of device extensions
 	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();							       // device extensions
-	if (ENABLE_VALIDATION_LAYERS) 
-	{
-		deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
-		deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
-	}
-	else
-	{
-		deviceCreateInfo.enabledLayerCount = 0;													        // number of layers
-		deviceCreateInfo.ppEnabledLayerNames = nullptr;											        // layers
-	}
-
+#ifdef NDEBUG
+	deviceCreateInfo.enabledLayerCount = 0;													        // number of layers
+	deviceCreateInfo.ppEnabledLayerNames = nullptr;											        // layers
+#else
+	deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
+	deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+#endif
 	if (vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create logical device!");
@@ -66,6 +62,12 @@ MKDevice::~MKDevice()
 
 	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _vkSurface, nullptr);
 	vkDestroyDevice(_vkLogicalDevice, nullptr);
+
+#ifndef NDEBUG
+	std::clog << "[MURAKANO] : global command service instance destroyed" << std::endl;
+	std::clog << "[MURAKANO] : surface extension destroyed" << std::endl;
+	std::clog << "[MURAKANO] : logical device destroyed" << std::endl;
+#endif
 }
 
 void MKDevice::PickPhysicalDevice()

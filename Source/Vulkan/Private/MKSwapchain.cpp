@@ -19,6 +19,11 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 MKSwapchain::~MKSwapchain()
 {
 	DestroySwapchainResources();
+#ifndef NDEBUG
+	std::clog << "[MURAKANO] : VkFramebuffer destroyed" << std::endl;
+	std::clog << "[MURAKANO] : swapchain image view destroyed" << std::endl;
+	std::clog << "[MURAKANO] : swapchin extension destroyed" << std::endl;
+#endif
 }
 
 void MKSwapchain::DestroySwapchainResources()

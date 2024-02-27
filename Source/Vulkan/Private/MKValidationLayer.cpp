@@ -3,9 +3,11 @@
 MKValidationLayer::MKValidationLayer()
     : _debugMessenger(VK_NULL_HANDLE)
 {
-    if (ENABLE_VALIDATION_LAYERS && !CheckValidationLayerSupport()) {
+#ifndef NDEBUG
+    if (!CheckValidationLayerSupport()) {
 		throw std::runtime_error("validation layers requested, but not available.");
 	}
+#endif
 }
 
 MKValidationLayer::~MKValidationLayer() {}
@@ -38,7 +40,9 @@ bool MKValidationLayer::CheckValidationLayerSupport()
 
 void MKValidationLayer::SetupDebugMessenger(VkInstance instance)
 {
-    if (!ENABLE_VALIDATION_LAYERS) return;
+#ifdef NDEBUG
+    return;
+#endif
 
     VkDebugUtilsMessengerCreateInfoEXT debugMessengerInfo{};
     PopulateDebugMessengerCreateInfo(debugMessengerInfo);
