@@ -5,6 +5,7 @@
 #include "MKDevice.h"
 #include "MKRenderPass.h"
 #include "MKCommandService.h"
+#include "MKDescriptorManager.h"
 
 // [MKSwapchain class]
 // - Responsibility :

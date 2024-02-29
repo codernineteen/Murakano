@@ -12,13 +12,19 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
-	// create framebuffers for each image view
+	// initialize descriptor manager
+	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef, _vkSwapchainExtent);
+
+	// create framebuffers after creating swap chain image views and depth image view in descriptor manager.
 	CreateFrameBuffers();
 }
 
 MKSwapchain::~MKSwapchain()
 {
 	DestroySwapchainResources();
+
+	// destroy global descriptor manager instance
+	delete GDescriptorManager;
 #ifndef NDEBUG
 	std::clog << "[MURAKANO] : VkFramebuffer destroyed" << std::endl;
 	std::clog << "[MURAKANO] : swapchain image view destroyed" << std::endl;
@@ -28,12 +34,17 @@ MKSwapchain::~MKSwapchain()
 
 void MKSwapchain::DestroySwapchainResources()
 {
+	GDescriptorManager->DestroyDepthResources();
+
+	// destroy framebuffers
 	for (auto framebuffer : _vkSwapchainFramebuffers)
 		vkDestroyFramebuffer(_mkDeviceRef.GetDevice(), framebuffer, nullptr);
 
+	// destroy image views
 	for (auto imageView : _vkSwapchainImageViews)
 		vkDestroyImageView(_mkDeviceRef.GetDevice(), imageView, nullptr);
 
+	// destroy swapchain extension
 	vkDestroySwapchainKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, nullptr);
 }
 
@@ -54,6 +65,8 @@ void MKSwapchain::RecreateSwapchain()
 	// TODO : recreating render pass may be needed later.
 	CreateSwapchain();
 	CreateSwapchainImageViews();
+	GDescriptorManager->UpdateSwapchainExtent(_vkSwapchainExtent);
+	GDescriptorManager->CreateDepthResources();
 	CreateFrameBuffers();
 }
 
@@ -140,8 +153,9 @@ void MKSwapchain::CreateFrameBuffers()
 
 	// create frame buffer as much as the number of image views
 	for (size_t i = 0; i < _vkSwapchainImageViews.size(); i++) {
-		std::array<VkImageView, 1> attachments = {
+		std::array<VkImageView, 2> attachments = {
 			_vkSwapchainImageViews[i],
+			GDescriptorManager->GetDepthImageView()
 		};
 
 		VkFramebufferCreateInfo framebufferInfo{};
