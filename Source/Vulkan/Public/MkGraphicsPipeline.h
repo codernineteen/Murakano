@@ -53,6 +53,5 @@ private:
 private:
 	MKDevice&            _mkDeviceRef;
     MKSwapchain&         _mkSwapchainRef;
-    MKDescriptorManager  _mkDescriptorManager;
     uint32               _currentFrame = 0;
 };

@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <array>
 #include <string>
+#include <stack>
+#include <queue>
 
 // internal
 #include "Types.h"
@@ -183,5 +185,40 @@ namespace util
 
 		if (vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
 			throw std::runtime_error("Failed to create image views");
+	}
+
+	// Find supported device format
+	static VkFormat FindSupportedTilingFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+	{
+		for (VkFormat format : candidates)
+		{
+			/**
+			* VkFormatProperties specification
+			* 1. linearTilingFeatures : use cases that are supported with linear tiling
+			* 2. optimalTilingFeatures : use cases that are supported with optimal tiling
+			* 3. bufferFeatures : use cases that are supported for buffers
+			*/
+			VkFormatProperties properties;
+			vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &properties);
+
+			if(tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features)         // when linear tiling is required
+				return format;
+			else if(tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features)  // when optimal tiling is required
+				return format;
+		}
+
+		throw std::runtime_error("failed to find supported tiling format!");
+	}
+
+	// Find depth-specific format
+	static VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice)
+	{
+		std::vector<VkFormat> depthFormatCandidates{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
+		return util::FindSupportedTilingFormat(
+			physicalDevice,
+			depthFormatCandidates,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		);
 	}
 }

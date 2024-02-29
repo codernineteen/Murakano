@@ -55,6 +55,18 @@ void MKCommandService::ResetCommandBuffer(uint32 currentFrame)
 	vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0);
 }
 
+void MKCommandService::AsyncExecuteCommands(std::queue<VoidLambda>& commandQueue)
+{
+	VkCommandBuffer commandBuffer;
+	BeginSingleTimeCommands(commandBuffer);
+	while (!commandQueue.empty())
+	{
+		commandQueue.front()(commandBuffer);
+		commandQueue.pop();
+	}
+	EndSingleTimeCommands(commandBuffer);
+}
+
 /**
 * ---------------- Private -------------------- 
 */
@@ -116,7 +128,7 @@ void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 	submitInfo.pCommandBuffers = &commandBuffer;
 
 	vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	// Aslternatively, a fence could be used to wait for the command buffer to complete.
+	// Alternatively, a fence could be used to wait for the command buffer to complete.
 	vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue());
 
 	// free the command buffer right away.

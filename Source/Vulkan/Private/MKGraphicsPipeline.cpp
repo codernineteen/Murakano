@@ -1,12 +1,12 @@
 #include "MkGraphicsPipeline.h" 
+
 /*
 -----------	PUBLIC ------------
 */
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 	: 
 	_mkDeviceRef(mkDeviceRef), 
-	_mkSwapchainRef(mkSwapchainRef), 
-	_mkDescriptorManager(mkDeviceRef, _mkSwapchainRef.GetSwapchainExtent())
+	_mkSwapchainRef(mkSwapchainRef)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -96,7 +96,18 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
 	multisampling.alphaToOneEnable = VK_FALSE; // Optional
 
-	// TODO : depth and stencil testing
+	// depth and stencil testing (TODO : implement stencil buffer operation for shadow volume)
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_TRUE;           // for new depth values to be written to the depth buffer
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;  // lower depth is closer
+	depthStencil.depthBoundsTestEnable = VK_FALSE;     // Optional
+	depthStencil.minDepthBounds = 0.0f;               // Optional
+	depthStencil.maxDepthBounds = 1.0f;               // Optional
+	depthStencil.stencilTestEnable = VK_FALSE;
+	depthStencil.front = {};                           // Optional
+	depthStencil.back = {};                            // Optional
 
 	// TODO : color blending
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
@@ -124,7 +135,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;				                        // a descriptor set layout for uniform buffer object is set
-	pipelineLayoutInfo.pSetLayouts = _mkDescriptorManager.GetDescriptorSetLayoutPtr(); // specify descriptor set layout
+	pipelineLayoutInfo.pSetLayouts = GDescriptorManager->GetDescriptorSetLayoutPtr(); // specify descriptor set layout
 	pipelineLayoutInfo.pushConstantRangeCount = 0;		// Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;	// Optional
 
@@ -141,7 +152,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
-	//pipelineInfo.pDepthStencilState = &depthStencil;	// Optional
+	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = _vkPipelineLayout;			// pipeline layout
@@ -219,8 +230,8 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 
 	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
 	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0] = { {{0.0f, 0.0f, 0.0f, 1.0f}} }; // clear color
-	clearValues[1] = { 1.0f, 0 }; // clear depth
+	clearValues[0] = { {0.0f, 0.0f, 0.0f, 1.0f} }; // clear values for color
+	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
 	renderPassInfo.clearValueCount = SafeStaticCast<size_t, uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
@@ -255,7 +266,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		_vkPipelineLayout, 
 		0, 
 		1, 
-		_mkDescriptorManager.GetDescriptorSetPtr(_currentFrame), 
+		GDescriptorManager->GetDescriptorSetPtr(_currentFrame),
 		0, 
 		nullptr
 	);
@@ -409,7 +420,7 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	_mkDescriptorManager.UpdateUniformBuffer(_currentFrame);
+	GDescriptorManager->UpdateUniformBuffer(_currentFrame);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
