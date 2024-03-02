@@ -51,7 +51,8 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     * 2. texture sampler
     */
     CreateUniformBuffer();
-    CreateTextureImage("../../../resources/Textures/wood.jpg", _vkTextureImage, _vkTextureImageMemory);
+    // TODO : modify this hardcoded path 
+    CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage, _vkTextureImageMemory);
     CreateTextureImageView(_vkTextureImage, _vkTextureImageView);
     CreateTextureSampler();
     CreateDepthResources();
@@ -324,7 +325,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            textureImage,                          // texture image
+            textureImage,                             // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL      // new layout
