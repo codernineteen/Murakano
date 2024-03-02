@@ -3,6 +3,7 @@
 // third-party
 #include <vulkan/vulkan.h> // vulkan
 #include <fmt/core.h>
+#include <DirectXMath.h>
 
 // std
 #include <cstdint>
@@ -20,6 +21,8 @@
 #include <stack>
 #include <queue>
 
+// namespace aliases
+namespace dx = DirectX;
 
 // integer aliases
 using uint16 = std::uint16_t;
@@ -31,3 +34,4 @@ using int64 = std::int64_t;
 
 // function aliases
 using VoidLambda = std::function<void(VkCommandBuffer)>;
+
