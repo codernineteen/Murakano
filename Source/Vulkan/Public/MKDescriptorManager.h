@@ -32,10 +32,14 @@ public:
 	/* used in recreating swapchain */
 	void                   CreateDepthResources();
 	void                   DestroyDepthResources();
-	/* create texture image and view */
-	void CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
-	void CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
-	void CreateTextureSampler();
+	/* create texture image and view and their destroyers */
+	void                   CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
+	void                   CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
+	void                   CreateTextureSampler();
+	void                   DestroyTextureImage(VkImage textureImage) { vkDestroyImage(_mkDevicePtr->GetDevice(), textureImage, nullptr); }
+	void                   DestroyTextureImageView(VkImageView textureImageView);
+	void                   DestroyTextureSampler(VkSampler textureSampler);
+	void                   DestroyTextureImageMemory(VkDeviceMemory textureImageMemory) { vkFreeMemory(_mkDevicePtr->GetDevice(), textureImageMemory, nullptr); }
 
 private:
 	/* create uniform buffer object*/
