@@ -10,7 +10,7 @@ MKCommandService::~MKCommandService()
 	vkDestroyCommandPool(_mkDevicePtr->GetDevice(), _vkCommandPool, nullptr);
 
 #ifndef NDEBUG
-	std::clog << "[MURAKANO] : command pool destroyed" << std::endl;
+	MK_LOG("command pool destroyed");
 #endif
 }
 
@@ -46,13 +46,24 @@ void MKCommandService::SubmitCommandBufferToQueue(
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	// submit the command buffer to queueisResized
-	if (vkQueueSubmit(loadedQueue, 1, &submitInfo, /*optional fence*/ fence) != VK_SUCCESS) 
-		throw std::runtime_error("failed to submit draw command buffer!");
+	MK_CHECK(vkQueueSubmit(loadedQueue, 1, &submitInfo, /*optional fence*/ fence));
 }
 
 void MKCommandService::ResetCommandBuffer(uint32 currentFrame)
 {
-	vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0);
+	MK_CHECK(vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0));
+}
+
+void MKCommandService::AsyncExecuteCommands(std::queue<VoidLambda>& commandQueue)
+{
+	VkCommandBuffer commandBuffer;
+	BeginSingleTimeCommands(commandBuffer);
+	while (!commandQueue.empty())
+	{
+		commandQueue.front()(commandBuffer);
+		commandQueue.pop();
+	}
+	EndSingleTimeCommands(commandBuffer);
 }
 
 /**
@@ -70,8 +81,7 @@ void MKCommandService::CreateCommandPool(VkCommandPool* commandPoolPtr, VkComman
 	poolInfo.flags = commandFlag;
 	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-	if (vkCreateCommandPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, commandPoolPtr) != VK_SUCCESS)
-		throw std::runtime_error("failed to create command pool!");
+	MK_CHECK(vkCreateCommandPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, commandPoolPtr));
 }
 
 void MKCommandService::CreateCommandBuffers()
@@ -85,8 +95,7 @@ void MKCommandService::CreateCommandBuffers()
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = SafeStaticCast<size_t, uint32>(_vkCommandBuffers.size());
 
-	if (vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, _vkCommandBuffers.data()) != VK_SUCCESS) 
-		throw std::runtime_error("failed to allocate command buffers!");
+	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, _vkCommandBuffers.data()));
 }
 
 void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
@@ -97,27 +106,27 @@ void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
 	allocInfo.commandPool = _vkCommandPool;
 	allocInfo.commandBufferCount = 1;
 
-	vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer);
+	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer));
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Let the driver knows that this is single time command submission.
 
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 }
 
 void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 {
-	vkEndCommandBuffer(commandBuffer);
+	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	// Aslternatively, a fence could be used to wait for the command buffer to complete.
-	vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue());
+	MK_CHECK(vkQueueSubmit(_mkDevicePtr->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+	// Alternatively, a fence could be used to wait for the command buffer to complete.
+	MK_CHECK(vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue()));
 
 	// free the command buffer right away.
 	vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);

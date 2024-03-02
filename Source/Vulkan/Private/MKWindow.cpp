@@ -16,7 +16,7 @@ MKWindow::~MKWindow()
     glfwTerminate();
 
 #ifndef NDEBUG
-    std::clog << "[MURAKANO] : glfw window destroyed" << std::endl;
+    MK_LOG("glfw window destroyed");
 #endif
 }
 

@@ -1,8 +1,6 @@
 #pragma once
 
-#include <DirectXMath.h>
-
-namespace dx = DirectX;
+#include "Types.h"
 
 struct UniformBufferObject
 {

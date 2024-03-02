@@ -25,8 +25,7 @@ public:
 			VkFence fence = nullptr												  
 		 );
 	void ResetCommandBuffer(uint32 currentFrame);                                 // reset command buffer for reuse
-	void SetupCommandBuffer();
-	void FlushSetupCommands();
+	void AsyncExecuteCommands(std::queue<VoidLambda>& enqueuedCommands);
 
 public:
 	/* template implementations */

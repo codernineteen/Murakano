@@ -33,10 +33,7 @@ MKInstance::MKInstance()
 #endif
 
     // create VkInstance
-    if(vkCreateInstance(&instanceInfo, nullptr, &_vkInstance) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create instance");
-    }
+    MK_CHECK(vkCreateInstance(&instanceInfo, nullptr, &_vkInstance));
 
     _validationLayer.SetupDebugMessenger(_vkInstance);
 }
@@ -45,13 +42,13 @@ MKInstance::~MKInstance()
 {
 #ifndef NDEBUG
     _validationLayer.DestroyDebugUtilsMessengerEXT(_vkInstance, nullptr);
-    std::clog << "[MURAKANO] : debug utils messenger destroyed" << std::endl;
+    MK_LOG("debug utils messenger destroyed");
 #endif
 
     vkDestroyInstance(_vkInstance, nullptr);
 
 #ifndef NDEBUG
-    std::clog << "[MURAKANO] : vulkan instance destroyed" << std::endl;
+    MK_LOG("vulkan instance destroyed");
 #endif
 }
 

@@ -5,10 +5,10 @@
 // internal
 #include "Utilities.h"
 #include "Global.h"
-#include "Vertex.h"
 #include "MKDevice.h"
 #include "MKSwapchain.h"
 #include "MKDescriptorManager.h"
+#include "OBJModel.h"
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -50,9 +50,10 @@ private:
     VkBuffer                  _vkIndexBuffer;
     VkDeviceMemory            _vkIndexBufferMemory;
 
+    OBJModel                  _vikingRoom;
+
 private:
 	MKDevice&            _mkDeviceRef;
     MKSwapchain&         _mkSwapchainRef;
-    MKDescriptorManager  _mkDescriptorManager;
     uint32               _currentFrame = 0;
 };
