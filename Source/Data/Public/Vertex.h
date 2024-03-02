@@ -1,13 +1,11 @@
 #pragma once
 
-#include "Utilities.h"
-#include <glm/glm.hpp>
-
+#include "Utilities.h";
 struct Vertex
 {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
+    dx::XMFLOAT3 pos;
+    dx::XMFLOAT3 color;
+    dx::XMFLOAT2 texCoord;
 
     // getter for vertex bindging description
     static VkVertexInputBindingDescription  GetBindingDescription()
@@ -55,28 +53,27 @@ struct Vertex
 
     bool operator==(const Vertex& other) const
     {
-        return pos == other.pos && color == other.color;
+        return  pos.x == other.pos.x && pos.y == other.pos.y && pos.z == other.pos.z &&
+            color.x == other.color.x && color.y == other.color.y && color.z == other.color.z &&
+            texCoord.x == other.texCoord.x && texCoord.y == other.texCoord.y;
     }
 };
 
-const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
 
+struct VertexHash
+{
+    std::size_t operator()(const Vertex& k) const {
+        using std::size_t;
+        using std::hash;
 
-    {{-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-};
-
-const std::vector<uint16> indices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4,
-    7, 4, 0, 0, 3, 7,
-    1, 5, 6, 6, 2, 1,
-    5, 1, 0, 0, 4, 5,
-    3, 2, 6, 6, 7, 3
+        // this hashing algorithm is based on cppreference example - https://en.cppreference.com/w/cpp/utility/hash
+        return ((hash<float>()(k.pos.x)
+            ^ (hash<float>()(k.pos.y) << 1)) >> 1)
+            ^ (hash<float>()(k.pos.z) << 1)
+            ^ (hash<float>()(k.color.x) << 1)
+            ^ (hash<float>()(k.color.y) << 1)
+            ^ (hash<float>()(k.color.z) << 1)
+            ^ (hash<float>()(k.texCoord.x) << 1)
+            ^ (hash<float>()(k.texCoord.y) << 1);
+    }
 };
