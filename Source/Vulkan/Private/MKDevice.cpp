@@ -43,10 +43,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
 	deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 #endif
-	if (vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create logical device!");
-	}
+	MK_CHECK(vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice));
 
 	// retrieve queue handles from logical device
 	vkGetDeviceQueue(_vkLogicalDevice, indices.graphicsFamily.value(), 0, &_vkGraphicsQueue);
@@ -64,9 +61,9 @@ MKDevice::~MKDevice()
 	vkDestroyDevice(_vkLogicalDevice, nullptr);
 
 #ifndef NDEBUG
-	std::clog << "[MURAKANO] : global command service instance destroyed" << std::endl;
-	std::clog << "[MURAKANO] : surface extension destroyed" << std::endl;
-	std::clog << "[MURAKANO] : logical device destroyed" << std::endl;
+	MK_LOG("global command service instance destroyed");
+	MK_LOG("surface extension destroyed");
+	MK_LOG("logical device destroyed");
 #endif
 }
 
@@ -201,10 +198,7 @@ bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 
 void MKDevice::CreateWindowSurface()
 {
-	if (glfwCreateWindowSurface(_mkInstanceRef.GetVkInstance(), _mkWindowRef.GetWindow(), nullptr, &_vkSurface) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create window surface");
-	}
+	MK_CHECK(glfwCreateWindowSurface(_mkInstanceRef.GetVkInstance(), _mkWindowRef.GetWindow(), nullptr, &_vkSurface));
 }
 
 VkSurfaceFormatKHR MKDevice::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)

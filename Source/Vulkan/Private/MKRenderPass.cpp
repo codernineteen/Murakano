@@ -75,8 +75,7 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(_mkDeviceRef.GetDevice(), &renderPassInfo, nullptr, &_vkRenderPass) != VK_SUCCESS)
-		throw std::runtime_error("failed to create render pass!");
+	MK_CHECK(vkCreateRenderPass(_mkDeviceRef.GetDevice(), &renderPassInfo, nullptr, &_vkRenderPass));
 }
 
 MKRenderPass::~MKRenderPass()
@@ -84,6 +83,6 @@ MKRenderPass::~MKRenderPass()
 	vkDestroyRenderPass(_mkDeviceRef.GetDevice(), _vkRenderPass, nullptr);
 
 #ifndef NDEBUG
-	std::clog << "[MURAKANO] : render pass destroyed" << std::endl;
+	MK_LOG("render pass destroyed");
 #endif
 }
