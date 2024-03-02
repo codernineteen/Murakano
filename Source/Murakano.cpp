@@ -1,5 +1,6 @@
 #define GLM_FORCE_RADIANS
 #define STB_IMAGE_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
 
 #include "MKRenderer.h"
 
