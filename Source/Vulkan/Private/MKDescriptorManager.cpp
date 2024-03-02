@@ -16,9 +16,6 @@ MKDescriptorManager::~MKDescriptorManager()
     vkDestroyImage(_mkDevicePtr->GetDevice(), _vkTextureImage, nullptr);
     vkFreeMemory(_mkDevicePtr->GetDevice(), _vkTextureImageMemory, nullptr);
 
-    // cleanup depth resources
-    DestroyDepthResources();
-
     // cleanup uniform buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -33,12 +30,12 @@ MKDescriptorManager::~MKDescriptorManager()
     vkDestroyDescriptorSetLayout(_mkDevicePtr->GetDevice(), _vkDescriptorSetLayout, nullptr);
 
 #ifndef NDEBUG
-    std::clog << "[MURAKANO] : combined image sampler destroyed" << std::endl;
-    std::clog << "[MURAKANO] : texture image view destroyed" << std::endl;
-    std::clog << "[MURAKANO] : texture image destroyed and freed its memory" << std::endl;
-    std::clog << "[MURAKANO] : uniform buffer objects destroyed" << std::endl;
-    std::clog << "[MURAKANO] : descriptor pool destroyed" << std::endl;
-    std::clog << "[MURAKANO] : descriptor set layout destroyed" << std::endl;
+    MK_LOG("combined image sampler destroyed");
+    MK_LOG("texture image view destroyed");
+    MK_LOG("texture image destroyed and freed its memory");
+    MK_LOG("uniform buffer objects destroyed");
+    MK_LOG("descriptor pool destroyed");
+    MK_LOG("descriptor set layout destroyed");
 #endif
 }
 
@@ -54,8 +51,8 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     * 2. texture sampler
     */
     CreateUniformBuffer();
-    CreateTextureImage();
-    CreateTextureImageView();
+    CreateTextureImage("../../../resources/Textures/wood.jpg", _vkTextureImage, _vkTextureImageMemory);
+    CreateTextureImageView(_vkTextureImage, _vkTextureImageView);
     CreateTextureSampler();
     CreateDepthResources();
 
@@ -91,8 +88,7 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     layoutInfo.pBindings = bindings.data();
 
     // create descriptor set layout
-    if (vkCreateDescriptorSetLayout(_mkDevicePtr->GetDevice(), &layoutInfo, nullptr, &_vkDescriptorSetLayout) != VK_SUCCESS)
-        throw std::runtime_error("failed to create descriptor set layout!");
+    MK_CHECK(vkCreateDescriptorSetLayout(_mkDevicePtr->GetDevice(), &layoutInfo, nullptr, &_vkDescriptorSetLayout));
 
     /**
     * Create Descriptor Pool
@@ -112,8 +108,7 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = SafeStaticCast<int, uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &_vkDescriptorPool) != VK_SUCCESS)
-        throw std::runtime_error("failed to create descriptor pool!");
+    MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &_vkDescriptorPool));
 
     // allocate descriptor set
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, _vkDescriptorSetLayout);  // same layout for each frame in flight
@@ -125,8 +120,7 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
 
     _vkDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     // create descriptor sets for each frame in flight
-    if (vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, _vkDescriptorSets.data()) != VK_SUCCESS)
-        throw std::runtime_error("failed to allocate descriptor set!");
+    MK_CHECK(vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, _vkDescriptorSets.data()));
 
     // populate descriptor set with actual buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -277,10 +271,10 @@ void MKDescriptorManager::CreateUniformBuffer()
     }
 }
 
-void MKDescriptorManager::CreateTextureImage() 
+void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory) 
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("../../../resources/textures/wood.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = SafeStaticCast<int, VkDeviceSize>(texWidth * texHeight * 4);
 
     if (!pixels) 
@@ -317,8 +311,8 @@ void MKDescriptorManager::CreateTextureImage()
         VK_IMAGE_TILING_OPTIMAL,                                       // image usage - tiling optimal because the renderer using staging buffer to copy pixel data
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,  // image properties - destination of buffer copy and sampled in the shader
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        _vkTextureImage,
-        _vkTextureImageMemory
+        textureImage,
+        textureImageMemory
     );
 
     /**
@@ -330,7 +324,7 @@ void MKDescriptorManager::CreateTextureImage()
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            _vkTextureImage,                          // texture image
+            textureImage,                          // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL      // new layout
@@ -341,7 +335,7 @@ void MKDescriptorManager::CreateTextureImage()
         CopyBufferToImage(
             commandBuffer,
             stagingBuffer,
-            _vkTextureImage,
+            textureImage,
             SafeStaticCast<int, uint32>(texWidth),
             SafeStaticCast<int, uint32>(texHeight)
         );
@@ -349,7 +343,7 @@ void MKDescriptorManager::CreateTextureImage()
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            _vkTextureImage,                          // texture image
+            textureImage,                          // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // old layout
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL  // new layout
@@ -364,12 +358,12 @@ void MKDescriptorManager::CreateTextureImage()
     vkFreeMemory(_mkDevicePtr->GetDevice(), stagingBufferMemory, nullptr);
 }
 
-void MKDescriptorManager::CreateTextureImageView() 
+void MKDescriptorManager::CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView) 
 {
     util::CreateImageView(
         _mkDevicePtr->GetDevice(),
-        _vkTextureImage,
-        _vkTextureImageView,
+        textureImage,
+        textureImageView,
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_ASPECT_COLOR_BIT,
         1
@@ -401,9 +395,7 @@ void MKDescriptorManager::CreateTextureSampler()
 	samplerInfo.minLod = 0.0f;                                           // minimum level of detail
 	samplerInfo.maxLod = 0.0f;                                           // maximum level of detail
 
-	if (vkCreateSampler(_mkDevicePtr->GetDevice(), &samplerInfo, nullptr, &_vkTextureSampler) != VK_SUCCESS)
-		throw std::runtime_error("failed to create texture sampler!");
-
+    MK_CHECK(vkCreateSampler(_mkDevicePtr->GetDevice(), &samplerInfo, nullptr, &_vkTextureSampler));
 }
 
 void MKDescriptorManager::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) 
