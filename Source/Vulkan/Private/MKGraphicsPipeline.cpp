@@ -6,7 +6,8 @@
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 	: 
 	_mkDeviceRef(mkDeviceRef), 
-	_mkSwapchainRef(mkSwapchainRef)
+	_mkSwapchainRef(mkSwapchainRef),
+	_vikingRoom(OBJModel("../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -255,7 +256,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
 	
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
@@ -267,7 +268,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		0, 
 		nullptr
 	);
-	vkCmdDrawIndexed(commandBuffer, SafeStaticCast<size_t, uint32>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, _vikingRoom.indices.size(), 1, 0, 0, 0);
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
@@ -277,8 +278,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 
 void MKGraphicsPipeline::CreateVertexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-	
+	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
 	/**
 	* Staging buffer : temporary host-visible buffer 
 	* - usage : source of memory transfer operation
@@ -296,7 +296,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
+	memcpy(data, _vikingRoom.vertices.data(), (size_t)bufferSize);
 	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
 
 	/**
@@ -319,7 +319,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -333,7 +333,7 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t)bufferSize);
+	memcpy(data, _vikingRoom.indices.data(), (size_t)bufferSize);
 	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
 
 	/**
