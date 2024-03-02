@@ -26,9 +26,9 @@ MKSwapchain::~MKSwapchain()
 	// destroy global descriptor manager instance
 	delete GDescriptorManager;
 #ifndef NDEBUG
-	std::clog << "[MURAKANO] : VkFramebuffer destroyed" << std::endl;
-	std::clog << "[MURAKANO] : swapchain image view destroyed" << std::endl;
-	std::clog << "[MURAKANO] : swapchin extension destroyed" << std::endl;
+	MK_LOG("VkFramebuffer destroyed");
+	MK_LOG("swapchain image view destroyed");
+	MK_LOG("swapchin extension destroyed");
 #endif
 }
 
@@ -118,8 +118,7 @@ void MKSwapchain::CreateSwapchain()
 	swapchainCreateInfo.clipped = VK_TRUE; // ignore the pixels that are obscured by other windows
 	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	if (vkCreateSwapchainKHR(_mkDeviceRef.GetDevice(), &swapchainCreateInfo, nullptr, &_vkSwapchain) != VK_SUCCESS)
-		throw std::runtime_error("Failed to create swapchain");
+	MK_CHECK(vkCreateSwapchainKHR(_mkDeviceRef.GetDevice(), &swapchainCreateInfo, nullptr, &_vkSwapchain));
 
 	// retrieve swapchain images
 	vkGetSwapchainImagesKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, &imageCount, nullptr);
@@ -167,8 +166,7 @@ void MKSwapchain::CreateFrameBuffers()
 		framebufferInfo.height = _vkSwapchainExtent.height;
 		framebufferInfo.layers = 1; // number of layers in image arrays
 
-		if (vkCreateFramebuffer(_mkDeviceRef.GetDevice(), &framebufferInfo, nullptr, &_vkSwapchainFramebuffers[i]) != VK_SUCCESS) 
-			throw std::runtime_error("failed to create framebuffer!");
+		MK_CHECK(vkCreateFramebuffer(_mkDeviceRef.GetDevice(), &framebufferInfo, nullptr, &_vkSwapchainFramebuffers[i]));
 	}
 }
 

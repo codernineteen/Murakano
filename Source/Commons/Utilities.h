@@ -1,36 +1,20 @@
 #pragma once
 
-// third-party
-#include <vulkan/vulkan.h> // vulkan
-
-// std
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
-#include <memory>
-#include <algorithm>
-#include <array>
-#include <string>
-#include <stack>
-#include <queue>
-
 // internal
 #include "Types.h"
 #include "Conversion.h"
+#include "Macros.h"
 
 // helper function
 namespace util 
 {
+	/* read local file */
 	static std::vector<char> ReadFile(const std::string& filename) 
 	{
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-        if (!file.is_open() || file.bad()) {
+        if (!file.is_open() || file.bad()) 
             throw std::runtime_error("failed to open file!");
-        }
 
         size_t fileSize = static_cast<size_t>(file.tellg()); // advangtage of ios::ate - we can use read position to determine size of file
         std::vector<char> buffer(fileSize);
@@ -50,12 +34,10 @@ namespace util
 			// 1. memoryTypeBits is a one-bit bitmask and we can find a match by iterating over each type bit and checking if it is set in the typeFilter
 			// 2. If matched index's memory type has all the properties we need, then return the index.
 			if ((typeFilter & (1 << i)) && (deviceMemProperties.memoryTypes[i].propertyFlags & properties) == properties)
-			{
 				return i;
-			}
 		}
 
-		throw std::runtime_error("failed to find suitable memory type!");
+		MK_THROW("failed to find suitable memory type!");
 	}
 
     static void CreateBuffer(
@@ -74,8 +56,7 @@ namespace util
 		bufferInfo.usage = bufferUsage;                           // indicate the purpose of the data in the buffer
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;       // buffer will only be used by the graphics queue family
 
-		if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-			throw std::runtime_error("failed to create buffer!");
+		MK_CHECK(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer));
 
 		// query memory requirements for the buffer
 		/**
@@ -102,13 +83,10 @@ namespace util
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = memoryTypeIndex;
 
-
-
-		if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-			throw std::runtime_error("failed to allocate buffer memory!");
-
-		// Associate allocated memory with the buffer by calling 'vkBindBufferMemory'
-		vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
+		// allocate memory for the buffer
+		MK_CHECK(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory));
+		// bind allocated memory with the buffer by calling 'vkBindBufferMemory'
+		MK_CHECK(vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0));
     }
 
 	static void CreateImage(
@@ -140,9 +118,7 @@ namespace util
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;         // multisampling-related
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // If there are more than two queues using the image, then you should use VK_SHARING_MODE_CONCURRENT
 
-		if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create image!");
-		}
+		MK_CHECK(vkCreateImage(device, &imageInfo, nullptr, &image));
 
 		VkMemoryRequirements memRequirements;
 		vkGetImageMemoryRequirements(device, image, &memRequirements);
@@ -156,11 +132,8 @@ namespace util
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, memProperties, properties);
 
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate image memory!");
-		}
-
-		vkBindImageMemory(device, image, imageMemory, 0);
+		MK_CHECK(vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory));
+		MK_CHECK(vkBindImageMemory(device, image, imageMemory, 0));
 	}
 
 	static void CreateImageView(
@@ -183,8 +156,7 @@ namespace util
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
 
-		if (vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
-			throw std::runtime_error("Failed to create image views");
+		MK_CHECK(vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView));
 	}
 
 	// Find supported device format
@@ -207,7 +179,7 @@ namespace util
 				return format;
 		}
 
-		throw std::runtime_error("failed to find supported tiling format!");
+		MK_THROW("failed to find supported tiling format!");
 	}
 
 	// Find depth-specific format

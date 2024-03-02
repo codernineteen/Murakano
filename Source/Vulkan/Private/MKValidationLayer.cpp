@@ -4,9 +4,8 @@ MKValidationLayer::MKValidationLayer()
     : _debugMessenger(VK_NULL_HANDLE)
 {
 #ifndef NDEBUG
-    if (!CheckValidationLayerSupport()) {
-		throw std::runtime_error("validation layers requested, but not available.");
-	}
+    if (!CheckValidationLayerSupport()) 
+		MK_THROW("validation layers requested, but not available.");
 #endif
 }
 
@@ -24,7 +23,8 @@ bool MKValidationLayer::CheckValidationLayerSupport()
         bool layerFound = false;
 
         for (const auto& layerProperties : availableLayers) {
-            if (strcmp(layerName, layerProperties.layerName) == 0) { // if layer name is same as requested
+            if (strcmp(layerName, layerProperties.layerName) == 0) // if layer name is same as requested
+            { 
                 layerFound = true;
                 break;
             }
@@ -47,9 +47,8 @@ void MKValidationLayer::SetupDebugMessenger(VkInstance instance)
     VkDebugUtilsMessengerCreateInfoEXT debugMessengerInfo{};
     PopulateDebugMessengerCreateInfo(debugMessengerInfo);
 
-    if (CreateDebugUtilsMessengerEXT(instance, &debugMessengerInfo, nullptr) != VK_SUCCESS) {
+    if (CreateDebugUtilsMessengerEXT(instance, &debugMessengerInfo, nullptr) != VK_SUCCESS) 
         throw std::runtime_error("failed to set up debug messenger");
-    }
 }
 
 VkResult MKValidationLayer::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator)

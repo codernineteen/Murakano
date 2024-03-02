@@ -6,7 +6,8 @@
 MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 	: 
 	_mkDeviceRef(mkDeviceRef), 
-	_mkSwapchainRef(mkSwapchainRef)
+	_mkSwapchainRef(mkSwapchainRef),
+	_vikingRoom(OBJModel("../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -131,7 +132,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	colorBlending.blendConstants[2] = 0.0f;		// Optional
 	colorBlending.blendConstants[3] = 0.0f;		// Optional
 
-	// TODO : pipeline layout (need to specify descriptor)
+	// specify pipeline layout
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;				                        // a descriptor set layout for uniform buffer object is set
@@ -139,8 +140,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	pipelineLayoutInfo.pushConstantRangeCount = 0;		// Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr;	// Optional
 
-	if (vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout) != VK_SUCCESS) 
-		throw std::runtime_error("failed to create pipeline layout.");
+	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -161,8 +161,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;	// Optional - usage for piepline derivatives
 	pipelineInfo.basePipelineIndex = -1;				// Optional
 
-	if (vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline) != VK_SUCCESS)
-		throw std::runtime_error("failed to create graphics pipeline!");
+	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline));
 
 	// create sync objects
 	CreateSyncObjects();
@@ -199,10 +198,10 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
 
 #ifndef NDEBUG
-	std::clog << "[MURAKANO] : index buffer destroyed and memory freed" << std::endl;
-	std::clog << "[MURAKANO] : vertex buffer destroyed and memory freed" << std::endl;
-	std::clog << "[MURAKANO] : sync objects destroyed" << std::endl;
-	std::clog << "[MURAKANO] : graphics pipeline and its layout destroyed" << std::endl;
+	MK_LOG("index buffer destroyed and memory freed");
+	MK_LOG("vertex buffer destroyed and memory freed");
+	MK_LOG("sync objects destroyed");
+	MK_LOG("graphics pipeline and its layout destroyed");
 #endif
 }
 
@@ -214,8 +213,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	beginInfo.pInheritanceInfo = nullptr;	// Optional
 
 	auto commandBuffer = GCommandService->GetCommandBuffer(_currentFrame);
-	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-		throw std::runtime_error("failed to begin recording command buffer!");
+	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 	// store swapchain extent for common usage.
 	auto swapchainExtent = _mkSwapchainRef.GetSwapchainExtent();
@@ -258,7 +256,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT16);           // bind index buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
 	
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
@@ -270,19 +268,17 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		0, 
 		nullptr
 	);
-	vkCmdDrawIndexed(commandBuffer, SafeStaticCast<size_t, uint32>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, _vikingRoom.indices.size(), 1, 0, 0, 0);
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
 
-	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-		throw std::runtime_error("failed to record command buffer!");
+	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
 void MKGraphicsPipeline::CreateVertexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-	
+	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
 	/**
 	* Staging buffer : temporary host-visible buffer 
 	* - usage : source of memory transfer operation
@@ -300,7 +296,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
+	memcpy(data, _vikingRoom.vertices.data(), (size_t)bufferSize);
 	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
 
 	/**
@@ -323,7 +319,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -337,7 +333,7 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 
 	void* data;
 	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t)bufferSize);
+	memcpy(data, _vikingRoom.indices.data(), (size_t)bufferSize);
 	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
 
 	/**
@@ -370,8 +366,7 @@ VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& c
 	createInfo.pCode = reinterpret_cast<const uint32*>(code.data()); // guaranteed to be aligned by default allocator  of std::vector 
 
 	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(_mkDeviceRef.GetDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) 
-		throw std::runtime_error("failed to create shader module!");
+	MK_CHECK(vkCreateShaderModule(_mkDeviceRef.GetDevice(), &createInfo, nullptr, &shaderModule));
 	
 	return shaderModule;
 }
@@ -389,13 +384,11 @@ void MKGraphicsPipeline::CreateSyncObjects()
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // create fence as signaled state for the very first frame.
 
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		if (
-			vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkImageAvailableSemaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkRenderFinishedSemaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_vkInFlightFences[i]) != VK_SUCCESS
-			)
-			throw std::runtime_error("failed to create semaphores!");
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+	{
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkImageAvailableSemaphores[i]));
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkRenderFinishedSemaphores[i]));
+		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_vkInFlightFences[i]));
 	}
 }
 
@@ -465,7 +458,7 @@ void MKGraphicsPipeline::DrawFrame()
 		_mkSwapchainRef.RecreateSwapchain();
 	}
 	else if (result != VK_SUCCESS)
-		throw std::runtime_error("failed to present swap chain image!");
+		MK_THROW("failed to present swap chain image!");
 
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; // circular update of current frame.
 }
