@@ -13,14 +13,11 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-	float queuePriority = 1.0f;                             // priority of the queue for scheduling purposes . ranged from 0.0 to 1.0
+	// priority of the queue for scheduling purposes. it is ranged between 0.0 and 1.0
+	float queuePriority = 1.0f;
 	for (uint32 queueFamily : uniqueQueueFamilies)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo = {};
-		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		queueCreateInfo.queueFamilyIndex = queueFamily;		// index of the queue family to create
-		queueCreateInfo.queueCount = 1;						// number of queues to create
-		queueCreateInfo.pQueuePriorities = &queuePriority;	// array of queue priorities
+		VkDeviceQueueCreateInfo queueCreateInfo = vkinfo::GetDeviceQueueCreateInfo(queueFamily, queuePriority);
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
@@ -29,20 +26,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	deviceFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
 
 	// specify device creation info
-	VkDeviceCreateInfo deviceCreateInfo = {};
-	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();								       // queue create info
-	deviceCreateInfo.queueCreateInfoCount = SafeStaticCast<size_t, uint32>(queueCreateInfos.size());   // number of queue create infos
-	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;										       // device features
-	deviceCreateInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(deviceExtensions.size());  // number of device extensions
-	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();							       // device extensions
-#ifdef NDEBUG
-	deviceCreateInfo.enabledLayerCount = 0;													        // number of layers
-	deviceCreateInfo.ppEnabledLayerNames = nullptr;											        // layers
-#else
-	deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
-	deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
-#endif
+	VkDeviceCreateInfo deviceCreateInfo = vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures, deviceExtensions);
 	MK_CHECK(vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice));
 
 	// retrieve queue handles from logical device

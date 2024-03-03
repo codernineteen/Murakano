@@ -5,6 +5,7 @@
 #include <optional>
 
 // internal
+#include "Info.h"
 #include "Utilities.h"
 #include "Global.h"
 #include "MKInstance.h"

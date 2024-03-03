@@ -2,6 +2,7 @@
 
 // internal
 #include "Utilities.h"
+#include "Info.h"
 #include "MKWindow.h"
 #include "MKValidationLayer.h"
 
