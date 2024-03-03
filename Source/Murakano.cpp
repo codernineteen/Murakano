@@ -1,9 +1,9 @@
 #define GLM_FORCE_RADIANS
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
+#define VMA_IMPLEMENTATION
 
 #include "MKRenderer.h"
-
 
 int main()
 {
