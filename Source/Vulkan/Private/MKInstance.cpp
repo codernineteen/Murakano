@@ -4,37 +4,26 @@ MKInstance::MKInstance()
     : _validationLayer()
 {
     // specify application create info
-	VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO; // set app info enum variant to struct Type field
-    appInfo.pApplicationName = "Murakano"; // application name
-    appInfo.applicationVersion = VK_MAKE_VERSION(0, 1, 0); // version specifier
-    appInfo.pEngineName = "NO ENGINE";
-    appInfo.engineVersion = VK_MAKE_VERSION(0, 1, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_3; // Murakano using v1.3.268 vulkan api.
-
+	VkApplicationInfo appInfo = vkinfo::GetApplicationInfo();
     auto extension = GetRequiredExtensions();
  
     // specify instance create info
-	VkInstanceCreateInfo instanceInfo{};
-	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instanceInfo.pApplicationInfo = &appInfo;
-    instanceInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(extension.size());
-    instanceInfo.ppEnabledExtensionNames = extension.data();
-
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 #ifdef NDEBUG
-    instanceInfo.enabledLayerCount = 0;
-    instanceInfo.pNext = nullptr;
+	VkInstanceCreateInfo instanceInfo = vkinfo::GetInstanceCreateInfo(&appInfo, extension.size(), extension.data());
 #else
-    _validationLayer.PopulateDebugMessengerCreateInfo(debugCreateInfo);
-    instanceInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
-    instanceInfo.ppEnabledLayerNames = validationLayers.data();
-    instanceInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = vkinfo::GetDebugMessengerCreateInfo(MKValidationLayer::DebugCallback);
+    VkInstanceCreateInfo instanceInfo = vkinfo::GetInstanceCreateInfo(
+        &appInfo, 
+        extension.size(), 
+        extension.data(), 
+        (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo
+    );
 #endif
 
     // create VkInstance
     MK_CHECK(vkCreateInstance(&instanceInfo, nullptr, &_vkInstance));
 
+    // setup debug messenger
     _validationLayer.SetupDebugMessenger(_vkInstance);
 }
 

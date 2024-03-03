@@ -22,24 +22,27 @@ public:
 	VkImageView             GetDepthImageView() const { return _vkDepthImageView; }
 
 	/* undate uniform buffer objects state*/
-	void                   UpdateUniformBuffer(uint32 currentFrame);
+	void UpdateUniformBuffer(uint32 currentFrame);
+	
 	/* update swapchain extent whenever there is recreation of it. */
-	void                   UpdateSwapchainExtent(VkExtent2D swapchainExtent) { _vkSwapchainExtent = swapchainExtent; }
+	void UpdateSwapchainExtent(VkExtent2D swapchainExtent) { _vkSwapchainExtent = swapchainExtent; }
 
 	/* transition image layout with pipeline barrier (when VK_SHARING_MODE_EXCLUSIVE) */
-	void                   TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	void                   CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	/* used in recreating swapchain */
-	void                   CreateDepthResources();
-	void                   DestroyDepthResources();
-	/* create texture image and view and their destroyers */
-	void                   CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
-	void                   CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
-	void                   CreateTextureSampler();
-	void                   DestroyTextureImage(VkImage textureImage) { vkDestroyImage(_mkDevicePtr->GetDevice(), textureImage, nullptr); }
-	void                   DestroyTextureImageView(VkImageView textureImageView);
-	void                   DestroyTextureSampler(VkSampler textureSampler);
-	void                   DestroyTextureImageMemory(VkDeviceMemory textureImageMemory) { vkFreeMemory(_mkDevicePtr->GetDevice(), textureImageMemory, nullptr); }
+	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height); 
+
+	/* create resources */
+	void CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
+	void CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
+	void CreateTextureSampler();
+	void CreateDepthResources();
+
+	/* destroy resources */
+	void DestroyTextureImage(VkImage textureImage) { vkDestroyImage(_mkDevicePtr->GetDevice(), textureImage, nullptr); }
+	void DestroyTextureImageView(VkImageView textureImageView);
+	void DestroyTextureSampler(VkSampler textureSampler);
+	void DestroyTextureImageMemory(VkDeviceMemory textureImageMemory) { vkFreeMemory(_mkDevicePtr->GetDevice(), textureImageMemory, nullptr); }
+	void DestroyDepthResources();
 
 private:
 	/* create uniform buffer object*/
