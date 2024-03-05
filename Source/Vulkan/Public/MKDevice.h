@@ -5,7 +5,6 @@
 #include <optional>
 
 // internal
-#include "Info.h"
 #include "Utilities.h"
 #include "Global.h"
 #include "MKInstance.h"
@@ -49,19 +48,22 @@ public:
 	inline VkQueue			 GetGraphicsQueue()   const { return _vkGraphicsQueue; }
 	inline VkQueue			 GetPresentQueue()	  const { return _vkPresentQueue; }
 	inline MKWindow&         GetWindowRef()		  const { return _mkWindowRef; }
+	inline VmaAllocator      GetVmaAllocator()    const { return _vmaAllocator; }
 
 	/* setters */
 	inline void              SetFrameBufferResized(bool isResized) { _mkWindowRef.framebufferResized = isResized; }
 
-	// support checkers
+	/* support checkers */
 	SwapChainSupportDetails  QuerySwapChainSupport(VkPhysicalDevice device);
 	QueueFamilyIndices		 FindQueueFamilies(VkPhysicalDevice device);
 
-	// common apis
+	/* common apis */
 	void WaitUntilDeviceIdle() { vkDeviceWaitIdle(_vkLogicalDevice); }
 	
-	// Belows are related to swapchain creation.
-	// I located these functions in Device class for consistency vecause one of them requires window refernce.
+	/**
+	* Belows are related to swapchain creation. 
+	* I located these functions in Device class for consistency vecause one of them requires window refernce.
+	*/
 	VkSurfaceFormatKHR  ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR	ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D			ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
@@ -78,6 +80,7 @@ private:
 	VkSurfaceKHR	  _vkSurface = VK_NULL_HANDLE;			// an interface to communicate with the window system
 	VkQueue			  _vkGraphicsQueue;
 	VkQueue			  _vkPresentQueue;
+	VmaAllocator      _vmaAllocator;
 
 private:
 	const MKInstance&  _mkInstanceRef;
@@ -85,6 +88,8 @@ private:
 
 public:
 	const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME		// macro from VK_KHR_swapchain extension
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,             // macro from VK_KHR_swapchain extension
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, // macro from VK_KHR_buffer_device_address extension
+		VK_KHR_DEVICE_GROUP_EXTENSION_NAME, // macro from VK_KHR_device_group_creation extension
 	};
 };

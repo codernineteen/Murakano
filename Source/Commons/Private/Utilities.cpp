@@ -32,50 +32,30 @@ namespace util
         MK_THROW("failed to find suitable memory type!");
     }
 
-	void CreateBuffer(
-		VkPhysicalDevice physicalDevice,
-		VkDevice logicalDevice,
+	VkBufferAllocated CreateBuffer(
+		const VmaAllocator& allocator,
 		VkDeviceSize size,
 		VkBufferUsageFlags bufferUsage,
-		VkMemoryPropertyFlags properties,
-		VkBuffer& buffer,
-		VkDeviceMemory& bufferMemory
+		VmaMemoryUsage memoryUsage,
+		VmaAllocationCreateFlags memoryAllocationFlags
 	)
 	{
 		// specify buffer creation info
 		VkBufferCreateInfo bufferInfo = vkinfo::GetBufferCreateInfo(size, bufferUsage, VK_SHARING_MODE_EXCLUSIVE);
 
-		MK_CHECK(vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer));
-
-		// query memory requirements for the buffer
+		VmaAllocationCreateInfo bufferAllocInfo{};
+		bufferAllocInfo.usage = memoryUsage;
 		/**
-		* VKMemoryRequirements specification
-		* 1. size : the size of the required amount of memory in bytes
-		* 2. alignment : the offset in bytes where the buffer begins in the allocated region of memory
-		* 3. memoryTypeBits : a bitmask and contains one bit set for every supported memory type for the resource. 'Bit i' is set if and only if the memory type i in the VkPhysicalDeviceMemoryProperties structure for the physical device is supported for the resource.
+		* CREATE_MAPPED_BIT by default 
+		*  - flag for automatic mapping pointer with 'pMappedData' member of VmaAllocationInfo struct (as long as buffer is accessible from CPU )
 		*/
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements);
-		/**
-		* VKPhysicalDeviceMemoryProperties specification
-		* 1. memoryTypes : different types of memory like device local, host visible, coherent, and cached
-		* 2. memoryHeaps : distinct memory resources like dedicated VRAM and swap space in RAM for example (this can affect performance)
-		*/
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+		bufferAllocInfo.flags = memoryAllocationFlags;
 
-		// find a memory type that is suitable for the buffer and meets the requirements
-		uint32 memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, memProperties, properties);
+		// create buffer
+		VkBufferAllocated newBuffer{};
+		MK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &bufferAllocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.allocationInfo));
 
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = memoryTypeIndex;
-
-		// allocate memory for the buffer
-		MK_CHECK(vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &bufferMemory));
-		// bind allocated memory with the buffer by calling 'vkBindBufferMemory'
-		MK_CHECK(vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0));
+		return newBuffer;
 	}
 
 	void CreateImage(

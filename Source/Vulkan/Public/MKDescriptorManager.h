@@ -58,8 +58,7 @@ private:
 
 	/* uniform buffer descriptor*/
 	VkDescriptorSetLayout         _vkDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkBuffer>         _vkUniformBuffers = std::vector<VkBuffer>();
-	std::vector<VkDeviceMemory>   _vkUniformBuffersMemory = std::vector<VkDeviceMemory>();
+	std::vector<VkBufferAllocated>_vkUniformBuffers = std::vector<VkBufferAllocated>();
 	std::vector<void*>            _vkUniformBuffersMapped = std::vector<void*>();
 	std::vector<VkDescriptorSet>  _vkDescriptorSets = std::vector<VkDescriptorSet>();
 

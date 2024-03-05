@@ -1,6 +1,5 @@
 #pragma once
 
-// internal
 #include "Types.h"
 #include "Conversion.h"
 #include "Macros.h"
@@ -14,16 +13,16 @@ namespace util
 	
 	/* a utility to find a suitable memory type*/
 	uint32 FindMemoryType(uint32 typeFilter, VkPhysicalDeviceMemoryProperties deviceMemProperties, VkMemoryPropertyFlags properties);
+
 	/* create a buffer */
-	void CreateBuffer(
-		VkPhysicalDevice physicalDevice,
-		VkDevice logicalDevice,
+	VkBufferAllocated CreateBuffer(
+		const VmaAllocator& allocator,
 		VkDeviceSize size,
 		VkBufferUsageFlags bufferUsage,
-		VkMemoryPropertyFlags properties,
-		VkBuffer& buffer,
-		VkDeviceMemory& bufferMemory
+		VmaMemoryUsage memoryUsage,
+		VmaAllocationCreateFlags memoryAllocationFlags
 	);
+
 	/* create an image */
 	void CreateImage(
 		VkPhysicalDevice physicalDevice,

@@ -33,7 +33,7 @@ private:
     /* Frame buffer commands recording and calling command service interfaces */
     void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
     /* copy source buffer to destination buffer */
-    void            CopyBufferToBuffer(VkBuffer src, VkBuffer dest, VkDeviceSize);
+    void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
 
 private:
     /* pipeline instance */
@@ -44,11 +44,9 @@ private:
     std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
     std::vector<VkFence>      _vkInFlightFences;
     /* vertex buffer */
-    VkBuffer                  _vkVertexBuffer;
-    VkDeviceMemory            _vkVertexBufferMemory;
+    VkBufferAllocated         _vkVertexBuffer;
     /* index buffer */
-    VkBuffer                  _vkIndexBuffer;
-    VkDeviceMemory            _vkIndexBufferMemory;
+    VkBufferAllocated         _vkIndexBuffer;
 
     OBJModel                  _vikingRoom;
 

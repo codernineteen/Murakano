@@ -46,13 +46,12 @@ namespace vkinfo
 		return instanceInfo;
 	}
 
-	VkDeviceCreateInfo GetDeviceCreateInfo(const std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, VkPhysicalDeviceFeatures& deviceFeatures, const std::vector<const char*>& deviceExtensions)
+	VkDeviceCreateInfo GetDeviceCreateInfo(const std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, VkPhysicalDeviceFeatures2& deviceFeatures2, const std::vector<const char*>& deviceExtensions)
 	{
 		VkDeviceCreateInfo deviceCreateInfo{};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 		deviceCreateInfo.queueCreateInfoCount = SafeStaticCast<size_t, uint32>(queueCreateInfos.size());
-		deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 		deviceCreateInfo.enabledExtensionCount = SafeStaticCast<size_t, uint32>(deviceExtensions.size());
 		deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
 #ifdef NDEBUG
@@ -62,11 +61,14 @@ namespace vkinfo
 		deviceCreateInfo.enabledLayerCount = SafeStaticCast<size_t, uint32>(validationLayers.size());
 		deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 #endif
+		deviceCreateInfo.pNext = &deviceFeatures2;													    // pointer to the device features 2
+
 		return deviceCreateInfo;
 	}
 
-	VkDeviceQueueCreateInfo GetDeviceQueueCreateInfo(uint32 queueFamilyIndex, float queuePriority)
+	VkDeviceQueueCreateInfo GetDeviceQueueCreateInfo(uint32 queueFamilyIndex)
 	{
+		float queuePriority = 1.0f; // priority of the queue
 		VkDeviceQueueCreateInfo queueCreateInfo{};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = queueFamilyIndex; // index of the queue family to create

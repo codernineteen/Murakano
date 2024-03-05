@@ -104,10 +104,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
 	// destroy buffers
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkIndexBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkIndexBufferMemory, nullptr);
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkVertexBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkVertexBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkVertexBuffer.buffer, _vkVertexBuffer.allocation);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
 
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
@@ -177,10 +175,10 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
-	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
 	
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
@@ -200,28 +198,24 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
-void MKGraphicsPipeline::CreateVertexBuffer() 
+void MKGraphicsPipeline::CreateVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
 	/**
-	* Staging buffer : temporary host-visible buffer 
+	* Staging buffer : temporary host-visible buffer
 	* - usage : source of memory transfer operation
 	* - property : host-visible, host-coherent
+	* - allocation flag : VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT must be set because of VMA_MEMORY_USAGE_AUTO , CREATE_MAPPED_BIT is set by default
 	*/
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
-		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, stagingBufferMemory
+	VkBufferAllocated stagingBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_AUTO, // auto-detect memory type
+		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 	);
 
-	void* data;
-	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _vikingRoom.vertices.data(), (size_t)bufferSize);
-	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.vertices.data(), (size_t)bufferSize);
 
 	/**
 	* Device local buffer : actual vertex buffer
@@ -229,53 +223,46 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	* - property : device local
 	* Note that we can't map memory for device-local buffer, but can copy data to it.
 	*/
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
-		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		_vkVertexBuffer, _vkVertexBufferMemory);
+	_vkVertexBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT
+	);
 	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
 
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
 	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+	VkBufferAllocated stagingBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, stagingBufferMemory
+		VMA_MEMORY_USAGE_AUTO, // auto-detect memory type
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT// must to be set because of VMA_MEMORY_USAGE_AUTO
 	);
 
-	void* data;
-	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _vikingRoom.indices.data(), (size_t)bufferSize);
-	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
-
+	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.indices.data(), (size_t)bufferSize);
 	/**
 	* Device local buffer : actual index buffer
 	* - usage : destination of memory transfer operation, index buffer
 	* - property : device local
 	*/
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+	_vkIndexBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		_vkIndexBuffer, _vkIndexBufferMemory
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
+
 	CopyBufferToBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
 
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 /*
@@ -387,12 +374,12 @@ void MKGraphicsPipeline::DrawFrame()
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; // circular update of current frame.
 }
 
-void MKGraphicsPipeline::CopyBufferToBuffer(VkBuffer src, VkBuffer dest, VkDeviceSize size)
+void MKGraphicsPipeline::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size)
 {
 	// a command to copy buffer to buffer.
 	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
 		VkBufferCopy copyRegion{};
 		copyRegion.size = size;
-		vkCmdCopyBuffer(commandBuffer, src, dest, 1, &copyRegion);
+		vkCmdCopyBuffer(commandBuffer, src.buffer, dest.buffer, 1, &copyRegion);
 	});
 }
