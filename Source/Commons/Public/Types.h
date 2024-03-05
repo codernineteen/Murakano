@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h> // vulkan
 #include <fmt/core.h>
 #include <DirectXMath.h>
+#include <vma/vk_mem_alloc.h>
 
 // std
 #include <cstdint>
@@ -20,6 +21,9 @@
 #include <string>
 #include <stack>
 #include <queue>
+
+// custom types
+#include "VulkanType.h"
 
 // namespace aliases
 namespace dx = DirectX;
