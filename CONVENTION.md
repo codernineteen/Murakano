@@ -71,6 +71,14 @@ Functions should be named in camel case with the first letter being uppercase.
 		void CreateInstance();
 	```
 
+But there are some exceptions.
+First, If it is a function to get a proxy address of extension function and return it, i'm going to follow the naming convention of vulkan.
+- ex)
+	```cpp
+	public:
+		PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR(...);
+	```
+
 ## 1.3 class comment convention
 - If there is a need to specify the role of certain group of members, follow below convention
 
