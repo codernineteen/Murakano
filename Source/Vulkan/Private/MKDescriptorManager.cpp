@@ -250,7 +250,6 @@ void MKDescriptorManager::CreateUniformBuffer()
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     _vkUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    _vkUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     _vkUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
