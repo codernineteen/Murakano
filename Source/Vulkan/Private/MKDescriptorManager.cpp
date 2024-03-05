@@ -18,10 +18,7 @@ MKDescriptorManager::~MKDescriptorManager()
 
     // cleanup uniform buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroyBuffer(_mkDevicePtr->GetDevice(), _vkUniformBuffers[i], nullptr);
-        vkFreeMemory(_mkDevicePtr->GetDevice(), _vkUniformBuffersMemory[i], nullptr);
-    }
+        vmaDestroyBuffer(_mkDevicePtr->GetVmaAllocator(), _vkUniformBuffers[i].buffer, _vkUniformBuffers[i].allocation);
 
     // destroy descriptor pool
     vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), _vkDescriptorPool, nullptr);
@@ -128,7 +125,7 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     {
         // buffer descriptor
         VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = _vkUniformBuffers[i];
+        bufferInfo.buffer = _vkUniformBuffers[i].buffer;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -258,17 +255,14 @@ void MKDescriptorManager::CreateUniformBuffer()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        util::CreateBuffer(
-            _mkDevicePtr->GetPhysicalDevice(),
-            _mkDevicePtr->GetDevice(), bufferSize,
+        _vkUniformBuffers[i] = util::CreateBuffer(
+            _mkDevicePtr->GetVmaAllocator(),
+            bufferSize,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            _vkUniformBuffers[i],
-            _vkUniformBuffersMemory[i]
+            VMA_MEMORY_USAGE_CPU_TO_GPU,
+            VMA_ALLOCATION_CREATE_MAPPED_BIT
         );
-
-        // persistent mapping without unmapping memory.
-        vkMapMemory(_mkDevicePtr->GetDevice(), _vkUniformBuffersMemory[i], 0, bufferSize, 0, &_vkUniformBuffersMapped[i]);
+        _vkUniformBuffersMapped[i] = _vkUniformBuffers[i].allocationInfo.pMappedData;
     }
 }
 
@@ -282,23 +276,16 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
         throw std::runtime_error("failed to load texture image!");
 
     // same manner as vertex buffer creation
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    util::CreateBuffer(
-		_mkDevicePtr->GetPhysicalDevice(), 
-		_mkDevicePtr->GetDevice(), 
+    VkBufferAllocated stagingBuffer = util::CreateBuffer(
+		_mkDevicePtr->GetVmaAllocator(),
 		imageSize, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, 
-		stagingBufferMemory
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
 
     // map the buffer memory to copy the pixel data into it
-    void* data;
-    vkMapMemory(_mkDevicePtr->GetDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(_mkDevicePtr->GetDevice(), stagingBufferMemory);
+    memcpy(stagingBuffer.allocationInfo.pMappedData, pixels, SafeStaticCast<size_t, uint32>(imageSize));
 
     // free after copying pixel data to staging buffer
     stbi_image_free(pixels);
@@ -335,7 +322,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
         // copy image data from staging buffer to texture image after layout transition
         CopyBufferToImage(
             commandBuffer,
-            stagingBuffer,
+            stagingBuffer.buffer,
             textureImage,
             SafeStaticCast<int, uint32>(texWidth),
             SafeStaticCast<int, uint32>(texHeight)
@@ -355,8 +342,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
 
 
     // destroy staging buffer and free memory
-    vkDestroyBuffer(_mkDevicePtr->GetDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(_mkDevicePtr->GetDevice(), stagingBufferMemory, nullptr);
+    vmaDestroyBuffer(_mkDevicePtr->GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 void MKDescriptorManager::CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView) 
