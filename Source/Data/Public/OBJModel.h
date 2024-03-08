@@ -14,11 +14,8 @@ public:
 	void LoadModel();
 
 private:
-	VkImage         _vkTextureImage;
-    VkDeviceMemory  _vkTextureImageMemory;
-	VkImageView     _vkTextureImageView;
-	VkBuffer        _vkVertexBuffer;
-	VkDeviceMemory  _vkVertexBufferMemory;
+	VkImageAllocated  _vkTextureImage;
+	VkImageView       _vkTextureImageView;
 
 private:
 	const std::string _modelPath;

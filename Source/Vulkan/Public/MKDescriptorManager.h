@@ -32,16 +32,15 @@ public:
 	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height); 
 
 	/* create resources */
-	void CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
+	void CreateTextureImage(const std::string texturePath, VkImageAllocated& textureImage);
 	void CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
 	void CreateTextureSampler();
 	void CreateDepthResources();
 
 	/* destroy resources */
-	void DestroyTextureImage(VkImage textureImage) { vkDestroyImage(_mkDevicePtr->GetDevice(), textureImage, nullptr); }
-	void DestroyTextureImageView(VkImageView textureImageView);
-	void DestroyTextureSampler(VkSampler textureSampler);
-	void DestroyTextureImageMemory(VkDeviceMemory textureImageMemory) { vkFreeMemory(_mkDevicePtr->GetDevice(), textureImageMemory, nullptr); }
+	void DestroyTextureImage(VkImageAllocated textureImage) { vmaDestroyImage(_mkDevicePtr->GetVmaAllocator(), textureImage.image, textureImage.allocation); }
+	void DestroyTextureImageView(VkImageView textureImageView) { vkDestroyImageView(_mkDevicePtr->GetDevice(), textureImageView, nullptr); }
+	void DestroyTextureSampler(VkSampler textureSampler) { vkDestroySampler(_mkDevicePtr->GetDevice(), textureSampler, nullptr); } 
 	void DestroyDepthResources();
 
 private:
@@ -66,15 +65,13 @@ private:
 	VkExtent2D                    _vkSwapchainExtent = VkExtent2D{ 0, 0 };
 
 	/* texture resources */
-	VkImage                       _vkTextureImage = VK_NULL_HANDLE;
+	VkImageAllocated              _vkTextureImage;
 	VkImageView                   _vkTextureImageView = VK_NULL_HANDLE;
-	VkDeviceMemory                _vkTextureImageMemory = VK_NULL_HANDLE;
 	VkSampler                     _vkTextureSampler = VK_NULL_HANDLE;
 
 	/* depth buffer resources */
-	VkImage                       _vkDepthImage = VK_NULL_HANDLE;
+	VkImageAllocated              _vkDepthImage;
 	VkImageView                   _vkDepthImageView = VK_NULL_HANDLE;
-	VkDeviceMemory                _vkDepthImageMemory = VK_NULL_HANDLE;
 
 private:
 	MKDevice* _mkDevicePtr = nullptr;

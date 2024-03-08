@@ -11,10 +11,9 @@ MKDescriptorManager::MKDescriptorManager()
 MKDescriptorManager::~MKDescriptorManager()
 {
     // cleanup texture resources
-    vkDestroySampler(_mkDevicePtr->GetDevice(), _vkTextureSampler, nullptr);
-    vkDestroyImageView(_mkDevicePtr->GetDevice(), _vkTextureImageView, nullptr);
-    vkDestroyImage(_mkDevicePtr->GetDevice(), _vkTextureImage, nullptr);
-    vkFreeMemory(_mkDevicePtr->GetDevice(), _vkTextureImageMemory, nullptr);
+    DestroyTextureSampler(_vkTextureSampler);
+    DestroyTextureImageView(_vkTextureImageView);
+    DestroyTextureImage(_vkTextureImage);
 
     // cleanup uniform buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -49,8 +48,8 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     */
     CreateUniformBuffer();
     // TODO : modify this hardcoded path 
-    CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage, _vkTextureImageMemory);
-    CreateTextureImageView(_vkTextureImage, _vkTextureImageView);
+    CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage);
+    CreateTextureImageView(_vkTextureImage.image, _vkTextureImageView);
     CreateTextureSampler();
     CreateDepthResources();
 
@@ -98,13 +97,13 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                                         // descriptor type for uniform buffer object
     poolSizes[0].descriptorCount = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);         // descriptor count for each frame in flight
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].descriptorCount = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32_t>(poolSizes.size());
+    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = SafeStaticCast<int, uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.maxSets = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);
 
     MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &_vkDescriptorPool));
 
@@ -209,22 +208,21 @@ void MKDescriptorManager::CreateDepthResources()
 
     // create depth image
     util::CreateImage(
-        _mkDevicePtr->GetPhysicalDevice(),
-        _mkDevicePtr->GetDevice(),
+        _mkDevicePtr->GetVmaAllocator(),
+        _vkDepthImage,
         _vkSwapchainExtent.width,
         _vkSwapchainExtent.height,
         depthFormat,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        _vkDepthImage,
-        _vkDepthImageMemory
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     );
 
     // create depth image view
     util::CreateImageView(
         _mkDevicePtr->GetDevice(),
-        _vkDepthImage,
+        _vkDepthImage.image,
         _vkDepthImageView,
         depthFormat,
         VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
@@ -235,8 +233,7 @@ void MKDescriptorManager::CreateDepthResources()
 void MKDescriptorManager::DestroyDepthResources() 
 {
     vkDestroyImageView(_mkDevicePtr->GetDevice(), _vkDepthImageView, nullptr);
-    vkDestroyImage(_mkDevicePtr->GetDevice(), _vkDepthImage, nullptr);
-    vkFreeMemory(_mkDevicePtr->GetDevice(), _vkDepthImageMemory, nullptr);
+    vmaDestroyImage(_mkDevicePtr->GetVmaAllocator(), _vkDepthImage.image, _vkDepthImage.allocation);
 }
 
 
@@ -265,7 +262,7 @@ void MKDescriptorManager::CreateUniformBuffer()
     }
 }
 
-void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory) 
+void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkImageAllocated& textureImage) 
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -290,16 +287,15 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     stbi_image_free(pixels);
    
     util::CreateImage(
-        _mkDevicePtr->GetPhysicalDevice(),
-        _mkDevicePtr->GetDevice(),
+        _mkDevicePtr->GetVmaAllocator(),
+        textureImage,                                                  // pass reference of image that you want to create
         texWidth,
         texHeight,
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_TILING_OPTIMAL,                                       // image usage - tiling optimal because the renderer using staging buffer to copy pixel data
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,  // image properties - destination of buffer copy and sampled in the shader
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        textureImage,
-        textureImageMemory
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     );
 
     /**
@@ -311,7 +307,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            textureImage,                             // texture image
+            textureImage.image,                       // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL      // new layout
@@ -322,7 +318,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
         CopyBufferToImage(
             commandBuffer,
             stagingBuffer.buffer,
-            textureImage,
+            textureImage.image,
             SafeStaticCast<int, uint32>(texWidth),
             SafeStaticCast<int, uint32>(texHeight)
         );
@@ -330,7 +326,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            textureImage,                          // texture image
+            textureImage.image,                       // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // old layout
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL  // new layout
