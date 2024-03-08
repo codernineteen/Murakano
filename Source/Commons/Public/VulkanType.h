@@ -22,5 +22,5 @@ struct VkImageAllocated
 struct VkDescriptorPoolSizeRatio
 {
 	VkDescriptorType  type;
-	float             ratio;
+	float             ratio; // ratio of the individual descriptor type in the pool
 };

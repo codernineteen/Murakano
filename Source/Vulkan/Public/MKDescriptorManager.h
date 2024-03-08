@@ -27,9 +27,17 @@ public:
 	/* update swapchain extent whenever there is recreation of it. */
 	void UpdateSwapchainExtent(VkExtent2D swapchainExtent) { _vkSwapchainExtent = swapchainExtent; }
 
-	/* transition image layout with pipeline barrier (when VK_SHARING_MODE_EXCLUSIVE) */
+	/* commands - transition image layout with pipeline barrier (when VK_SHARING_MODE_EXCLUSIVE) */
 	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height); 
+
+	/* api */
+	VkDescriptorPool GetDescriptorPool();
+	VkDescriptorSet AllocateDescriptorSet(VkDescriptorSetLayout layout);
+	void AddDescriptorSetLayoutBinding(VkDescriptorType descriptorType, VkShaderStageFlags shaderStageFlags, uint32_t binding, uint32_t descriptorCount);
+	VkDescriptorSetLayout CreateDescriptorSetLayout();
+	VkDescriptorPool CreateDescriptorPool(std::vector<VkDescriptorPoolSizeRatio> descriptorPoolSizeRatios, uint32 setCount);
+	void ResetDescriptorPool();
 
 	/* create resources */
 	void CreateTextureImage(const std::string texturePath, VkImageAllocated& textureImage);
@@ -53,7 +61,13 @@ private:
 
 private:
 	/* descriptor pool */
-	VkDescriptorPool              _vkDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
+
+	std::vector<VkDescriptorSetLayoutBinding> _vkWaitingBindings;
+
+	std::vector<VkDescriptorPoolSizeRatio>  _vkDescriptorPoolSizeRatios;
+	std::vector<VkDescriptorPool>           _vkDescriptorPoolReady;
+	std::vector<VkDescriptorPool>           _vkDescriptorPoolFull;
 
 	/* uniform buffer descriptor*/
 	VkDescriptorSetLayout         _vkDescriptorSetLayout = VK_NULL_HANDLE;
@@ -72,6 +86,9 @@ private:
 	/* depth buffer resources */
 	VkImageAllocated              _vkDepthImage;
 	VkImageView                   _vkDepthImageView = VK_NULL_HANDLE;
+
+	/* default set count per pool */
+	uint32                        _setsPerPool = 100;
 
 private:
 	MKDevice* _mkDevicePtr = nullptr;

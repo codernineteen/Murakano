@@ -22,6 +22,13 @@ MKDescriptorManager::~MKDescriptorManager()
     // destroy descriptor pool
     vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), _vkDescriptorPool, nullptr);
 
+    // destroy descriptor pools
+    for(auto& pool : _vkDescriptorPoolReady)
+        vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), pool, nullptr);
+
+    for (auto& pool : _vkDescriptorPoolFull)
+        vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), pool, nullptr);
+
     // destroy descriptor set layout
     vkDestroyDescriptorSetLayout(_mkDevicePtr->GetDevice(), _vkDescriptorSetLayout, nullptr);
 
@@ -236,6 +243,124 @@ void MKDescriptorManager::DestroyDepthResources()
     vmaDestroyImage(_mkDevicePtr->GetVmaAllocator(), _vkDepthImage.image, _vkDepthImage.allocation);
 }
 
+VkDescriptorSet MKDescriptorManager::AllocateDescriptorSet(VkDescriptorSetLayout layout)
+{
+    VkDescriptorPool poolInUse = GetDescriptorPool();
+
+    // specify a single descriptor set allocation info
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = poolInUse;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &layout;
+    allocInfo.pNext = nullptr;
+    
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkResult res = vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, &descriptorSet);
+    
+    if (res != VK_SUCCESS)
+    {
+        _vkDescriptorPoolFull.push_back(poolInUse); // push back the full descriptor pool
+
+        poolInUse = GetDescriptorPool(); // get new descriptor pool
+        allocInfo.descriptorPool = poolInUse; // assign new descriptor pool to allocation info
+
+        MK_CHECK(vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, &descriptorSet));
+    }
+
+    _vkDescriptorPoolReady.push_back(poolInUse); // push back the in-use descriptor pool
+
+    return descriptorSet;
+}
+
+VkDescriptorPool MKDescriptorManager::GetDescriptorPool()
+{
+	VkDescriptorPool newPool = VK_NULL_HANDLE;
+
+    if (!_vkDescriptorPoolReady.empty())
+    {
+        newPool = _vkDescriptorPoolReady.back();
+        _vkDescriptorPoolReady.pop_back();
+    }
+    else
+    {
+        newPool = CreateDescriptorPool(_vkDescriptorPoolSizeRatios, _setsPerPool); // create new descriptor pool and assign it to in-use pool
+
+        if (_setsPerPool < 1024)
+            _setsPerPool = _setsPerPool * 1.5; // gradually increase the number of sets per pool
+        else
+            _setsPerPool = 1024; // if it exceeds 1024, fix it to 1024
+    }
+
+    return newPool;
+}
+
+VkDescriptorPool MKDescriptorManager::CreateDescriptorPool(std::vector<VkDescriptorPoolSizeRatio> descriptorPoolSizeRatios, uint32 setCount)
+{
+    std::vector<VkDescriptorPoolSize> poolSizes;
+    for (auto& poolSizeRatio : descriptorPoolSizeRatios)
+    {
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = poolSizeRatio.type;
+        poolSize.descriptorCount = static_cast<uint32>(poolSizeRatio.ratio * setCount);
+		poolSizes.push_back(poolSize);
+	}
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = setCount;
+    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &descriptorPool));
+
+    return descriptorPool;
+}
+
+void MKDescriptorManager::ResetDescriptorPool()
+{
+    for(auto pool : _vkDescriptorPoolReady)
+        vkResetDescriptorPool(_mkDevicePtr->GetDevice(), pool, 0);
+
+    for (auto pool : _vkDescriptorPoolReady)
+    {
+        vkResetDescriptorPool(_mkDevicePtr->GetDevice(), pool, 0);
+        _vkDescriptorPoolReady.push_back(pool);
+    }
+
+    _vkDescriptorPoolFull.clear();
+}
+
+void MKDescriptorManager::AddDescriptorSetLayoutBinding(VkDescriptorType descriptorType, VkShaderStageFlags shaderStageFlags, uint32_t binding, uint32_t descriptorCount)
+{
+    VkDescriptorSetLayoutBinding newBinding{};
+    newBinding.binding = binding;                 // binding index in shader.
+    newBinding.descriptorType = descriptorType;   // type of descriptor
+    newBinding.descriptorCount = descriptorCount; // number of descriptors
+    newBinding.stageFlags = shaderStageFlags;     // shader stage flags
+    newBinding.pImmutableSamplers = nullptr;
+
+    _vkWaitingBindings.push_back(newBinding);
+}
+
+VkDescriptorSetLayout MKDescriptorManager::CreateDescriptorSetLayout()
+{
+    // specify descriptor set layout creation info
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = SafeStaticCast<size_t, uint32>(_vkWaitingBindings.size());
+    layoutInfo.pBindings = _vkWaitingBindings.data();
+
+    // create descriptor set layout
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    MK_CHECK(vkCreateDescriptorSetLayout(_mkDevicePtr->GetDevice(), &layoutInfo, nullptr, &layout));
+
+    // be sure to clear layout bindings after creating descriptor set layout !!
+    _vkWaitingBindings.clear();
+
+    return layout;
+}
 
 /**
 * ---------- private ----------
