@@ -6,7 +6,7 @@ OBJModel::OBJModel(const std::string modelPath, const std::string texturePath)
 	_texturePath(texturePath)
 {
 	// create texture image for model.
-	GDescriptorManager->CreateTextureImage(_texturePath, _vkTextureImage, _vkTextureImageMemory);
+	GDescriptorManager->CreateTextureImage(_texturePath, _vkTextureImage);
 	LoadModel();
 }
 
@@ -14,7 +14,6 @@ OBJModel::OBJModel(const std::string modelPath, const std::string texturePath)
 OBJModel::~OBJModel()
 {
 	GDescriptorManager->DestroyTextureImage(_vkTextureImage);
-	GDescriptorManager->DestroyTextureImageMemory(_vkTextureImageMemory);
 }
 
 void OBJModel::LoadModel() 

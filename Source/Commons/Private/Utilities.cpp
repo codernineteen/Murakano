@@ -59,36 +59,25 @@ namespace util
 	}
 
 	void CreateImage(
-		VkPhysicalDevice physicalDevice,
-		VkDevice device,
+		const VmaAllocator& allocator,
+		VkImageAllocated& newImage,
 		uint32 width,
 		uint32 height,
 		VkFormat format,
 		VkImageTiling tiling,
 		VkImageUsageFlags usage,
-		VkMemoryPropertyFlags properties,
-		VkImage& image,
-		VkDeviceMemory& imageMemory
+		VmaMemoryUsage memoryUsage,
+		VmaAllocationCreateFlags memoryAllocationFlags
 	)
 	{
 		// specify image creation info
 		VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage);
-		MK_CHECK(vkCreateImage(device, &imageInfo, nullptr, &image));
 
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(device, image, &memRequirements);
+		VmaAllocationCreateInfo imageAllocInfo{};
+		imageAllocInfo.usage = memoryUsage;
+		imageAllocInfo.flags = memoryAllocationFlags;
 
-		// query device memory properties
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, memProperties, properties);
-
-		MK_CHECK(vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory));
-		MK_CHECK(vkBindImageMemory(device, image, imageMemory, 0));
+		MK_CHECK(vmaCreateImage(allocator, &imageInfo, &imageAllocInfo, &newImage.image, &newImage.allocation, nullptr));
 	}
 
 	void CreateImageView(

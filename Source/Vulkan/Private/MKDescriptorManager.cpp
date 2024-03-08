@@ -11,10 +11,9 @@ MKDescriptorManager::MKDescriptorManager()
 MKDescriptorManager::~MKDescriptorManager()
 {
     // cleanup texture resources
-    vkDestroySampler(_mkDevicePtr->GetDevice(), _vkTextureSampler, nullptr);
-    vkDestroyImageView(_mkDevicePtr->GetDevice(), _vkTextureImageView, nullptr);
-    vkDestroyImage(_mkDevicePtr->GetDevice(), _vkTextureImage, nullptr);
-    vkFreeMemory(_mkDevicePtr->GetDevice(), _vkTextureImageMemory, nullptr);
+    DestroyTextureSampler(_vkTextureSampler);
+    DestroyTextureImageView(_vkTextureImageView);
+    DestroyTextureImage(_vkTextureImage);
 
     // cleanup uniform buffer
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -22,6 +21,13 @@ MKDescriptorManager::~MKDescriptorManager()
 
     // destroy descriptor pool
     vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), _vkDescriptorPool, nullptr);
+
+    // destroy descriptor pools
+    for(auto& pool : _vkDescriptorPoolReady)
+        vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), pool, nullptr);
+
+    for (auto& pool : _vkDescriptorPoolFull)
+        vkDestroyDescriptorPool(_mkDevicePtr->GetDevice(), pool, nullptr);
 
     // destroy descriptor set layout
     vkDestroyDescriptorSetLayout(_mkDevicePtr->GetDevice(), _vkDescriptorSetLayout, nullptr);
@@ -49,8 +55,8 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     */
     CreateUniformBuffer();
     // TODO : modify this hardcoded path 
-    CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage, _vkTextureImageMemory);
-    CreateTextureImageView(_vkTextureImage, _vkTextureImageView);
+    CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage);
+    CreateTextureImageView(_vkTextureImage.image, _vkTextureImageView);
     CreateTextureSampler();
     CreateDepthResources();
 
@@ -98,13 +104,13 @@ void MKDescriptorManager::InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;                                         // descriptor type for uniform buffer object
     poolSizes[0].descriptorCount = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);         // descriptor count for each frame in flight
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].descriptorCount = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32_t>(poolSizes.size());
+    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = SafeStaticCast<int, uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.maxSets = SafeStaticCast<int, uint32>(MAX_FRAMES_IN_FLIGHT);
 
     MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &_vkDescriptorPool));
 
@@ -209,22 +215,21 @@ void MKDescriptorManager::CreateDepthResources()
 
     // create depth image
     util::CreateImage(
-        _mkDevicePtr->GetPhysicalDevice(),
-        _mkDevicePtr->GetDevice(),
+        _mkDevicePtr->GetVmaAllocator(),
+        _vkDepthImage,
         _vkSwapchainExtent.width,
         _vkSwapchainExtent.height,
         depthFormat,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        _vkDepthImage,
-        _vkDepthImageMemory
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     );
 
     // create depth image view
     util::CreateImageView(
         _mkDevicePtr->GetDevice(),
-        _vkDepthImage,
+        _vkDepthImage.image,
         _vkDepthImageView,
         depthFormat,
         VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
@@ -235,10 +240,127 @@ void MKDescriptorManager::CreateDepthResources()
 void MKDescriptorManager::DestroyDepthResources() 
 {
     vkDestroyImageView(_mkDevicePtr->GetDevice(), _vkDepthImageView, nullptr);
-    vkDestroyImage(_mkDevicePtr->GetDevice(), _vkDepthImage, nullptr);
-    vkFreeMemory(_mkDevicePtr->GetDevice(), _vkDepthImageMemory, nullptr);
+    vmaDestroyImage(_mkDevicePtr->GetVmaAllocator(), _vkDepthImage.image, _vkDepthImage.allocation);
 }
 
+VkDescriptorSet MKDescriptorManager::AllocateDescriptorSet(VkDescriptorSetLayout layout)
+{
+    VkDescriptorPool poolInUse = GetDescriptorPool();
+
+    // specify a single descriptor set allocation info
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = poolInUse;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &layout;
+    allocInfo.pNext = nullptr;
+    
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkResult res = vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, &descriptorSet);
+    
+    if (res != VK_SUCCESS)
+    {
+        _vkDescriptorPoolFull.push_back(poolInUse); // push back the full descriptor pool
+
+        poolInUse = GetDescriptorPool(); // get new descriptor pool
+        allocInfo.descriptorPool = poolInUse; // assign new descriptor pool to allocation info
+
+        MK_CHECK(vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, &descriptorSet));
+    }
+
+    _vkDescriptorPoolReady.push_back(poolInUse); // push back the in-use descriptor pool
+
+    return descriptorSet;
+}
+
+VkDescriptorPool MKDescriptorManager::GetDescriptorPool()
+{
+	VkDescriptorPool newPool = VK_NULL_HANDLE;
+
+    if (!_vkDescriptorPoolReady.empty())
+    {
+        newPool = _vkDescriptorPoolReady.back();
+        _vkDescriptorPoolReady.pop_back();
+    }
+    else
+    {
+        newPool = CreateDescriptorPool(_vkDescriptorPoolSizeRatios, _setsPerPool); // create new descriptor pool and assign it to in-use pool
+
+        if (_setsPerPool < 1024)
+            _setsPerPool = _setsPerPool * 1.5; // gradually increase the number of sets per pool
+        else
+            _setsPerPool = 1024; // if it exceeds 1024, fix it to 1024
+    }
+
+    return newPool;
+}
+
+VkDescriptorPool MKDescriptorManager::CreateDescriptorPool(std::vector<VkDescriptorPoolSizeRatio> descriptorPoolSizeRatios, uint32 setCount)
+{
+    std::vector<VkDescriptorPoolSize> poolSizes;
+    for (auto& poolSizeRatio : descriptorPoolSizeRatios)
+    {
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = poolSizeRatio.type;
+        poolSize.descriptorCount = static_cast<uint32>(poolSizeRatio.ratio * setCount);
+		poolSizes.push_back(poolSize);
+	}
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = setCount;
+    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &descriptorPool));
+
+    return descriptorPool;
+}
+
+void MKDescriptorManager::ResetDescriptorPool()
+{
+    for(auto pool : _vkDescriptorPoolReady)
+        vkResetDescriptorPool(_mkDevicePtr->GetDevice(), pool, 0);
+
+    for (auto pool : _vkDescriptorPoolReady)
+    {
+        vkResetDescriptorPool(_mkDevicePtr->GetDevice(), pool, 0);
+        _vkDescriptorPoolReady.push_back(pool);
+    }
+
+    _vkDescriptorPoolFull.clear();
+}
+
+void MKDescriptorManager::AddDescriptorSetLayoutBinding(VkDescriptorType descriptorType, VkShaderStageFlags shaderStageFlags, uint32_t binding, uint32_t descriptorCount)
+{
+    VkDescriptorSetLayoutBinding newBinding{};
+    newBinding.binding = binding;                 // binding index in shader.
+    newBinding.descriptorType = descriptorType;   // type of descriptor
+    newBinding.descriptorCount = descriptorCount; // number of descriptors
+    newBinding.stageFlags = shaderStageFlags;     // shader stage flags
+    newBinding.pImmutableSamplers = nullptr;
+
+    _vkWaitingBindings.push_back(newBinding);
+}
+
+VkDescriptorSetLayout MKDescriptorManager::CreateDescriptorSetLayout()
+{
+    // specify descriptor set layout creation info
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = SafeStaticCast<size_t, uint32>(_vkWaitingBindings.size());
+    layoutInfo.pBindings = _vkWaitingBindings.data();
+
+    // create descriptor set layout
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    MK_CHECK(vkCreateDescriptorSetLayout(_mkDevicePtr->GetDevice(), &layoutInfo, nullptr, &layout));
+
+    // be sure to clear layout bindings after creating descriptor set layout !!
+    _vkWaitingBindings.clear();
+
+    return layout;
+}
 
 /**
 * ---------- private ----------
@@ -265,7 +387,7 @@ void MKDescriptorManager::CreateUniformBuffer()
     }
 }
 
-void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory) 
+void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkImageAllocated& textureImage) 
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -290,16 +412,15 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     stbi_image_free(pixels);
    
     util::CreateImage(
-        _mkDevicePtr->GetPhysicalDevice(),
-        _mkDevicePtr->GetDevice(),
+        _mkDevicePtr->GetVmaAllocator(),
+        textureImage,                                                  // pass reference of image that you want to create
         texWidth,
         texHeight,
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_TILING_OPTIMAL,                                       // image usage - tiling optimal because the renderer using staging buffer to copy pixel data
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,  // image properties - destination of buffer copy and sampled in the shader
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        textureImage,
-        textureImageMemory
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
     );
 
     /**
@@ -311,7 +432,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            textureImage,                             // texture image
+            textureImage.image,                       // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL      // new layout
@@ -322,7 +443,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
         CopyBufferToImage(
             commandBuffer,
             stagingBuffer.buffer,
-            textureImage,
+            textureImage.image,
             SafeStaticCast<int, uint32>(texWidth),
             SafeStaticCast<int, uint32>(texHeight)
         );
@@ -330,7 +451,7 @@ void MKDescriptorManager::CreateTextureImage(const std::string texturePath, VkIm
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         TransitionImageLayout(
             commandBuffer,                            // command buffer
-            textureImage,                          // texture image
+            textureImage.image,                       // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // old layout
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL  // new layout
