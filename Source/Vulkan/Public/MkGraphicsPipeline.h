@@ -25,33 +25,57 @@ public:
 
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
+    /* create synchronization objects */
     void            CreateSyncObjects();
     /* actual buffer creation logic */
     void            CreateVertexBuffer();
     /* index buffer creation*/
     void            CreateIndexBuffer();
+    /* uniform buffer creation */
+    void            CreateUniformBuffers();
     /* Frame buffer commands recording and calling command service interfaces */
     void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
     /* copy source buffer to destination buffer */
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
+    /* update uniform buffer */
+    void            UpdateUniformBuffer();
+    /* create texture resources */
+    void            CreateTextureResources();
 
 private:
     /* pipeline instance */
-	VkPipeline	              _vkGraphicsPipeline;
-	VkPipelineLayout          _vkPipelineLayout;
+	VkPipeline	      _vkGraphicsPipeline;
+	VkPipelineLayout  _vkPipelineLayout;
+    
     /* sync objects */
     std::vector<VkSemaphore>  _vkImageAvailableSemaphores;
     std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
     std::vector<VkFence>      _vkInFlightFences;
+    
     /* vertex buffer */
-    VkBufferAllocated         _vkVertexBuffer;
+    VkBufferAllocated _vkVertexBuffer;
+    
     /* index buffer */
-    VkBufferAllocated         _vkIndexBuffer;
+    VkBufferAllocated _vkIndexBuffer;
 
-    OBJModel                  _vikingRoom;
+    /* texture resources */
+    VkImageAllocated  _vkTextureImage;
+    VkImageView       _vkTextureImageView;
+    VkSampler         _vkTextureSampler;
+
+    /* descriptor set */
+    VkDescriptorSetLayout         _vkDescriptorSetLayout;
+    std::vector<VkDescriptorSet>  _vkDescriptorSets;
+
+    /* uniform buffer objects */
+    std::vector<VkBufferAllocated>  _vkUniformBuffers;
+    std::vector<void*>              _vkUniformBuffersMappedData;
+
+    /* 3d model */
+    OBJModel _vikingRoom;
 
 private:
-	MKDevice&            _mkDeviceRef;
-    MKSwapchain&         _mkSwapchainRef;
-    uint32               _currentFrame = 0;
+	MKDevice&     _mkDeviceRef;
+    MKSwapchain&  _mkSwapchainRef;
+    uint32        _currentFrame = 0;
 };
