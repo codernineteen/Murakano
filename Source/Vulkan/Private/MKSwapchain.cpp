@@ -7,13 +7,16 @@
 MKSwapchain::MKSwapchain(MKDevice& deviceRef) 
 	: _mkDeviceRef(deviceRef)
 {
+	// initialize descriptor manager
+	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef);
+
 	CreateSwapchain();
 	// create render pass as shared resource. (this should be advance before creating framebuffers)
 	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
-	// initialize descriptor manager
-	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef, _vkSwapchainExtent);
+	// create depth resources
+	CreateDepthResources();
 
 	// create framebuffers after creating swap chain image views and depth image view in descriptor manager.
 	CreateFrameBuffers();
@@ -34,7 +37,7 @@ MKSwapchain::~MKSwapchain()
 
 void MKSwapchain::DestroySwapchainResources()
 {
-	GDescriptorManager->DestroyDepthResources();
+    DestroyDepthResources();
 
 	// destroy framebuffers
 	for (auto framebuffer : _vkSwapchainFramebuffers)
@@ -46,6 +49,12 @@ void MKSwapchain::DestroySwapchainResources()
 
 	// destroy swapchain extension
 	vkDestroySwapchainKHR(_mkDeviceRef.GetDevice(), _vkSwapchain, nullptr);
+}
+
+void MKSwapchain::DestroyDepthResources()
+{
+	vmaDestroyImage(_mkDeviceRef.GetVmaAllocator(), _vkDepthImage.image, _vkDepthImage.allocation);
+	vkDestroyImageView(_mkDeviceRef.GetDevice(), _vkDepthImageView, nullptr);
 }
 
 void MKSwapchain::RecreateSwapchain()
@@ -66,8 +75,7 @@ void MKSwapchain::RecreateSwapchain()
 	// TODO : recreating render pass may be needed later.
 	CreateSwapchain();
 	CreateSwapchainImageViews();
-	GDescriptorManager->UpdateSwapchainExtent(_vkSwapchainExtent);
-	GDescriptorManager->CreateDepthResources();
+	CreateDepthResources();
 	CreateFrameBuffers();
 }
 
@@ -131,6 +139,35 @@ void MKSwapchain::CreateSwapchainImageViews()
 	}
 }
 
+void MKSwapchain::CreateDepthResources()
+{
+	// find depth format first
+	VkFormat depthFormat = util::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
+
+	// create depth image
+	util::CreateImage(
+		_mkDeviceRef.GetVmaAllocator(),
+		_vkDepthImage,
+		_vkSwapchainExtent.width,
+		_vkSwapchainExtent.height,
+		depthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VMA_MEMORY_USAGE_AUTO,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+	);
+
+	// create depth image view
+	util::CreateImageView(
+		_mkDeviceRef.GetDevice(),
+		_vkDepthImage.image,
+		_vkDepthImageView,
+		depthFormat,
+		VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
+		1
+	);
+}
+
 void MKSwapchain::CreateFrameBuffers()
 {
 	_vkSwapchainFramebuffers.resize(_vkSwapchainImageViews.size()); // resize to size of swap chain image views
@@ -139,7 +176,7 @@ void MKSwapchain::CreateFrameBuffers()
 	for (size_t i = 0; i < _vkSwapchainImageViews.size(); i++) {
 		std::array<VkImageView, 2> attachments = {
 			_vkSwapchainImageViews[i],
-			GDescriptorManager->GetDepthImageView()
+			_vkDepthImageView,
 		};
 
 		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_mkRenderPassPtr->GetRenderPass(), attachments, _vkSwapchainExtent);

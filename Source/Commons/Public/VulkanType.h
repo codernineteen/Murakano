@@ -17,10 +17,3 @@ struct VkImageAllocated
 	VkImage        image;
 	VmaAllocation  allocation;
 };
-
-// a struct to wrap a VkDescriptorType and its ratio in pool
-struct VkDescriptorPoolSizeRatio
-{
-	VkDescriptorType  type;
-	float             ratio; // ratio of the individual descriptor type in the pool
-};

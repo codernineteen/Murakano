@@ -18,7 +18,20 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
 #endif
+	// create sync objects
+	CreateSyncObjects();
 
+	// create vertex buffer
+	CreateVertexBuffer();
+
+	// create index buffer
+	CreateIndexBuffer();
+
+	// create uniform buffer
+	CreateUniformBuffers();
+
+	// create texture resources
+	CreateTextureResources();
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
@@ -65,36 +78,68 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	VkPipelineColorBlendStateCreateInfo colorBlending = vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	// specify pipeline layout
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(GDescriptorManager->GetDescriptorSetLayoutPtr());
+
+	// add descriptor set layout binding
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // descriptor type
+		VK_SHADER_STAGE_VERTEX_BIT,        // shader stage
+		0,								   // binding point
+		1								   // descriptor count
+	);
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		1,
+		1
+	);
+
+	// create descriptor set layout with bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkDescriptorSetLayout);
+	// allocate descriptor set layout
+	GDescriptorManager->AllocateDescriptorSet(_vkDescriptorSets, _vkDescriptorSetLayout);
+
+	// update descriptor set
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		GDescriptorManager->WriteBufferToDescriptorSet(
+			_vkUniformBuffers[i].buffer,               // uniform buffer
+			0,                                         // offset
+			sizeof(UniformBufferObject),               // range
+			0,                                         // binding point
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER          // descriptor type
+		);
+		// texture image view and sampler is used commonly in descriptor sets
+		GDescriptorManager->WriteImageToDescriptorSet(
+			_vkTextureImageView,                       // texture image view
+			_vkTextureSampler,                         // texture sampler
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
+			1,                                         // binding point
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
+		);
+		// update descriptor set
+		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[i]);
+	}
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout);
 
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = vkinfo::GetGraphicsPipelineCreateInfo(
-		_vkPipelineLayout, 
-		shaderStages, 
-		&vertexInputInfo, 
-		&inputAssembly, 
-		&viewportState, 
-		&rasterizer, 
-		&multisampling, 
-		&depthStencil, 
-		&colorBlending, 
+		_vkPipelineLayout,
+		shaderStages,
+		&vertexInputInfo,
+		&inputAssembly,
+		&viewportState,
+		&rasterizer,
+		&multisampling,
+		&depthStencil,
+		&colorBlending,
 		&dynamicState,
 		_vkPipelineLayout,
 		_mkSwapchainRef.RequestRenderPass()
 	);
 
 	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline));
-
-	// create sync objects
-	CreateSyncObjects();
-
-	// create vertex buffer
-	CreateVertexBuffer();
-
-	// create index buffer
-	CreateIndexBuffer();
 
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
@@ -106,6 +151,16 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	// destroy buffers
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkVertexBuffer.buffer, _vkVertexBuffer.allocation);
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
+	for (auto& uniformBuffer : _vkUniformBuffers)
+		vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), uniformBuffer.buffer, uniformBuffer.allocation);
+	
+	// cleanup texture resources
+	GDescriptorManager->DestroyTextureSampler(_vkTextureSampler);
+	GDescriptorManager->DestroyTextureImageView(_vkTextureImageView);
+	GDescriptorManager->DestroyTextureImage(_vkTextureImage);
+
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDeviceRef.GetDevice(), _vkDescriptorSetLayout, nullptr);
 
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
@@ -186,7 +241,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		_vkPipelineLayout, 
 		0, 
 		1, 
-		GDescriptorManager->GetDescriptorSetPtr(_currentFrame),
+		_vkDescriptorSets.data(), // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0, 
 		nullptr
 	);
@@ -265,6 +320,76 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
+void MKGraphicsPipeline::CreateUniformBuffers()
+{
+	// create uniform buffer object
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	_vkUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	_vkUniformBuffersMappedData.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		_vkUniformBuffers[i] = util::CreateBuffer(
+			_mkDeviceRef.GetVmaAllocator(),
+			bufferSize,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VMA_MEMORY_USAGE_CPU_TO_GPU,
+			VMA_ALLOCATION_CREATE_MAPPED_BIT
+		);
+
+		_vkUniformBuffersMappedData[i] = _vkUniformBuffers[i].allocationInfo.pMappedData;
+	}
+}
+
+void MKGraphicsPipeline::UpdateUniformBuffer()
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo{};
+
+	// Apply model transformation
+	auto modelMat = dx::XMMatrixRotationAxis(dx::XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * dx::XMConvertToRadians(90.0f));
+	modelMat = dx::XMMatrixTranspose(modelMat);
+
+	// Transform into view space
+	auto viewMat = dx::XMMatrixLookAtLH(dx::XMVECTOR{ 3.0f, 3.0f, 4.0f }, dx::XMVECTOR{ 0.0f, 0.0f, 0.0f }, dx::XMVECTOR{ 0.0f, 0.0f, -1.0f });
+	viewMat = dx::XMMatrixTranspose(viewMat);
+	/**
+	* Perspective projection
+	* 1. fovy : 45 degree field of view
+	* 2. aspect ratio : swapchain extent width / swapchain extent height
+	* 3. near plane : 0.1f
+	* 4. far plane : 10.0f
+	*/
+	auto extent = _mkSwapchainRef.GetSwapchainExtent();
+	auto projectionMat = dx::XMMatrixPerspectiveFovLH(
+		dx::XMConvertToRadians(45.0f),
+		extent.width / SafeStaticCast<uint32, float>(extent.height),
+		0.1f,
+		10.0f
+	);
+	projectionMat = dx::XMMatrixTranspose(projectionMat);
+
+	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
+	ubo.mvpMat = projectionMat * viewMat * modelMat;
+
+	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
+}
+
+void MKGraphicsPipeline::CreateTextureResources()
+{
+	// create texture image
+	GDescriptorManager->CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage);
+	// create texture image view
+	GDescriptorManager->CreateTextureImageView(_vkTextureImage.image, _vkTextureImageView);
+	// create texture sampler
+	GDescriptorManager->CreateTextureSampler(_vkTextureSampler);
+}
+
 /*
 -----------	PRIVATE ------------
 */
@@ -324,7 +449,8 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	GDescriptorManager->UpdateUniformBuffer(_currentFrame);
+	// update uniform buffer state
+	UpdateUniformBuffer();
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
