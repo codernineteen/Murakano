@@ -127,4 +127,115 @@ namespace util
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 		);
 	}
-}
+	
+	// copy buffer to image
+	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+	{
+		VkBufferImageCopy region{};
+		// which part of buffer to copy
+		region.bufferOffset = 0;
+		region.bufferRowLength = 0;   // specify how the pixels are laid out in memory(1)
+		region.bufferImageHeight = 0; // specify how the pixels are laid out in memory(2)
+
+		// to which part of image
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = 1;
+
+		region.imageOffset = { 0, 0, 0 };
+		region.imageExtent = {
+			width,
+			height,
+			1 // depth 1 because texture image is 2D
+		};
+
+		vkCmdCopyBufferToImage(
+			commandBuffer,
+			buffer,
+			image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  // specify the layout of the image assuming image has already been transitioned to the layout
+			1,
+			&region
+		);
+	}
+
+	// transition image layout
+	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	{
+		/**
+		* vkCmdPipelineBarrier specification
+		* 1. command buffer
+		* 2. source stage mask - pipeline stage at which the operations occur that should happen before the barrier
+		* 3. destination stage mask - pipeline stage at which the operations occur that should happen after the barrier
+		* 4. dependency flags - specify how to handle the barrier in terms of memory dependencies
+		* 5. memory barrier count, memory barriers - reference to memory barriers
+		* 6. buffer memory barrier count, buffer memory barriers - reference to buffer memory barriers
+		* 7. image memory barrier count, image memory barriers - reference to image memory barriers
+		*/
+		VkPipelineStageFlags sourceStage;
+		VkPipelineStageFlags destinationStage;
+
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+		// set src access mask and dst access mask based on a kind of layout transitions
+		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+		{
+			barrier.srcAccessMask = 0;                             // no need to wait for anything
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;       // for operations beyond barrier
+			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		}
+		else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		{
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;     // shader read
+
+			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		}
+		else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		{
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // read - EARLY_FRAGMENT_TESTS_BIT, write - LATE_FRAGMENT_TESTS_BIT
+		}
+		else
+			throw std::invalid_argument("unsupported layout transition!");
+
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
+		barrier.image = image;                                           // specify image to transition layout
+
+		// set proper aspect mask based on the layout
+		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		{
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) // check if format has stencil component
+				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+		else
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.srcAccessMask = 0; // TODO
+		barrier.dstAccessMask = 0; // TODO
+
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			sourceStage, destinationStage,
+			0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier
+		);
+	}
+} 

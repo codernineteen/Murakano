@@ -9,6 +9,7 @@
 #include "MKSwapchain.h"
 #include "MKDescriptorManager.h"
 #include "OBJModel.h"
+#include "Texture.h"
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -39,8 +40,6 @@ private:
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
     /* update uniform buffer */
     void            UpdateUniformBuffer();
-    /* create texture resources */
-    void            CreateTextureResources();
 
 private:
     /* pipeline instance */
@@ -57,11 +56,6 @@ private:
     
     /* index buffer */
     VkBufferAllocated _vkIndexBuffer;
-
-    /* texture resources */
-    VkImageAllocated  _vkTextureImage;
-    VkImageView       _vkTextureImageView;
-    VkSampler         _vkTextureSampler;
 
     /* descriptor set */
     VkDescriptorSetLayout         _vkDescriptorSetLayout;

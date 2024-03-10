@@ -7,7 +7,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
-	_vikingRoom(OBJModel("../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
+	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -31,7 +31,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	CreateUniformBuffers();
 
 	// create texture resources
-	CreateTextureResources();
+	//CreateTextureResources();
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
@@ -110,8 +110,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		);
 		// texture image view and sampler is used commonly in descriptor sets
 		GDescriptorManager->WriteImageToDescriptorSet(
-			_vkTextureImageView,                       // texture image view
-			_vkTextureSampler,                         // texture sampler
+			_vikingRoom.vikingTexture.imageView,                       // texture image view
+			_vikingRoom.vikingTexture.sampler,                         // texture sampler
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
 			1,                                         // binding point
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
@@ -153,11 +153,7 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
 	for (auto& uniformBuffer : _vkUniformBuffers)
 		vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), uniformBuffer.buffer, uniformBuffer.allocation);
-	
-	// cleanup texture resources
-	GDescriptorManager->DestroyTextureSampler(_vkTextureSampler);
-	GDescriptorManager->DestroyTextureImageView(_vkTextureImageView);
-	GDescriptorManager->DestroyTextureImage(_vkTextureImage);
+
 
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(_mkDeviceRef.GetDevice(), _vkDescriptorSetLayout, nullptr);
@@ -378,16 +374,6 @@ void MKGraphicsPipeline::UpdateUniformBuffer()
 	ubo.mvpMat = projectionMat * viewMat * modelMat;
 
 	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
-}
-
-void MKGraphicsPipeline::CreateTextureResources()
-{
-	// create texture image
-	GDescriptorManager->CreateTextureImage("../../../resources/Textures/viking_room.png", _vkTextureImage);
-	// create texture image view
-	GDescriptorManager->CreateTextureImageView(_vkTextureImage.image, _vkTextureImageView);
-	// create texture sampler
-	GDescriptorManager->CreateTextureSampler(_vkTextureSampler);
 }
 
 /*

@@ -1,19 +1,18 @@
 #include "OBJModel.h"
 
-OBJModel::OBJModel(const std::string modelPath, const std::string texturePath) 
+OBJModel::OBJModel(MKDevice& mkDeviceRef, const std::string modelPath, const std::string texturePath) 
 	: 
 	_modelPath(modelPath), 
-	_texturePath(texturePath)
+	_texturePath(texturePath),
+	vikingTexture(mkDeviceRef, texturePath)
 {
-	// create texture image for model.
-	GDescriptorManager->CreateTextureImage(_texturePath, _vkTextureImage);
 	LoadModel();
 }
 
 
 OBJModel::~OBJModel()
 {
-	GDescriptorManager->DestroyTextureImage(_vkTextureImage);
+	
 }
 
 void OBJModel::LoadModel() 
