@@ -352,7 +352,6 @@ void MKGraphicsPipeline::UpdateUniformBuffer()
 
 	// Apply model transformation
 	//auto modelMat = dx::XMMatrixRotationAxis(dx::XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * dx::XMConvertToRadians(90.0f));
-	//modelMat = dx::XMMatrixTranspose(modelMat);
 	auto modelMat = dx::XMMatrixIdentity();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
