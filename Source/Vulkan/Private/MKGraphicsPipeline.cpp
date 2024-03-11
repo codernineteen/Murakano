@@ -7,7 +7,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
-	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
+	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
+	_camera(mkDeviceRef, mkSwapchainRef)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -346,32 +347,16 @@ void MKGraphicsPipeline::UpdateUniformBuffer()
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo{};
+	_camera.UpdateViewTarget(dx::XMVECTOR{ 0.0f, 2*sin(time), 0.0f});
+	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
 
 	// Apply model transformation
-	auto modelMat = dx::XMMatrixRotationAxis(dx::XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * dx::XMConvertToRadians(90.0f));
-	modelMat = dx::XMMatrixTranspose(modelMat);
-
-	// Transform into view space
-	auto viewMat = dx::XMMatrixLookAtLH(dx::XMVECTOR{ 3.0f, 3.0f, 4.0f }, dx::XMVECTOR{ 0.0f, 0.0f, 0.0f }, dx::XMVECTOR{ 0.0f, 0.0f, -1.0f });
-	viewMat = dx::XMMatrixTranspose(viewMat);
-	/**
-	* Perspective projection
-	* 1. fovy : 45 degree field of view
-	* 2. aspect ratio : swapchain extent width / swapchain extent height
-	* 3. near plane : 0.1f
-	* 4. far plane : 10.0f
-	*/
-	auto extent = _mkSwapchainRef.GetSwapchainExtent();
-	auto projectionMat = dx::XMMatrixPerspectiveFovLH(
-		dx::XMConvertToRadians(45.0f),
-		extent.width / SafeStaticCast<uint32, float>(extent.height),
-		0.1f,
-		10.0f
-	);
-	projectionMat = dx::XMMatrixTranspose(projectionMat);
+	//auto modelMat = dx::XMMatrixRotationAxis(dx::XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * dx::XMConvertToRadians(90.0f));
+	//modelMat = dx::XMMatrixTranspose(modelMat);
+	auto modelMat = dx::XMMatrixIdentity();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
-	ubo.mvpMat = projectionMat * viewMat * modelMat;
+	ubo.mvpMat = projViewMat * modelMat;
 
 	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
 }

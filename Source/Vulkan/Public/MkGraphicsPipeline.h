@@ -10,6 +10,7 @@
 #include "MKDescriptorManager.h"
 #include "OBJModel.h"
 #include "Texture.h"
+#include "FreeCamera.h"
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -67,6 +68,9 @@ private:
 
     /* 3d model */
     OBJModel _vikingRoom;
+
+    /* camera */
+    FreeCamera _camera;
 
 private:
 	MKDevice&     _mkDeviceRef;
