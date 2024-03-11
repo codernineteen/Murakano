@@ -2,7 +2,6 @@
 
 // external
 #include <chrono> // for updating uniform buffer object state
-#include <stb_image.h>
 
 // internal
 #include "Utilities.h"
@@ -30,17 +29,6 @@ public:
 	void                   WriteImageToDescriptorSet(VkImageView imageView, VkSampler imageSampler, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   UpdateDescriptorSet(VkDescriptorSet descriptorSet);
 	void                   ResetDescriptorPool();
-
-	/* create resources */
-	void CreateTextureImage(const std::string texturePath, VkImageAllocated& textureImage);
-	void CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
-	void CreateTextureSampler(VkSampler& textureSampler);
-
-	/* destroy resources */
-	void DestroyTextureImage(VkImageAllocated textureImage) { vmaDestroyImage(_mkDevicePtr->GetVmaAllocator(), textureImage.image, textureImage.allocation); }
-	void DestroyTextureImageView(VkImageView textureImageView) { vkDestroyImageView(_mkDevicePtr->GetDevice(), textureImageView, nullptr); }
-	void DestroyTextureSampler(VkSampler textureSampler) { vkDestroySampler(_mkDevicePtr->GetDevice(), textureSampler, nullptr); } 
-
 private:
 	/* create depth buffer resources */
 	bool HasStencilComponent(VkFormat format) { return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT; }
