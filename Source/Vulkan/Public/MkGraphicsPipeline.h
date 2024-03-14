@@ -11,6 +11,7 @@
 #include "OBJModel.h"
 #include "Texture.h"
 #include "FreeCamera.h"
+#include "InputController.h"
 
 // [MKGraphicsPipeline class]
 // - Responsibility :
@@ -23,6 +24,8 @@ class MKGraphicsPipeline
 public:
 	MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
+
+    /* draw frames */
     void DrawFrame();
 
 private:
@@ -40,7 +43,7 @@ private:
     /* copy source buffer to destination buffer */
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
     /* update uniform buffer */
-    void            UpdateUniformBuffer();
+    void            UpdateUniformBuffer(float elapsedTime);
 
 private:
     /* pipeline instance */
@@ -72,8 +75,13 @@ private:
     /* camera */
     FreeCamera _camera;
 
+    /* input controller */
+    InputController _inputController;
+
 private:
 	MKDevice&     _mkDeviceRef;
     MKSwapchain&  _mkSwapchainRef;
     uint32        _currentFrame = 0;
+    float         _deltaTime = 0.0f;
+    std::chrono::steady_clock::time_point  _lastTime = std::chrono::high_resolution_clock::now();
 };

@@ -3,9 +3,9 @@
 #include "Utilities.h";
 struct Vertex
 {
-    dx::XMFLOAT3 pos;
-    dx::XMFLOAT3 color;
-    dx::XMFLOAT2 texCoord;
+    XMFLOAT3 pos;
+    XMFLOAT3 color;
+    XMFLOAT2 texCoord;
 
     // getter for vertex bindging description
     static VkVertexInputBindingDescription  GetBindingDescription()
