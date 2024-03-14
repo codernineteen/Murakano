@@ -19,6 +19,22 @@ For anyone who are curious about implementation details, visualized architecture
 <img src="docs/images/render-obj.png" alt="image of rendered viking room"/>
 </p>
 
+- camera movement
+| Action          | Key            |
+|-----------------|----------------|
+| Move Forward    | W              |
+| Move Left       | A              |
+| Move Backward   | S              |
+| Move Right      | D              |
+| Rotate Up       | Arrow Up       |
+| Rotate Down     | Arrow Down     |
+| Rotate Left     | Arrow Left     |
+| Rotate Right    | Arrow Right    |
+<p align="center">
+<img src="docs/images/camera-moving" alt="move camera perspective" />
+</p>
+
+
 # Dependencies
 
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)
