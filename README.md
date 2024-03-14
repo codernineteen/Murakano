@@ -28,7 +28,7 @@ For anyone who are curious about implementation details, visualized architecture
 </p>
 
 - camera movement
-<br>
+
 | Action          | Key            |
 |---|---|
 | Move Forward    | W              |
@@ -39,6 +39,7 @@ For anyone who are curious about implementation details, visualized architecture
 | Rotate Down     | Arrow Down     |
 | Rotate Left     | Arrow Left     |
 | Rotate Right    | Arrow Right    |
+
 <p align="center">
 <img src="docs/images/camera-moving.gif" alt="move camera perspective" />
 </p>
