@@ -9,14 +9,28 @@ class FreeCamera
 public:
 	FreeCamera(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~FreeCamera();
-	void UpdateViewTarget(dx::XMVECTOR focusPosition);
+	
+	void UpdateCameraPositionX(float moveSpeed);
+	void UpdateCameraPositionZ(float moveSpeed);
+	void UpdateCameraRotationHorizontal(float rotationSpeed);
+	void UpdateCameraRotationVertical(float rotationSpeed);
 
-	dx::XMMATRIX GetViewMatrix() const { return _viewMat; }
-	dx::XMMATRIX GetProjectionMatrix() const { return _projectionMat; }
+	void UpdateViewTarget();
+
+	XMMATRIX GetViewMatrix() const { return _viewMat; }
+	XMMATRIX GetProjectionMatrix() const { return _projectionMat; }
 
 private:
-	MKDevice& _mkDeviceRef;
-	MKSwapchain& _mkSwapchainRef;
-	dx::XMMATRIX _viewMat = dx::XMMatrixIdentity();
-	dx::XMMATRIX _projectionMat = dx::XMMatrixIdentity();
+	/* murakan instance */
+	MKDevice&           _mkDeviceRef;
+	MKSwapchain&        _mkSwapchainRef;
+
+	/* view, projections settings */
+	XMVECTOR _upDirection = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
+	XMVECTOR _forwardDirection = XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR _rightDirection = XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);
+	XMVECTOR _cameraPosition = XMVectorSet(4.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR _focusPosition = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMMATRIX _viewMat = XMMatrixIdentity();
+	XMMATRIX _projectionMat = XMMatrixIdentity();
 };

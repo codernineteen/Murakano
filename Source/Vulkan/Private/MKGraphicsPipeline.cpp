@@ -8,7 +8,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
 	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
-	_camera(mkDeviceRef, mkSwapchainRef)
+	_camera(mkDeviceRef, mkSwapchainRef),
+	_inputController(mkDeviceRef.GetWindowRef().GetWindow(), _camera)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -339,20 +340,15 @@ void MKGraphicsPipeline::CreateUniformBuffers()
 	}
 }
 
-void MKGraphicsPipeline::UpdateUniformBuffer()
+void MKGraphicsPipeline::UpdateUniformBuffer(float time)
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
 	UniformBufferObject ubo{};
-	_camera.UpdateViewTarget(dx::XMVECTOR{ 0.0f, 2*sin(time), 0.0f});
+	_camera.UpdateViewTarget();
 	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
 
 	// Apply model transformation
-	//auto modelMat = dx::XMMatrixRotationAxis(dx::XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * dx::XMConvertToRadians(90.0f));
-	auto modelMat = dx::XMMatrixIdentity();
+	//auto modelMat = XMMatrixRotationAxis(XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * XMConvertToRadians(90.0f));
+	auto modelMat = XMMatrixIdentity();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
 	ubo.mvpMat = projViewMat * modelMat;
@@ -401,6 +397,17 @@ void MKGraphicsPipeline::CreateSyncObjects()
 
 void MKGraphicsPipeline::DrawFrame()
 {
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	auto elapsedTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	// update delta time
+	_deltaTime = std::chrono::duration<float, std::chrono::milliseconds::period>(currentTime - _lastTime).count();
+	_deltaTime /= 1000.0f;
+	_lastTime = currentTime;
+
+	// device references
 	auto device = _mkDeviceRef.GetDevice();
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
 
@@ -419,8 +426,14 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
+
+	// update movement of camera
+	_inputController.moveInPlaneXY(_deltaTime);
+	// update rotation of camera
+	_inputController.rotateCamera(_deltaTime);
+
 	// update uniform buffer state
-	UpdateUniformBuffer();
+	UpdateUniformBuffer(elapsedTime);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
