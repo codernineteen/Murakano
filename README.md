@@ -11,6 +11,14 @@ For anyone who are curious about implementation details, visualized architecture
 - OBJ format model rendering support
 - HLSL, GLSL shader compilation support (HLSL is a default shader language)
 - Easy to use Global command service interface
+- Vulkan Memory Allocator support
+
+# Planned Features
+
+- compute shader support
+- hardware accelerated ray tracing
+- PBR material rendering
+- deep learning based denoising
 
 # Examples
 

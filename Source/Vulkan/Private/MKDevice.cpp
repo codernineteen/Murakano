@@ -13,20 +13,28 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
-	// priority of the queue for scheduling purposes. it is ranged between 0.0 and 1.0
-	float queuePriority = 1.0f;
 	for (uint32 queueFamily : uniqueQueueFamilies)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo = vkinfo::GetDeviceQueueCreateInfo(queueFamily, queuePriority);
+		VkDeviceQueueCreateInfo queueCreateInfo = vkinfo::GetDeviceQueueCreateInfo(queueFamily);
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
 	// specify the set of device features
-	VkPhysicalDeviceFeatures deviceFeatures = {};
-	deviceFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
+	VkPhysicalDeviceFeatures2 deviceFeatures2;
+	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
+	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+	// pNext chain
+	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
+	bufferDeviceAddressFeatures.pNext = nullptr; // no more extension features
+	vkGetPhysicalDeviceFeatures2(_vkPhysicalDevice, &deviceFeatures2);
+	
+	// activate anisotropic filtering feature, buffer device address feature
+	deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
+	bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
 
 	// specify device creation info
-	VkDeviceCreateInfo deviceCreateInfo = vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures, deviceExtensions);
+	VkDeviceCreateInfo deviceCreateInfo = vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures2, deviceExtensions);
 	MK_CHECK(vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice));
 
 	// retrieve queue handles from logical device
@@ -35,11 +43,24 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 
 	// initialize command service
 	GCommandService->InitCommandService(this);
+
+	// initialize VMA allocator
+	VmaAllocatorCreateInfo allocatorInfo = {};
+	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+	allocatorInfo.physicalDevice = _vkPhysicalDevice;
+	allocatorInfo.device = _vkLogicalDevice;
+	allocatorInfo.instance = _mkInstanceRef.GetVkInstance();
+	allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+	vmaCreateAllocator(&allocatorInfo, &_vmaAllocator);
 }
 
 MKDevice::~MKDevice()
 {
-	delete GCommandService; // command service shoule be deleted before destroying logical device.
+	// destroy VMA allocator
+	vmaDestroyAllocator(_vmaAllocator);
+
+	// command service shoule be deleted before destroying logical device.
+	delete GCommandService; 
 
 	vkDestroySurfaceKHR(_mkInstanceRef.GetVkInstance(), _vkSurface, nullptr);
 	vkDestroyDevice(_vkLogicalDevice, nullptr);
@@ -81,10 +102,18 @@ void MKDevice::PickPhysicalDevice()
 int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 {
 	VkPhysicalDeviceProperties deviceProperties;
-	VkPhysicalDeviceFeatures deviceFeatures;
+	VkPhysicalDeviceFeatures2 deviceFeatures2;
+	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures;
 
+	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+	
+	// pNext chain
+	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
+	bufferDeviceAddressFeatures.pNext = nullptr; // no more extension features
+	
 	vkGetPhysicalDeviceProperties(device, &deviceProperties);
-	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+	vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
 
 	int score = 100;
 
@@ -102,7 +131,8 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 		!extensionsSupported || 
 		details.formats.empty() || 
 		details.presentModes.empty() ||
-		!deviceFeatures.samplerAnisotropy
+		!deviceFeatures2.features.samplerAnisotropy,
+		bufferDeviceAddressFeatures.bufferDeviceAddress != VK_TRUE
 	)
 		score = 0;
 

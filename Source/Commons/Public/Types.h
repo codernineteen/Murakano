@@ -3,7 +3,9 @@
 // third-party
 #include <vulkan/vulkan.h> // vulkan
 #include <fmt/core.h>
-#include <DirectXMath.h>
+#include <DirectXMath.h> // directx math
+#include <DirectXPackedVector.h>
+#include <vma/vk_mem_alloc.h>
 
 // std
 #include <cstdint>
@@ -21,8 +23,12 @@
 #include <stack>
 #include <queue>
 
+// custom types
+#include "VulkanType.h"
+
 // namespace aliases
-namespace dx = DirectX;
+using namespace DirectX;
+using namespace DirectX::PackedVector;
 
 // integer aliases
 using uint16 = std::uint16_t;

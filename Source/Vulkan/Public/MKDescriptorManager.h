@@ -2,7 +2,6 @@
 
 // external
 #include <chrono> // for updating uniform buffer object state
-#include <stb_image.h>
 
 // internal
 #include "Utilities.h"
@@ -14,68 +13,43 @@ class MKDescriptorManager
 public:
 	MKDescriptorManager();
 	~MKDescriptorManager();
-	void InitDescriptorManager(MKDevice* mkDevicePtr, VkExtent2D swapchainExtent);
+	void InitDescriptorManager(MKDevice* mkDevicePtr);
 
-	/* getters */
-	VkDescriptorSetLayout*  GetDescriptorSetLayoutPtr() { return &_vkDescriptorSetLayout; }
-	VkDescriptorSet*        GetDescriptorSetPtr(uint32 currentFrame) { return &_vkDescriptorSets[currentFrame]; }
-	VkImageView             GetDepthImageView() const { return _vkDepthImageView; }
-
-	/* undate uniform buffer objects state*/
-	void UpdateUniformBuffer(uint32 currentFrame);
-	
-	/* update swapchain extent whenever there is recreation of it. */
-	void UpdateSwapchainExtent(VkExtent2D swapchainExtent) { _vkSwapchainExtent = swapchainExtent; }
-
-	/* transition image layout with pipeline barrier (when VK_SHARING_MODE_EXCLUSIVE) */
+	/* commands - transition image layout with pipeline barrier (when VK_SHARING_MODE_EXCLUSIVE) */
 	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height); 
 
-	/* create resources */
-	void CreateTextureImage(const std::string texturePath, VkImage& textureImage, VkDeviceMemory& textureImageMemory);
-	void CreateTextureImageView(VkImage& textureImage, VkImageView& textureImageView);
-	void CreateTextureSampler();
-	void CreateDepthResources();
-
-	/* destroy resources */
-	void DestroyTextureImage(VkImage textureImage) { vkDestroyImage(_mkDevicePtr->GetDevice(), textureImage, nullptr); }
-	void DestroyTextureImageView(VkImageView textureImageView);
-	void DestroyTextureSampler(VkSampler textureSampler);
-	void DestroyTextureImageMemory(VkDeviceMemory textureImageMemory) { vkFreeMemory(_mkDevicePtr->GetDevice(), textureImageMemory, nullptr); }
-	void DestroyDepthResources();
-
+	/* descriptor manager api */
+	VkDescriptorPool       GetDescriptorPool();
+	VkDescriptorPool       CreateDescriptorPool(uint32 setCount);
+	void                   AddDescriptorSetLayoutBinding(VkDescriptorType descriptorType, VkShaderStageFlags shaderStageFlags, uint32_t binding, uint32_t descriptorCount);
+	void                   CreateDescriptorSetLayout(VkDescriptorSetLayout& layout);
+	void                   AllocateDescriptorSet(std::vector<VkDescriptorSet>& descriptorSets, VkDescriptorSetLayout layout);
+	void                   WriteBufferToDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, uint32 dstBinding, VkDescriptorType descriptorType);
+	void                   WriteImageToDescriptorSet(VkImageView imageView, VkSampler imageSampler, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType);
+	void                   UpdateDescriptorSet(VkDescriptorSet descriptorSet);
+	void                   ResetDescriptorPool();
 private:
-	/* create uniform buffer object*/
-	void CreateUniformBuffer();
-
 	/* create depth buffer resources */
 	bool HasStencilComponent(VkFormat format) { return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT; }
 
 
 private:
 	/* descriptor pool */
-	VkDescriptorPool              _vkDescriptorPool = VK_NULL_HANDLE;
+	std::vector<VkDescriptorPoolSize>       _vkDescriptorPoolSizes = {
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         MAX_FRAMES_IN_FLIGHT},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT}
+	};
+	std::vector<VkDescriptorSetLayoutBinding>                   _vkWaitingBindings = std::vector<VkDescriptorSetLayoutBinding>();
+	std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>> _vkWaitingBufferInfos = std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>>();
+	std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>  _vkWaitingImageInfos = std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>();
+	std::vector<VkWriteDescriptorSet>                           _vkWaitingWrites = std::vector<VkWriteDescriptorSet>();
 
-	/* uniform buffer descriptor*/
-	VkDescriptorSetLayout         _vkDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkBuffer>         _vkUniformBuffers = std::vector<VkBuffer>();
-	std::vector<VkDeviceMemory>   _vkUniformBuffersMemory = std::vector<VkDeviceMemory>();
-	std::vector<void*>            _vkUniformBuffersMapped = std::vector<void*>();
-	std::vector<VkDescriptorSet>  _vkDescriptorSets = std::vector<VkDescriptorSet>();
+	std::vector<VkDescriptorPool>                               _vkDescriptorPoolReady; // available descriptor pool
+	std::vector<VkDescriptorPool>                               _vkDescriptorPoolFull;  // full descriptor pool 
 
-	/* extent reference */
-	VkExtent2D                    _vkSwapchainExtent = VkExtent2D{ 0, 0 };
-
-	/* texture resources */
-	VkImage                       _vkTextureImage = VK_NULL_HANDLE;
-	VkImageView                   _vkTextureImageView = VK_NULL_HANDLE;
-	VkDeviceMemory                _vkTextureImageMemory = VK_NULL_HANDLE;
-	VkSampler                     _vkTextureSampler = VK_NULL_HANDLE;
-
-	/* depth buffer resources */
-	VkImage                       _vkDepthImage = VK_NULL_HANDLE;
-	VkImageView                   _vkDepthImageView = VK_NULL_HANDLE;
-	VkDeviceMemory                _vkDepthImageMemory = VK_NULL_HANDLE;
+	/* max set count per pool */
+	uint32 _setsPerPool = 100; // default is 100, max is 4092
 
 private:
 	MKDevice* _mkDevicePtr = nullptr;

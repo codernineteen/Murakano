@@ -19,9 +19,9 @@ namespace vkinfo
 	/* vulkan instance create info */
 	VkInstanceCreateInfo                  GetInstanceCreateInfo(VkApplicationInfo* appInfo, size_t extensionSize, const char* const* extensionNames, VkDebugUtilsMessengerCreateInfoEXT* debugCreateInfo = nullptr);
 	/* logical device create info */
-	VkDeviceCreateInfo                    GetDeviceCreateInfo(const std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, VkPhysicalDeviceFeatures& deviceFeatures, const std::vector<const char*>& deviceExtensions);
+	VkDeviceCreateInfo                    GetDeviceCreateInfo(const std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, VkPhysicalDeviceFeatures2& deviceFeatures2, const std::vector<const char*>& deviceExtensions);
 	/* vulkan device queue create info */
-	VkDeviceQueueCreateInfo               GetDeviceQueueCreateInfo(uint32 queueFamilyIndex, float queuePriority);
+	VkDeviceQueueCreateInfo               GetDeviceQueueCreateInfo(uint32 queueFamilyIndex);
 	/* vulkan swapchain create info */
 	VkSwapchainCreateInfoKHR              GetSwapchainCreateInfo(
 	                                      	 VkSurfaceKHR surface, 

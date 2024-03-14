@@ -7,7 +7,9 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
-	_vikingRoom(OBJModel("../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"))
+	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
+	_camera(mkDeviceRef, mkSwapchainRef),
+	_inputController(mkDeviceRef.GetWindowRef().GetWindow(), _camera)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -18,7 +20,20 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
 #endif
+	// create sync objects
+	CreateSyncObjects();
 
+	// create vertex buffer
+	CreateVertexBuffer();
+
+	// create index buffer
+	CreateIndexBuffer();
+
+	// create uniform buffer
+	CreateUniformBuffers();
+
+	// create texture resources
+	//CreateTextureResources();
 
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
@@ -65,36 +80,68 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	VkPipelineColorBlendStateCreateInfo colorBlending = vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	// specify pipeline layout
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(GDescriptorManager->GetDescriptorSetLayoutPtr());
+
+	// add descriptor set layout binding
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // descriptor type
+		VK_SHADER_STAGE_VERTEX_BIT,        // shader stage
+		0,								   // binding point
+		1								   // descriptor count
+	);
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		1,
+		1
+	);
+
+	// create descriptor set layout with bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkDescriptorSetLayout);
+	// allocate descriptor set layout
+	GDescriptorManager->AllocateDescriptorSet(_vkDescriptorSets, _vkDescriptorSetLayout);
+
+	// update descriptor set
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		GDescriptorManager->WriteBufferToDescriptorSet(
+			_vkUniformBuffers[i].buffer,               // uniform buffer
+			0,                                         // offset
+			sizeof(UniformBufferObject),               // range
+			0,                                         // binding point
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER          // descriptor type
+		);
+		// texture image view and sampler is used commonly in descriptor sets
+		GDescriptorManager->WriteImageToDescriptorSet(
+			_vikingRoom.vikingTexture.imageView,                       // texture image view
+			_vikingRoom.vikingTexture.sampler,                         // texture sampler
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
+			1,                                         // binding point
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
+		);
+		// update descriptor set
+		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[i]);
+	}
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout);
 
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = vkinfo::GetGraphicsPipelineCreateInfo(
-		_vkPipelineLayout, 
-		shaderStages, 
-		&vertexInputInfo, 
-		&inputAssembly, 
-		&viewportState, 
-		&rasterizer, 
-		&multisampling, 
-		&depthStencil, 
-		&colorBlending, 
+		_vkPipelineLayout,
+		shaderStages,
+		&vertexInputInfo,
+		&inputAssembly,
+		&viewportState,
+		&rasterizer,
+		&multisampling,
+		&depthStencil,
+		&colorBlending,
 		&dynamicState,
 		_vkPipelineLayout,
 		_mkSwapchainRef.RequestRenderPass()
 	);
 
 	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline));
-
-	// create sync objects
-	CreateSyncObjects();
-
-	// create vertex buffer
-	CreateVertexBuffer();
-
-	// create index buffer
-	CreateIndexBuffer();
 
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
@@ -104,10 +151,14 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
 	// destroy buffers
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkIndexBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkIndexBufferMemory, nullptr);
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), _vkVertexBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), _vkVertexBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkVertexBuffer.buffer, _vkVertexBuffer.allocation);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
+	for (auto& uniformBuffer : _vkUniformBuffers)
+		vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), uniformBuffer.buffer, uniformBuffer.allocation);
+
+
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDeviceRef.GetDevice(), _vkDescriptorSetLayout, nullptr);
 
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
@@ -177,10 +228,10 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
-	VkBuffer vertexBuffers[] = { _vkVertexBuffer };
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
 	
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
@@ -188,7 +239,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		_vkPipelineLayout, 
 		0, 
 		1, 
-		GDescriptorManager->GetDescriptorSetPtr(_currentFrame),
+		_vkDescriptorSets.data(), // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0, 
 		nullptr
 	);
@@ -200,28 +251,24 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
-void MKGraphicsPipeline::CreateVertexBuffer() 
+void MKGraphicsPipeline::CreateVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
 	/**
-	* Staging buffer : temporary host-visible buffer 
+	* Staging buffer : temporary host-visible buffer
 	* - usage : source of memory transfer operation
 	* - property : host-visible, host-coherent
+	* - allocation flag : VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT must be set because of VMA_MEMORY_USAGE_AUTO , CREATE_MAPPED_BIT is set by default
 	*/
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
-		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, stagingBufferMemory
+	VkBufferAllocated stagingBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_AUTO, // auto-detect memory type
+		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 	);
 
-	void* data;
-	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _vikingRoom.vertices.data(), (size_t)bufferSize);
-	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.vertices.data(), (size_t)bufferSize);
 
 	/**
 	* Device local buffer : actual vertex buffer
@@ -229,53 +276,84 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	* - property : device local
 	* Note that we can't map memory for device-local buffer, but can copy data to it.
 	*/
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
-		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		_vkVertexBuffer, _vkVertexBufferMemory);
+	_vkVertexBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT
+	);
 	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
 
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
 	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+	VkBufferAllocated stagingBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, stagingBufferMemory
+		VMA_MEMORY_USAGE_AUTO, // auto-detect memory type
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT// must to be set because of VMA_MEMORY_USAGE_AUTO
 	);
 
-	void* data;
-	vkMapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, _vikingRoom.indices.data(), (size_t)bufferSize);
-	vkUnmapMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory);
-
+	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.indices.data(), (size_t)bufferSize);
 	/**
 	* Device local buffer : actual index buffer
 	* - usage : destination of memory transfer operation, index buffer
 	* - property : device local
 	*/
-	util::CreateBuffer(
-		_mkDeviceRef.GetPhysicalDevice(), _mkDeviceRef.GetDevice(), 
+	_vkIndexBuffer = util::CreateBuffer(
+		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		_vkIndexBuffer, _vkIndexBufferMemory
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
+
 	CopyBufferToBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
 
-	vkDestroyBuffer(_mkDeviceRef.GetDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_mkDeviceRef.GetDevice(), stagingBufferMemory, nullptr);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
+}
+
+void MKGraphicsPipeline::CreateUniformBuffers()
+{
+	// create uniform buffer object
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	_vkUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	_vkUniformBuffersMappedData.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		_vkUniformBuffers[i] = util::CreateBuffer(
+			_mkDeviceRef.GetVmaAllocator(),
+			bufferSize,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VMA_MEMORY_USAGE_CPU_TO_GPU,
+			VMA_ALLOCATION_CREATE_MAPPED_BIT
+		);
+
+		_vkUniformBuffersMappedData[i] = _vkUniformBuffers[i].allocationInfo.pMappedData;
+	}
+}
+
+void MKGraphicsPipeline::UpdateUniformBuffer(float time)
+{
+	UniformBufferObject ubo{};
+	_camera.UpdateViewTarget();
+	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
+
+	// Apply model transformation
+	//auto modelMat = XMMatrixRotationAxis(XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * XMConvertToRadians(90.0f));
+	auto modelMat = XMMatrixIdentity();
+
+	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
+	ubo.mvpMat = projViewMat * modelMat;
+
+	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
 }
 
 /*
@@ -319,6 +397,17 @@ void MKGraphicsPipeline::CreateSyncObjects()
 
 void MKGraphicsPipeline::DrawFrame()
 {
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	auto elapsedTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	// update delta time
+	_deltaTime = std::chrono::duration<float, std::chrono::milliseconds::period>(currentTime - _lastTime).count();
+	_deltaTime /= 1000.0f;
+	_lastTime = currentTime;
+
+	// device references
 	auto device = _mkDeviceRef.GetDevice();
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
 
@@ -337,7 +426,14 @@ void MKGraphicsPipeline::DrawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
-	GDescriptorManager->UpdateUniformBuffer(_currentFrame);
+
+	// update movement of camera
+	_inputController.moveInPlaneXY(_deltaTime);
+	// update rotation of camera
+	_inputController.rotateCamera(_deltaTime);
+
+	// update uniform buffer state
+	UpdateUniformBuffer(elapsedTime);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
 	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
@@ -387,12 +483,12 @@ void MKGraphicsPipeline::DrawFrame()
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; // circular update of current frame.
 }
 
-void MKGraphicsPipeline::CopyBufferToBuffer(VkBuffer src, VkBuffer dest, VkDeviceSize size)
+void MKGraphicsPipeline::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size)
 {
 	// a command to copy buffer to buffer.
 	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
 		VkBufferCopy copyRegion{};
 		copyRegion.size = size;
-		vkCmdCopyBuffer(commandBuffer, src, dest, 1, &copyRegion);
+		vkCmdCopyBuffer(commandBuffer, src.buffer, dest.buffer, 1, &copyRegion);
 	});
 }

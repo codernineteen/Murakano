@@ -48,6 +48,8 @@ std::vector<const char*> MKInstance::GetRequiredExtensions()
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    extensions.push_back(VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME);
     if (!CheckExtensionSupport(extensions)) 
     {
         throw std::runtime_error("Required extensions are not supported");

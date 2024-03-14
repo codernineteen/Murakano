@@ -1,6 +1,5 @@
 #pragma once
 
-// internal
 #include "Types.h"
 #include "Conversion.h"
 #include "Macros.h"
@@ -14,29 +13,29 @@ namespace util
 	
 	/* a utility to find a suitable memory type*/
 	uint32 FindMemoryType(uint32 typeFilter, VkPhysicalDeviceMemoryProperties deviceMemProperties, VkMemoryPropertyFlags properties);
+
 	/* create a buffer */
-	void CreateBuffer(
-		VkPhysicalDevice physicalDevice,
-		VkDevice logicalDevice,
+	VkBufferAllocated CreateBuffer(
+		const VmaAllocator& allocator,
 		VkDeviceSize size,
 		VkBufferUsageFlags bufferUsage,
-		VkMemoryPropertyFlags properties,
-		VkBuffer& buffer,
-		VkDeviceMemory& bufferMemory
+		VmaMemoryUsage memoryUsage,
+		VmaAllocationCreateFlags memoryAllocationFlags
 	);
+
 	/* create an image */
 	void CreateImage(
-		VkPhysicalDevice physicalDevice,
-		VkDevice device,
+		const VmaAllocator& allocator,
+		VkImageAllocated& newImage,
 		uint32 width,
 		uint32 height,
 		VkFormat format,
 		VkImageTiling tiling,
 		VkImageUsageFlags usage,
-		VkMemoryPropertyFlags properties,
-		VkImage& image,
-		VkDeviceMemory& imageMemory
+		VmaMemoryUsage memoryUsage,
+		VmaAllocationCreateFlags memoryAllocationFlags
 	);
+
 	/* create single image view related to the given image parameter */
 	void CreateImageView(
 		VkDevice logicalDevice,
@@ -46,8 +45,16 @@ namespace util
 		VkImageAspectFlags aspectFlags,
 		uint32 mipLevels
 	);
+
 	/* find supported device format */
 	VkFormat FindSupportedTilingFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
 	/* find depth - specific format */
 	VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
+
+	/* copy resources */
+	void CopyBufferToBuffer(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 }
