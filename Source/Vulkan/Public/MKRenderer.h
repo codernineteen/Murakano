@@ -10,11 +10,6 @@
 #include "MkGraphicsPipeline.h"
 #include "MKCommandService.h"
 
-// [MKRenderer class]
-// - Responsibility :
-//    This class is top-level class of whole system and make abstraction of rendering pipeline for high-level user.
-// - Dependency :
-//    MKWindow
 class MKRenderer
 {
 public:

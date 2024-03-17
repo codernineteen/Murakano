@@ -1,7 +1,5 @@
 #pragma once
 
-#define USE_HLSL
-
 // internal
 #include "Utilities.h"
 #include "Global.h"
@@ -13,12 +11,6 @@
 #include "FreeCamera.h"
 #include "InputController.h"
 
-// [MKGraphicsPipeline class]
-// - Responsibility :
-//    - specify graphics pipeline.
-// - Dependency :
-//    - MKDevice as reference
-//    - MKRenderPass as member
 class MKGraphicsPipeline 
 {
 public:
