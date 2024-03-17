@@ -14,7 +14,8 @@ public:
 	void rotateCamera(float deltaTime);
 
 public:
-	struct KeyboardMappings {
+	struct KeyboardMappings 
+	{
 		int moveLeft = GLFW_KEY_A;
 		int moveRight = GLFW_KEY_D;
 		int moveBackward = GLFW_KEY_S;
