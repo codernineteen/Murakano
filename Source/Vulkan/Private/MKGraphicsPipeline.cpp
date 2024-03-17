@@ -32,9 +32,6 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create uniform buffer
 	CreateUniformBuffers();
 
-	// create texture resources
-	//CreateTextureResources();
-
 	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
 	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
 
@@ -344,14 +341,20 @@ void MKGraphicsPipeline::UpdateUniformBuffer(float time)
 {
 	UniformBufferObject ubo{};
 	_camera.UpdateViewTarget();
+#ifdef USE_HLSL
 	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
 
-	// Apply model transformation
-	//auto modelMat = XMMatrixRotationAxis(XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * XMConvertToRadians(90.0f));
+	// initialize model transformation
 	auto modelMat = XMMatrixIdentity();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
 	ubo.mvpMat = projViewMat * modelMat;
+#else
+	// fill out uniform buffer object members
+	ubo.modelMat = glm::mat4(1.0f);
+	ubo.viewMat = _camera.GetViewMatrix();
+	ubo.projMat = _camera.GetProjectionMatrix();
+#endif
 
 	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
 }

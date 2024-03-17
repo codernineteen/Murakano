@@ -12,11 +12,6 @@
 const int WIDTH = 1680;
 const int HEIGHT = 1050;
 
-// [MKWindow class]
-// - Responsibility :
-//    - abstraction of window system using GLFW
-// - Dependency :
-//    - GLFW
 class MKWindow
 {
 public:

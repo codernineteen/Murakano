@@ -4,10 +4,6 @@
 #include "Global.h"
 #include "Info.h"
 
-
-// [MKWindow class]
-// - Responsibility :
-//    - Vulkan validation layers setup
 class MKValidationLayer
 {
 public:

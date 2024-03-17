@@ -6,12 +6,6 @@
 #include "MKWindow.h"
 #include "MKValidationLayer.h"
 
-// [MKInstance class]
-// - Responsibility:
-//   - a wrapper for VkInstance
-//   - Create and manage a Vulkan instance
-// - Dependency:
-//   - VkInstance
 class MKInstance
 {
 public:

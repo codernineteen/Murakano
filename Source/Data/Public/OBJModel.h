@@ -23,8 +23,8 @@ private:
 	const std::string _texturePath;
 
 public:
-	Texture             vikingTexture;
-	std::vector<Vertex> vertices;
-	std::unordered_map<Vertex, uint32, VertexHash> uniqueVertices; // unique vertices with key as vertex and value as index
-	std::vector<uint32> indices;
+	Texture                                         vikingTexture;
+	std::vector<Vertex>                             vertices;
+	std::unordered_map<Vertex, uint32, VertexHash>  uniqueVertices; // unique vertices with key as vertex and value as index
+	std::vector<uint32>                             indices;
 };
