@@ -12,7 +12,7 @@ public:
 	~MKCommandService();
 
 	/* getter */
-	VkCommandBuffer GetCommandBuffer(uint32 currentFrame) { return _vkCommandBuffers[currentFrame]; }
+	VkCommandBuffer* GetCommandBuffer(uint32 currentFrame) { return &_vkCommandBuffers[currentFrame]; }
 
 	/* supported service */
 	void InitCommandService(MKDevice* mkDeviceRef);                               // initialize command service in Device creation stage
