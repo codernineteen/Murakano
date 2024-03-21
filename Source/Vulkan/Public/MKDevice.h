@@ -41,7 +41,7 @@ public:
 	MKDevice(MKWindow& windowRef, const MKInstance& instanceRef);
 	~MKDevice();
 
-	/* getters */
+	/* instance getters */
 	inline VkPhysicalDevice  GetPhysicalDevice()  const { return _vkPhysicalDevice; }
 	inline VkDevice		     GetDevice()		  const { return _vkLogicalDevice; }
 	inline VkSurfaceKHR	     GetSurface()		  const { return _vkSurface; }
@@ -49,6 +49,9 @@ public:
 	inline VkQueue			 GetPresentQueue()	  const { return _vkPresentQueue; }
 	inline MKWindow&         GetWindowRef()		  const { return _mkWindowRef; }
 	inline VmaAllocator      GetVmaAllocator()    const { return _vmaAllocator; }
+
+	/* function proxy address getters */
+	VkDeviceAddress          GetBufferDeviceAddress(VkBuffer buffer) const;
 
 	/* setters */
 	inline void              SetFrameBufferResized(bool isResized) { _mkWindowRef.framebufferResized = isResized; }

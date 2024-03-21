@@ -20,8 +20,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
 #endif
-	// create sync objects
-	CreateSyncObjects();
+	// create rendering resources
+	CreateRenderingResources();
 
 	// create vertex buffer
 	CreateVertexBuffer();
@@ -160,9 +160,9 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _vkRenderFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _vkImageAvailableSemaphores[i], nullptr);
-		vkDestroyFence(_mkDeviceRef.GetDevice(), _vkInFlightFences[i], nullptr);
+		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].renderFinishedSema, nullptr);
+		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].imageAvailableSema, nullptr);
+		vkDestroyFence(_mkDeviceRef.GetDevice(), _renderingResources[i].inFlightFence, nullptr);
 	}
 
 	// destroy pipeline and pipeline layout
@@ -184,7 +184,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	beginInfo.flags = 0;					// Optional
 	beginInfo.pInheritanceInfo = nullptr;	// Optional
 
-	auto commandBuffer = GCommandService->GetCommandBuffer(_currentFrame);
+	auto commandBuffer = *(_renderingResources[_currentFrame].commandBuffer);
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 	// store swapchain extent for common usage.
@@ -276,12 +276,12 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	_vkVertexBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
 	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
-
+	
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
@@ -376,11 +376,9 @@ VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& c
 	return shaderModule;
 }
 
-void MKGraphicsPipeline::CreateSyncObjects()
+void MKGraphicsPipeline::CreateRenderingResources()
 {
-	_vkImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	_vkRenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	_vkInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+	_renderingResources.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -391,9 +389,10 @@ void MKGraphicsPipeline::CreateSyncObjects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkImageAvailableSemaphores[i]));
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkRenderFinishedSemaphores[i]));
-		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_vkInFlightFences[i]));
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].imageAvailableSema));
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].renderFinishedSema));
+		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_renderingResources[i].inFlightFence));
+		_renderingResources[i].commandBuffer = GCommandService->GetCommandBuffer(i);
 	}
 }
 
@@ -415,12 +414,12 @@ void MKGraphicsPipeline::DrawFrame()
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
 
 	// 1. wait until the previous frame is finished
-	vkWaitForFences(device, 1, &_vkInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(device, 1, &_renderingResources[_currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
 
 	// 2. get an image from swap chain
 	uint32 imageIndex; // index of the swap chain image that has become available. filled by vkAcquireNextImageKHR
 	// semaphore to wait presentation engine to finish presentation here.
-	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, _vkImageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, _renderingResources[_currentFrame].imageAvailableSema, VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		_mkSwapchainRef.RecreateSwapchain();
@@ -439,16 +438,16 @@ void MKGraphicsPipeline::DrawFrame()
 	UpdateUniformBuffer(elapsedTime);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
-	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
+	vkResetFences(device, 1, &_renderingResources[_currentFrame].inFlightFence); // reset fence to unsignaled state manually
 
 	// 2. reset command buffer , start recording commands for drawing.
 	GCommandService->ResetCommandBuffer(_currentFrame);
 	RecordFrameBuffferCommand(imageIndex);
 
 	// sync objects for command buffer submission
-	VkSemaphore waitSemaphores[] = { _vkImageAvailableSemaphores[_currentFrame] };
+	VkSemaphore waitSemaphores[] = { _renderingResources[_currentFrame].imageAvailableSema };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	VkSemaphore signalSemaphores[] = { _vkRenderFinishedSemaphores[_currentFrame] }; // a semaphore to signal when the command buffer has finished execution
+	VkSemaphore signalSemaphores[] = { _renderingResources[_currentFrame].renderFinishedSema }; // a semaphore to signal when the command buffer has finished execution
 
 	GCommandService->SubmitCommandBufferToQueue(
 		_currentFrame,
@@ -456,7 +455,7 @@ void MKGraphicsPipeline::DrawFrame()
 		waitStages,
 		signalSemaphores, 
 		_mkDeviceRef.GetGraphicsQueue(), 
-		_vkInFlightFences[_currentFrame]
+		_renderingResources[_currentFrame].inFlightFence
 	);
 
 	// presentation

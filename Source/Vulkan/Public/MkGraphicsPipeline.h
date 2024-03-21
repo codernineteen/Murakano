@@ -13,6 +13,14 @@
 
 class MKGraphicsPipeline 
 {
+    struct RenderingResource
+    {
+        VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
+        VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
+        VkFence           inFlightFence      = VK_NULL_HANDLE;
+        VkCommandBuffer* commandBuffer       = nullptr;
+    };
+
 public:
 	MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
@@ -20,10 +28,14 @@ public:
     /* draw frames */
     void DrawFrame();
 
+    /* getters */
+    VkBuffer GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
+    VkBuffer GetIndexBuffer() const { return _vkIndexBuffer.buffer; }
+
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
-    /* create synchronization objects */
-    void            CreateSyncObjects();
+    /* create rendering resources */
+    void            CreateRenderingResources();
     /* actual buffer creation logic */
     void            CreateVertexBuffer();
     /* index buffer creation*/
@@ -41,11 +53,9 @@ private:
     /* pipeline instance */
 	VkPipeline	      _vkGraphicsPipeline;
 	VkPipelineLayout  _vkPipelineLayout;
-    
-    /* sync objects */
-    std::vector<VkSemaphore>  _vkImageAvailableSemaphores;
-    std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
-    std::vector<VkFence>      _vkInFlightFences;
+
+    /* rendering resources */
+    std::vector<RenderingResource> _renderingResources;
     
     /* vertex buffer */
     VkBufferAllocated _vkVertexBuffer;

@@ -18,7 +18,11 @@ void MKCommandService::InitCommandService(MKDevice* mkDevicePtr)
 {
 	// assign device pointer
 	_mkDevicePtr = mkDevicePtr;
-	CreateCommandPool(&_vkCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+	/**
+	* To reuse same identical command buffer several times, set this flag.
+	* Also, enable to reset individual command buffer.
+	*/
+	CreateCommandPool(&_vkCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT); 
 	CreateCommandBuffers();
 }
 
