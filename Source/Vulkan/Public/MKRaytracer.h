@@ -2,6 +2,7 @@
 
 #include "Utilities.h"
 #include "MKCommandService.h"
+#include "MkGraphicsPipeline.h"
 
 class MKRaytracer
 {
@@ -9,19 +10,26 @@ class MKRaytracer
 	struct BLAS
 	{
 		/* The shape and type of the acceleration structure */
-		VkAccelerationStructureBuildGeometryInfoKHR buildGeometryInfo;
+		VkAccelerationStructureGeometryKHR        geometry;
+		VkAccelerationStructureBuildRangeInfoKHR  buildRangeInfo;
 	};
 
 public:
 	MKRaytracer(MKRaytracer const&) = delete;            // remove copy constructor
 	MKRaytracer& operator=(MKRaytracer const&) = delete; // remove copy assignment operator
-	MKRaytracer() = default;
+	MKRaytracer(MKDevice& mkDeviceRef, MKGraphicsPipeline& mkPipelineRef);
 	~MKRaytracer();
 
 	void BuildRayTracer();
-	void LoadVkRaytracingExtension(VkDevice device);
+	void LoadVkRaytracingExtension();
+	BLAS ObjectToVkGeometryKHR(const OBJModel& model);
 
 private:
+	/* device reference */
+	MKDevice&            _mkDeviceRef;
+	MKGraphicsPipeline&  _mkPipelineRef;
+	uint32               _graphicsQueueIndex;
+
 	/* BLAS */
 	std::vector<BLAS> _blases;
 

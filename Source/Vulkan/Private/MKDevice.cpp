@@ -284,3 +284,19 @@ VkExtent2D MKDevice::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabiliti
 		return actualExtent;
 	}
 }
+
+VkDeviceAddress MKDevice::GetBufferDeviceAddress(VkBuffer buffer) const {
+	VkBufferDeviceAddressInfoKHR address_info{};
+	address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR;
+	address_info.buffer = buffer;
+
+#ifdef VK_KHR_buffer_device_address
+	auto getBufferDeviceAddressFunc = (PFN_vkGetBufferDeviceAddress)vkGetDeviceProcAddr(_vkLogicalDevice, "vkGetBufferDeviceAddress");
+	if (getBufferDeviceAddressFunc == nullptr) 
+		MK_THROW("[Murakano says] : failed to get buffer device address extension");
+#else
+	MK_THROW("[Murakano says] : buffer device address should be supported by default")
+#endif
+		
+	return getBufferDeviceAddressFunc(_vkLogicalDevice, &address_info);
+}

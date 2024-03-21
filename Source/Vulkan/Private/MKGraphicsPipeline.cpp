@@ -276,12 +276,12 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	_vkVertexBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
 	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
-
+	
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 

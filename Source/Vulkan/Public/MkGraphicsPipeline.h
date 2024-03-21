@@ -28,6 +28,10 @@ public:
     /* draw frames */
     void DrawFrame();
 
+    /* getters */
+    VkBuffer GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
+    VkBuffer GetIndexBuffer() const { return _vkIndexBuffer.buffer; }
+
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
     /* create rendering resources */
