@@ -17,3 +17,19 @@ struct VkImageAllocated
 	VkImage        image;
 	VmaAllocation  allocation;
 };
+
+// Acceleration structure for the raytracer
+struct VkAccelKHR
+{
+	VkAccelerationStructureKHR  handle;
+	VkBufferAllocated           buffer;
+};
+
+// only used as reference from the TLAS
+struct VkBLAS
+{
+	/* The shape and type of the acceleration structure */
+	std::vector<VkAccelerationStructureGeometryKHR>        geometry;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR>  buildRangeInfo;
+	VkBuildAccelerationStructureFlagsKHR                   flags{ 0 };
+};
