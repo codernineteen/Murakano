@@ -1,4 +1,5 @@
 #version 460
+#extension GL_EXT_buffer_reference : require
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
