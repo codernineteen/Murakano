@@ -7,7 +7,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
-	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
+	vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
 	_camera(mkDeviceRef, mkSwapchainRef),
 	_inputController(mkDeviceRef.GetWindowRef().GetWindow(), _camera)
 {
@@ -109,8 +109,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		);
 		// texture image view and sampler is used commonly in descriptor sets
 		GDescriptorManager->WriteImageToDescriptorSet(
-			_vikingRoom.vikingTexture.imageView,                       // texture image view
-			_vikingRoom.vikingTexture.sampler,                         // texture sampler
+			vikingRoom.vikingTexture.imageView,                       // texture image view
+			vikingRoom.vikingTexture.sampler,                         // texture sampler
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
 			1,                                         // binding point
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
@@ -240,7 +240,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		0, 
 		nullptr
 	);
-	vkCmdDrawIndexed(commandBuffer, _vikingRoom.indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, vikingRoom.indices.size(), 1, 0, 0, 0);
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
@@ -250,7 +250,7 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 
 void MKGraphicsPipeline::CreateVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
+	VkDeviceSize bufferSize = sizeof(vikingRoom.vertices[0]) * vikingRoom.vertices.size();
 	/**
 	* Staging buffer : temporary host-visible buffer
 	* - usage : source of memory transfer operation
@@ -265,7 +265,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 	);
 
-	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.vertices.data(), (size_t)bufferSize);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, vikingRoom.vertices.data(), (size_t)bufferSize);
 
 	/**
 	* Device local buffer : actual vertex buffer
@@ -287,7 +287,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
+	VkDeviceSize bufferSize = sizeof(vikingRoom.indices[0]) * vikingRoom.indices.size();
 	VkBufferAllocated stagingBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
@@ -296,7 +296,7 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT// must to be set because of VMA_MEMORY_USAGE_AUTO
 	);
 
-	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.indices.data(), (size_t)bufferSize);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, vikingRoom.indices.data(), (size_t)bufferSize);
 	/**
 	* Device local buffer : actual index buffer
 	* - usage : destination of memory transfer operation, index buffer
