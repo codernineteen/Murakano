@@ -14,6 +14,7 @@ class MKRaytracer
 		VkAccelKHR                                       accelStruct; // range
 		VkAccelKHR                                       cleanupAS;
 	};
+
 public:
 	MKRaytracer(MKRaytracer const&) = delete;            // remove copy constructor
 	MKRaytracer& operator=(MKRaytracer const&) = delete; // remove copy assignment operator
@@ -25,6 +26,17 @@ public:
 	VkBLAS ObjectToVkGeometryKHR(const OBJModel& model);
 	void   BuildBLAS(const std::vector<VkBLAS>& blases, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 	void   CreateBLAS(const OBJModel& model);
+	bool   HasFlag(VkFlags item, VkFlags flag);
+	void   CmdCreateBLAS(VkCommandBuffer commandBuffer, std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, VkDeviceAddress scratchAddress, VkQueryPool queryPool);
+	void   CmdCreateCompactBLAS(VkCommandBuffer commandBuffer, std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, VkQueryPool queryPool);
+	void   DestroyNonCompactedBLAS(std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo);
+	VkAccelKHR CreateAccelerationStructureKHR(VkAccelerationStructureCreateInfoKHR& accelCreateInfo);
+	
+	/* vulkan extension proxy function */
+	PFN_vkGetAccelerationStructureBuildSizesKHR        vkGetAccelerationStructureBuildSizesKHR = nullptr;
+	PFN_vkCreateAccelerationStructureKHR               vkCreateAccelerationStructureKHR = nullptr;
+	PFN_vkCmdBuildAccelerationStructuresKHR            vkCmdBuildAccelerationStructuresKHR = nullptr;
+	PFN_vkCmdWriteAccelerationStructuresPropertiesKHR  vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
 
 private:
 	/* device reference */
@@ -33,9 +45,5 @@ private:
 	uint32               _graphicsQueueIndex;
 
 	/* BLAS */
-	std::vector<VkBLAS> _blases;
-
-#ifdef VK_KHR_acceleration_structure
-	//static PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-#endif
+	std::vector<VkAccelKHR> _blases;
 };
