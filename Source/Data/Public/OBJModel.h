@@ -28,3 +28,9 @@ public:
 	std::unordered_map<Vertex, uint32, VertexHash>  uniqueVertices; // unique vertices with key as vertex and value as index
 	std::vector<uint32>                             indices;
 };
+
+struct OBJInstance
+{
+	glm::mat4 transform;
+	uint32    objIndex{ 0 };
+};
