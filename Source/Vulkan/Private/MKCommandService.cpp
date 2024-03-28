@@ -58,7 +58,7 @@ void MKCommandService::ResetCommandBuffer(uint32 currentFrame)
 	MK_CHECK(vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0));
 }
 
-void MKCommandService::AsyncExecuteCommands(std::queue<VoidLambda>& commandQueue)
+void MKCommandService::ExecuteCommands(std::queue<VoidLambda>& commandQueue)
 {
 	VkCommandBuffer commandBuffer;
 	BeginSingleTimeCommands(commandBuffer);
@@ -102,12 +102,15 @@ void MKCommandService::CreateCommandBuffers()
 	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, _vkCommandBuffers.data()));
 }
 
-void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
+void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool)
 {
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = _vkCommandPool;
+	if (commandPool == VK_NULL_HANDLE)
+		allocInfo.commandPool = _vkCommandPool;
+	else
+		allocInfo.commandPool = commandPool;
 	allocInfo.commandBufferCount = 1;
 
 	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, &commandBuffer));
@@ -119,7 +122,7 @@ void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer)
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 }
 
-void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool)
 {
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 
@@ -133,5 +136,11 @@ void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 	MK_CHECK(vkQueueWaitIdle(_mkDevicePtr->GetGraphicsQueue()));
 
 	// free the command buffer right away.
-	vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);
+	if(commandPool == VK_NULL_HANDLE)
+		vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), _vkCommandPool, 1, &commandBuffer);
+	else
+	{
+		vkFreeCommandBuffers(_mkDevicePtr->GetDevice(), commandPool, 1, &commandBuffer);
+		vkDestroyCommandPool(_mkDevicePtr->GetDevice(), commandPool, nullptr);
+	}
 }
