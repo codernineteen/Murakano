@@ -174,19 +174,24 @@ void MKRaytracer::BuildBLAS(const std::vector<VkBLAS>& blaseInputs, VkBuildAccel
 		// if the batch is full(over 256MB) or it is the last element
 		if (batchSize >= batchLimit || idx == blasCount - 1)
 		{
-			std::queue<VoidLambda> commandQueue;
-			commandQueue.push([&](VkCommandBuffer commandBuffer) {
-					CmdCreateBLAS(commandBuffer, indices, buildAsInfo, scratchAddress, queryPool);
-					if (queryPool)
-					{
-						CmdCreateCompactBLAS(commandBuffer, indices, buildAsInfo, queryPool);
-						// destroy the non-compacted version
-						DestroyNonCompactedBLAS(indices, buildAsInfo);
-					}
-			});
-			GCommandService->AsyncExecuteCommands(commandQueue);
+			VkCommandPool cmdPool;
+			GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT); // transient command pool for one-time command buffer
+
+			VkCommandBuffer commandBuffer;
+			GCommandService->BeginSingleTimeCommands(commandBuffer, cmdPool);
 
 			
+			CmdCreateBLAS(commandBuffer, indices, buildAsInfo, scratchAddress, queryPool);
+			if (queryPool)
+			{
+				CmdCreateCompactBLAS(commandBuffer, indices, buildAsInfo, queryPool);
+				// destroy the non-compacted version
+				DestroyNonCompactedBLAS(indices, buildAsInfo);
+			}
+			
+			// end command buffer -> submit -> wait -> destroy
+			GCommandService->EndSingleTimeCommands(commandBuffer, cmdPool);
+
 			// Reset batch
 			batchSize = 0;
 			indices.clear();
@@ -212,7 +217,7 @@ VkAccelKHR MKRaytracer::CreateAccelerationStructureKHR(VkAccelerationStructureCr
 	resultAccel.buffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		accelCreateInfo.size,
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, // shader device address for building TLAS
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, // shader device address for building TLAS
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
 	);
@@ -226,7 +231,7 @@ VkAccelKHR MKRaytracer::CreateAccelerationStructureKHR(VkAccelerationStructureCr
 	return resultAccel;
 }
 
-void MKRaytracer::CmdCreateBLAS(VkCommandBuffer commandBuffer, std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, VkDeviceAddress scratchAddress, VkQueryPool queryPool)
+void MKRaytracer::CmdCreateBLAS(VkCommandBuffer commandBuffer, std::vector<uint32>& indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, VkDeviceAddress scratchAddress, VkQueryPool queryPool)
 {
 	if (queryPool)
 		vkResetQueryPool(_mkDeviceRef.GetDevice(), queryPool, 0, SafeStaticCast<size_t, uint32>(indices.size()));
@@ -260,12 +265,12 @@ void MKRaytracer::CmdCreateBLAS(VkCommandBuffer commandBuffer, std::vector<uint3
 		barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 		barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			0,           // dependency flags
-			1, &barrier, // memory barrier
-			0, nullptr,  // buffer memory barrier
-			0, nullptr   // image memory barrier
+			commandBuffer, 
+			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 
+			0, 
+			1, &barrier, 
+			0, nullptr, 
+			0, nullptr
 		);
 
 		if (queryPool) 
@@ -302,6 +307,7 @@ void MKRaytracer::CreateTLAS(const std::vector<OBJInstance> instances)
 {
 	std::vector<VkAccelerationStructureInstanceKHR> tlases;
 	tlases.reserve(instances.size());
+
 	for (const auto& inst : instances) 
 	{
 		VkAccelerationStructureInstanceKHR rayInstance{};
@@ -321,44 +327,51 @@ void MKRaytracer::BuildTLAS(const std::vector<VkAccelerationStructureInstanceKHR
 	assert(_tlas.handle == VK_NULL_HANDLE || isUpdated); // TLAS should be created before updating it.
 	uint32 instanceCount = SafeStaticCast<size_t, uint32>(tlases.size());
 
-	// ensure that copying the instance data to the buffer is finished before building the TLAS
-	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) {
-		/**
-		* Upload Vulkan instances to the device
-		*/
-		// create gpu-resident buffer for instance data and record copy command
-		VkBufferAllocated instanceBuffer = CreateBufferWithInstanceData(
-			commandBuffer,
-			_mkDeviceRef.GetVmaAllocator(),
-			tlases,
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VMA_MEMORY_USAGE_GPU_ONLY,
-			VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
-		);
-		VkDeviceAddress instanceBufferAddr = _mkDeviceRef.GetBufferDeviceAddress(instanceBuffer.buffer);
+	VkCommandPool cmdPool;
+	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT); // transient command pool for one-time command buffer
 
-		// record barrier command
-		VkMemoryBarrier barrier{};
-		barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			0,
-			1, &barrier,
-			0, nullptr,
-			0, nullptr
-		);
+	VkCommandBuffer commandBuffer;
+	GCommandService->BeginSingleTimeCommands(commandBuffer, cmdPool);
 
-		// scratch buffer is only required while building acceleration structures.
-		VkBufferAllocated scratchBuffer;
-		CmdCreateTLAS(commandBuffer, instanceCount, instanceBufferAddr, scratchBuffer, flags, isUpdated);
+	/**
+	* Upload Vulkan instances to the device
+	*/
+	// create gpu-resident buffer for instance data and record copy command
+	VkBufferAllocated instanceBuffer = CreateBufferWithInstanceData(
+		commandBuffer,
+		_mkDeviceRef.GetVmaAllocator(),
+		tlases,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+	);
+	VkDeviceAddress instanceBufferAddr = _mkDeviceRef.GetBufferDeviceAddress(instanceBuffer.buffer);
 
-		vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), scratchBuffer.buffer, scratchBuffer.allocation);
-		vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), instanceBuffer.buffer, instanceBuffer.allocation);
-	});
+	// record barrier command
+	VkMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		0,
+		1, &barrier,
+		0, nullptr,
+		0, nullptr
+	);
+
+	// scratch buffer is only required while building acceleration structures.
+	VkBufferAllocated scratchBuffer;
+	CmdCreateTLAS(commandBuffer, instanceCount, instanceBufferAddr, scratchBuffer, flags, isUpdated);
+
+	// end command buffer -> submit -> wait -> destroy
+	GCommandService->EndSingleTimeCommands(commandBuffer, cmdPool);
+
+	// destroy buffers after building TLAS
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), scratchBuffer.buffer, scratchBuffer.allocation);
+	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), instanceBuffer.buffer, instanceBuffer.allocation);
 }
 
 void MKRaytracer::CmdCreateTLAS(
