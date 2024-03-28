@@ -4,6 +4,9 @@
 #include <vma/vk_mem_alloc.h>
 #include <vector>
 
+const VkBufferUsageFlags vkDeviceAddressFlag = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+const VkBufferUsageFlags vkRayTracingFlags = vkDeviceAddressFlag | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
 // a struct to wrap a Vkbuffer and its allocation from VMA
 struct VkBufferAllocated 
 {
@@ -22,7 +25,7 @@ struct VkImageAllocated
 // Acceleration structure for the raytracer
 struct VkAccelKHR
 {
-	VkAccelerationStructureKHR  handle;
+	VkAccelerationStructureKHR  handle = VK_NULL_HANDLE;
 	VkBufferAllocated           buffer;
 };
 
