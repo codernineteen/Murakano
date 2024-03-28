@@ -3,13 +3,15 @@
 // internal
 #include "Utilities.h"
 #include "Global.h"
-#include "MKDevice.h"
-#include "MKSwapchain.h"
-#include "MKDescriptorManager.h"
 #include "OBJModel.h"
 #include "Texture.h"
 #include "FreeCamera.h"
 #include "InputController.h"
+
+// vulkan wrappers
+#include "MKDevice.h"
+#include "MKSwapchain.h"
+#include "MKDescriptorManager.h"
 
 class MKGraphicsPipeline 
 {
@@ -18,7 +20,7 @@ class MKGraphicsPipeline
         VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
         VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
         VkFence           inFlightFence      = VK_NULL_HANDLE;
-        VkCommandBuffer* commandBuffer       = nullptr;
+        VkCommandBuffer*  commandBuffer       = nullptr;
     };
 
 public:
@@ -49,6 +51,11 @@ private:
     /* update uniform buffer */
     void            UpdateUniformBuffer(float elapsedTime);
 
+public:
+    /* 3d model */
+    OBJModel vikingRoom;
+    std::vector<OBJInstance> vikingRoomInstance{ {glm::mat4(1.0f), 0} };
+
 private:
     /* pipeline instance */
 	VkPipeline	      _vkGraphicsPipeline;
@@ -70,9 +77,6 @@ private:
     /* uniform buffer objects */
     std::vector<VkBufferAllocated>  _vkUniformBuffers;
     std::vector<void*>              _vkUniformBuffersMappedData;
-
-    /* 3d model */
-    OBJModel _vikingRoom;
 
     /* camera */
     FreeCamera _camera;

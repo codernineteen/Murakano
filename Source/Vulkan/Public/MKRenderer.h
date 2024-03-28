@@ -9,6 +9,7 @@
 #include "MKSwapchain.h"
 #include "MkGraphicsPipeline.h"
 #include "MKCommandService.h"
+#include "MKRaytracer.h"
 
 class MKRenderer
 {
@@ -23,5 +24,6 @@ private:
 	MKDevice			_mkDevice;
 	MKSwapchain	        _mkSwapchain;
 	MKGraphicsPipeline	_mkGraphicsPipeline;
+	MKRaytracer         _mkRaytracer;
 };
 

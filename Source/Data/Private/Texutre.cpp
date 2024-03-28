@@ -88,7 +88,7 @@ void Texture::CreateTextureImage()
         );
         });
 
-    GCommandService->AsyncExecuteCommands(commandQueue);
+    GCommandService->ExecuteCommands(commandQueue);
 
 
     // destroy staging buffer and free memory
