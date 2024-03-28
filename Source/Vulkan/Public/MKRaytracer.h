@@ -41,7 +41,7 @@ public:
 	void   BuildBLAS(const std::vector<VkBLAS>& blases, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 	void   CmdCreateBLAS(
 		VkCommandBuffer commandBuffer, 
-		std::vector<uint32> indices, 
+		std::vector<uint32>& indices, 
 		std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, 
 		VkDeviceAddress scratchAddress, 
 		VkQueryPool queryPool
