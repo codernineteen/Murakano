@@ -4,8 +4,16 @@
 #include <vma/vk_mem_alloc.h>
 #include <vector>
 
+/**
+* Constants
+*/
+
 const VkBufferUsageFlags vkDeviceAddressFlag = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 const VkBufferUsageFlags vkRayTracingFlags = vkDeviceAddressFlag | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+/**
+* Structs
+*/
 
 // a struct to wrap a Vkbuffer and its allocation from VMA
 struct VkBufferAllocated 
@@ -36,4 +44,14 @@ struct VkBLAS
 	std::vector<VkAccelerationStructureGeometryKHR>        geometry;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>  buildRangeInfo;
 	VkBuildAccelerationStructureFlagsKHR                   flags{ 0 };
+};
+
+/**
+* Enums
+*/
+
+enum VkRtxDescriptorBinding 
+{
+	TLAS = 0,
+	OUT_IMAGE = 1
 };

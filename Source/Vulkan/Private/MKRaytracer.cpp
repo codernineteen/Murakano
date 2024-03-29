@@ -206,6 +206,40 @@ void MKRaytracer::BuildBLAS(const std::vector<VkBLAS>& blaseInputs, VkBuildAccel
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), scratchBuffer.buffer, scratchBuffer.allocation);
 }
 
+/**
+* ------------- Ray tracing desscriptor set ---------------
+*/
+void MKRaytracer::CreateRayTracingDescriptorSet() 
+{
+	GDescriptorManager->AddDescriptorSetLayoutBinding( 
+		VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,  // binding type - acceleration structure
+		VK_SHADER_STAGE_RAYGEN_BIT_KHR,                 // shader stage - ray generation
+		VkRtxDescriptorBinding::TLAS,                   // binding point of TLAS
+		1                                               // number of descriptors
+	);
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,               // binding type - storage image
+		VK_SHADER_STAGE_RAYGEN_BIT_KHR,                 // shader stage - ray generation
+		VkRtxDescriptorBinding::TLAS,                   // binding point of output image 
+		1                                               // number of descriptors
+	);
+
+	// create descriptor set layout with above rtx-related bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkRayTracingDescriptorSetLayout);
+	// allocate descriptor set layout
+	_vkRayTracingDescriptorSet.resize(1);
+	GDescriptorManager->AllocateDescriptorSet(_vkRayTracingDescriptorSet, _vkRayTracingDescriptorSetLayout);
+
+	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(_tlas.handle, VkRtxDescriptorBinding::TLAS);
+	//GDescriptorManager->WriteImageToDescriptorSet(_mkPipelineRef.GetOutputImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VkRtxDescriptorBinding::OUT_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+}
+
+
+
+/**
+* --------------------- Helpers ---------------------------
+*/
+
 bool MKRaytracer::HasFlag(VkFlags item, VkFlags flag)
 {
 	return (item & flag) == flag;

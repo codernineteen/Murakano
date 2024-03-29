@@ -185,6 +185,25 @@ void MKDescriptorManager::WriteImageToDescriptorSet(VkImageView imageView, VkSam
 	_vkWaitingWrites.push_back(descriptorWrite);
 }
 
+void MKDescriptorManager::WriteAccelerationStructureToDescriptorSet(VkAccelerationStructureKHR as, uint32 dstBinding) 
+{
+    std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR> descriptorAsInfo = std::make_shared<VkWriteDescriptorSetAccelerationStructureKHR>();
+    descriptorAsInfo->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+    descriptorAsInfo->accelerationStructureCount = 1;
+    descriptorAsInfo->pAccelerationStructures = &as;
+    descriptorAsInfo->pNext = nullptr;
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = VK_NULL_HANDLE; // specify dst set when update descriptor set
+    descriptorWrite.dstBinding = dstBinding;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pNext = descriptorAsInfo.get();
+
+    _vkWaitingWrites.push_back(descriptorWrite);
+}
+
 void MKDescriptorManager::UpdateDescriptorSet(VkDescriptorSet descriptorSet)
 {
     for(auto& write : _vkWaitingWrites)

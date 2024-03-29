@@ -11,8 +11,12 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef);
 
 	CreateSwapchain();
-	// create render pass as shared resource. (this should be advance before creating framebuffers)
+	// create main render pass as shared resource. (this should be advance before creating framebuffers)
 	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
+	// create offscreen render resource
+	_mkOffsecreenRenderPtr = std::make_shared<MKOffscreenRender>(_mkDeviceRef);
+	_mkOffsecreenRenderPtr->CreateOffscreenRenderResource(_vkSwapchainExtent);
+
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
 	// create depth resources
@@ -77,6 +81,7 @@ void MKSwapchain::RecreateSwapchain()
 	CreateSwapchainImageViews();
 	CreateDepthResources();
 	CreateFrameBuffers();
+	_mkOffsecreenRenderPtr->RecreateOffscreenRenderResource(_vkSwapchainExtent);
 }
 
 /*
