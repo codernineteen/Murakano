@@ -161,7 +161,7 @@ namespace util
 	}
 
 	// transition image layout
-	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange subresourceRange)
 	{
 		/**
 		* vkCmdPipelineBarrier specification
@@ -205,6 +205,14 @@ namespace util
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // read - EARLY_FRAGMENT_TESTS_BIT, write - LATE_FRAGMENT_TESTS_BIT
 		}
+		else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) 
+		{
+			barrier.srcAccessMask = VkAccessFlags();
+			barrier.dstAccessMask = VkAccessFlags(); // default flag
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		}
 		else
 			throw std::invalid_argument("unsupported layout transition!");
 
@@ -222,10 +230,10 @@ namespace util
 		else
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
+		barrier.subresourceRange.levelCount = subresourceRange.levelCount;
+		barrier.subresourceRange.baseArrayLayer = subresourceRange.baseArrayLayer;
+		barrier.subresourceRange.layerCount = subresourceRange.layerCount;
 		barrier.srcAccessMask = 0; // TODO
 		barrier.dstAccessMask = 0; // TODO
 
