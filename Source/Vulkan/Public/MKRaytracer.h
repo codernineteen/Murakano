@@ -3,6 +3,7 @@
 #include "Utilities.h"
 #include "MKCommandService.h"
 #include "MKGraphicsPipeline.h"
+#include "MKDescriptorManager.h"
 
 class MKGraphicsPipeline;
 
@@ -69,6 +70,9 @@ public:
 		VkBuildAccelerationStructureFlagsKHR flags,
 		bool update
 	);
+
+	/* Ray tracing descriptor set */
+	void  CreateRayTracingDescriptorSet();
 	
 	/* helpers */
 	bool                         HasFlag(VkFlags item, VkFlags flag);
@@ -126,8 +130,11 @@ private:
 	MKGraphicsPipeline&  _mkPipelineRef;
 	uint32               _graphicsQueueIndex;
 
-	/* BLAS */
+	/* acceleration structures */
 	std::vector<VkAccelKHR> _blases;
-	/* TLAS */
 	VkAccelKHR              _tlas;
+
+	/* sescriptor resources */
+	VkDescriptorSetLayout         _vkRayTracingDescriptorSetLayout;
+	std::vector<VkDescriptorSet>  _vkRayTracingDescriptorSet;
 };
