@@ -349,10 +349,11 @@ namespace vkinfo
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
 		imageViewCreateInfo.format = format;						    // follw the format of the given swapchain image
 		imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
-		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
-		imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
+		imageViewCreateInfo.pNext = nullptr;
 
 		return imageViewCreateInfo;
 	}
