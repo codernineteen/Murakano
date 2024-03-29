@@ -27,6 +27,7 @@ public:
 	void                   AllocateDescriptorSet(std::vector<VkDescriptorSet>& descriptorSets, VkDescriptorSetLayout layout);
 	void                   WriteBufferToDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteImageToDescriptorSet(VkImageView imageView, VkSampler imageSampler, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType);
+	void                   WriteAccelerationStructureToDescriptorSet(VkAccelerationStructureKHR as, uint32 dstBinding);
 	void                   UpdateDescriptorSet(VkDescriptorSet descriptorSet);
 	void                   ResetDescriptorPool();
 private:
