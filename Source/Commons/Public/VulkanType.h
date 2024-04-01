@@ -46,12 +46,20 @@ struct VkBLAS
 	VkBuildAccelerationStructureFlagsKHR                   flags{ 0 };
 };
 
+// a storage image abstraction
+struct VkStorageImage
+{
+	VkImageAllocated imageAllocated;
+	VkImageView      imageView;
+	VkFormat         format;
+};
+
 /**
 * Enums
 */
 
 enum VkRtxDescriptorBinding 
 {
-	TLAS = 0,
-	OUT_IMAGE = 1
+	TLAS = 2,
+	OUT_IMAGE = 3
 };
