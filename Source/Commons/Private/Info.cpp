@@ -314,7 +314,8 @@ namespace vkinfo
 		uint32 height,
 		VkFormat format,
 		VkImageTiling tiling,
-		VkImageUsageFlags usage
+		VkImageUsageFlags usage,
+		VkImageLayout layout
 	)
 	{
 		// specify image creation info
@@ -328,7 +329,7 @@ namespace vkinfo
 		imageInfo.arrayLayers = 1;
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.initialLayout = layout;
 		imageInfo.usage = usage;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;         // multisampling-related
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // If there are more than two queues using the image, then you should use VK_SHARING_MODE_CONCURRENT

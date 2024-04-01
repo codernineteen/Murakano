@@ -67,11 +67,12 @@ namespace util
 		VkImageTiling tiling,
 		VkImageUsageFlags usage,
 		VmaMemoryUsage memoryUsage,
-		VmaAllocationCreateFlags memoryAllocationFlags
+		VmaAllocationCreateFlags memoryAllocationFlags,
+		VkImageLayout layout
 	)
 	{
 		// specify image creation info
-		VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage);
+		VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
 
 		VmaAllocationCreateInfo imageAllocInfo{};
 		imageAllocInfo.usage = memoryUsage;

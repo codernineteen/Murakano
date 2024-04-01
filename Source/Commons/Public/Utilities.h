@@ -33,7 +33,8 @@ namespace util
 		VkImageTiling tiling,
 		VkImageUsageFlags usage,
 		VmaMemoryUsage memoryUsage,
-		VmaAllocationCreateFlags memoryAllocationFlags
+		VmaAllocationCreateFlags memoryAllocationFlags,
+		VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED
 	);
 
 	/* create single image view related to the given image parameter */
