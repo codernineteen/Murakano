@@ -231,7 +231,7 @@ void MKRaytracer::CreateRayTracingDescriptorSet()
 	GDescriptorManager->AllocateDescriptorSet(_vkRayTracingDescriptorSet, _vkRayTracingDescriptorSetLayout);
 
 	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(_tlas.handle, VkRtxDescriptorBinding::TLAS);
-	//GDescriptorManager->WriteImageToDescriptorSet(_mkPipelineRef.GetOutputImageView(), VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VkRtxDescriptorBinding::OUT_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	GDescriptorManager->WriteImageToDescriptorSet(_mkPipelineRef.GetStorageImage().imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VkRtxDescriptorBinding::OUT_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 }
 
 
