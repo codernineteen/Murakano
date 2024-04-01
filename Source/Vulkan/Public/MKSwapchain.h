@@ -3,7 +3,6 @@
 // internal
 #include "Utilities.h"
 #include "MKDevice.h"
-#include "MKOffscreenRender.h"
 #include "MKRenderPass.h"
 #include "MKCommandService.h"
 #include "MKDescriptorManager.h"
@@ -52,5 +51,4 @@ private:
 private:
 	MKDevice& _mkDeviceRef;
 	std::shared_ptr<MKRenderPass>       _mkRenderPassPtr;
-	std::shared_ptr<MKOffscreenRender>  _mkOffsecreenRenderPtr;
 };

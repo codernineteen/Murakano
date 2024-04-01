@@ -91,7 +91,8 @@ namespace vkinfo
 	                                         uint32 height, 
 	                                         VkFormat format, 
 	                                         VkImageTiling tiling,
-	                                         VkImageUsageFlags usage
+	                                         VkImageUsageFlags usage,
+		                                     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED
 	                                       );
 	/* create image view info */
 	VkImageViewCreateInfo                  GetImageViewCreateInfo(

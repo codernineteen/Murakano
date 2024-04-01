@@ -31,13 +31,16 @@ public:
     void DrawFrame();
 
     /* getters */
-    VkBuffer GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
-    VkBuffer GetIndexBuffer() const { return _vkIndexBuffer.buffer; }
+    VkBuffer        GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
+    VkBuffer        GetIndexBuffer()  const { return _vkIndexBuffer.buffer; }
+    VkStorageImage  GetStorageImage() const { return _vkStorageImage; }
 
 private:
 	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
     /* create rendering resources */
     void            CreateRenderingResources();
+    /* create storage image */
+    void            CreateStorageImage();
     /* actual buffer creation logic */
     void            CreateVertexBuffer();
     /* index buffer creation*/
@@ -63,6 +66,9 @@ private:
 
     /* rendering resources */
     std::vector<RenderingResource> _renderingResources;
+
+    /* storage image */
+    VkStorageImage    _vkStorageImage;
     
     /* vertex buffer */
     VkBufferAllocated _vkVertexBuffer;

@@ -23,6 +23,9 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create rendering resources
 	CreateRenderingResources();
 
+	// create storage image
+	CreateStorageImage();
+
 	// create vertex buffer
 	CreateVertexBuffer();
 
@@ -147,6 +150,11 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
+	// destroy storage image
+	vmaDestroyImage(_mkDeviceRef.GetVmaAllocator(), _vkStorageImage.imageAllocated.image, _vkStorageImage.imageAllocated.allocation);
+	vkDestroyImageView(_mkDeviceRef.GetDevice(), _vkStorageImage.imageView, nullptr);
+
+
 	// destroy buffers
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkVertexBuffer.buffer, _vkVertexBuffer.allocation);
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
@@ -246,6 +254,58 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	vkCmdEndRenderPass(commandBuffer);
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
+}
+
+void MKGraphicsPipeline::CreateStorageImage()
+{
+	auto extent = _mkSwapchainRef.GetSwapchainExtent();
+
+	// create storage image
+	_vkStorageImage.format = VK_FORMAT_R8G8B8A8_UNORM;
+	util::CreateImage(
+		_mkDeviceRef.GetVmaAllocator(),
+		_vkStorageImage.imageAllocated,
+		extent.width,
+		extent.height,
+		_vkStorageImage.format,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+	);
+
+	// create image view for the storage image
+	util::CreateImageView(
+		_mkDeviceRef.GetDevice(),
+		_vkStorageImage.imageAllocated.image,
+		_vkStorageImage.imageView,
+		_vkStorageImage.format,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		1
+	);
+
+	// create image memory barrier for transition layout
+	VkCommandPool cmdPool;
+	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+	VkCommandBuffer cmdBuffer;
+	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
+
+	VkImageSubresourceRange subresouceRange{};
+	subresouceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresouceRange.baseMipLevel = 0;
+	subresouceRange.levelCount = 1;
+	subresouceRange.baseArrayLayer = 0;
+	subresouceRange.layerCount = 1;
+	util::TransitionImageLayout(
+		cmdBuffer, 
+		_vkStorageImage.imageAllocated.image, 
+		_vkStorageImage.format, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_GENERAL, 
+		subresouceRange
+	);
+	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
+
 }
 
 void MKGraphicsPipeline::CreateVertexBuffer()
