@@ -36,7 +36,7 @@ namespace vkinfo
 	/* vulkan frame buffer create info */
 	VkFramebufferCreateInfo               GetFramebufferCreateInfo(VkRenderPass renderPass, const std::array<VkImageView, 2>& attachments ,VkExtent2D extent);
 	/* vulkan render pass create info */
-	VkRenderPassCreateInfo                GetRenderPassCreateInfo(const std::array<VkAttachmentDescription, 2>& attachments, const VkSubpassDescription& subpass, const VkSubpassDependency& dependency);
+	VkRenderPassCreateInfo                GetRenderPassCreateInfo(const std::array<VkAttachmentDescription, 2>& attachments, const VkSubpassDescription& subpass, uint32 depCount, const VkSubpassDependency* pDependencies);
 	/* pipeline shader stage create info */
 	VkPipelineShaderStageCreateInfo       GetPipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const std::string& entryPoint);
 	/* pipeline vertex input state create info */
