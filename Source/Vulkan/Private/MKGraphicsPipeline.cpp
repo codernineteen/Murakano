@@ -83,14 +83,14 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 	// add descriptor set layout binding
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // descriptor type
-		VK_SHADER_STAGE_VERTEX_BIT,        // shader stage
-		0,								   // binding point
-		1								   // descriptor count
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                           // descriptor type
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR, // shader stage
+		0,								                             // binding point
+		1								                             // descriptor count
 	);
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
+		VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 		1,
 		1
 	);
@@ -112,8 +112,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		);
 		// texture image view and sampler is used commonly in descriptor sets
 		GDescriptorManager->WriteImageToDescriptorSet(
-			vikingRoom.vikingTexture.imageView,                       // texture image view
-			vikingRoom.vikingTexture.sampler,                         // texture sampler
+			vikingRoom.vikingTexture.imageView,        // texture image view
+			vikingRoom.vikingTexture.sampler,          // texture sampler
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
 			1,                                         // binding point
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
@@ -146,13 +146,17 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), vertShaderModule, nullptr);
+
+	// build ray tracer
+	auto vertexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkVertexBuffer.buffer);
+	auto indexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkIndexBuffer.buffer);
+	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr);
 }
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
 	// destroy storage image
-	vmaDestroyImage(_mkDeviceRef.GetVmaAllocator(), _vkStorageImage.imageAllocated.image, _vkStorageImage.imageAllocated.allocation);
-	vkDestroyImageView(_mkDeviceRef.GetDevice(), _vkStorageImage.imageView, nullptr);
+	util::DestroyImageResource(_mkDeviceRef.GetVmaAllocator(), _mkDeviceRef.GetDevice(), _vkStorageImage.imageAllocated, _vkStorageImage.imageView);
 
 
 	// destroy buffers
@@ -172,6 +176,9 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].imageAvailableSema, nullptr);
 		vkDestroyFence(_mkDeviceRef.GetDevice(), _renderingResources[i].inFlightFence, nullptr);
 	}
+
+	// destroy ray tracer resources
+	delete GRaytracer;
 
 	// destroy pipeline and pipeline layout
 	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkGraphicsPipeline, nullptr);
@@ -195,8 +202,76 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	auto commandBuffer = *(_renderingResources[_currentFrame].commandBuffer);
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
+	/**
+	* Copy ray tracing output to swapchain image
+	*/
+	// 1. prepare current swapchain image for transfer destination
+	VkImageSubresourceRange defaultSubresourceRange{};
+	defaultSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	defaultSubresourceRange.baseMipLevel = 0;
+	defaultSubresourceRange.levelCount = 1;
+	defaultSubresourceRange.baseArrayLayer = 0;
+	defaultSubresourceRange.layerCount = 1;
+
+	//util::TransitionImageLayout(
+	//	commandBuffer,
+	//	_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+	//	_mkSwapchainRef.GetSwapchainImageFormat(),
+	//	VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,      // src layout , dst layout
+	//	defaultSubresourceRange
+	//);
+
+	//// 2. prepare ray tracing output image for transfer source
+	//util::TransitionImageLayout(
+	//	commandBuffer,
+	//	_vkStorageImage.imageAllocated.image,
+	//	_vkStorageImage.format,
+	//	VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,         // src layout , dst layout
+	//	defaultSubresourceRange,
+	//	VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,    // src stage , dst stage
+	//	0U, VK_ACCESS_TRANSFER_READ_BIT
+	//);
+
+	//// 3. copy ray tracing output to swapchain image
+	//util::CopyImageToImage(
+	//	commandBuffer,
+	//	_vkStorageImage.imageAllocated.image,
+	//	_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+	//	_mkSwapchainRef.GetSwapchainExtent().width,
+	//	_mkSwapchainRef.GetSwapchainExtent().height
+	//);
+
+	//// 4. transition swap chain image back for presentation
+	//util::TransitionImageLayout(
+	//	commandBuffer,
+	//	_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+	//	_mkSwapchainRef.GetSwapchainImageFormat(),
+	//	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // src layout , dst layout
+	//	defaultSubresourceRange
+	//);
+
+	//// 5. transition ray tracing output image back to general layout
+	//util::TransitionImageLayout(
+	//	commandBuffer,
+	//	_vkStorageImage.imageAllocated.image,
+	//	_vkStorageImage.format,
+	//	VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,         // src layout , dst layout
+	//	defaultSubresourceRange,
+	//	VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+	//	VK_ACCESS_TRANSFER_READ_BIT, 0U
+	//);
+
+
+	/**
+	* Prepare render pass !
+	*/
 	// store swapchain extent for common usage.
 	auto swapchainExtent = _mkSwapchainRef.GetSwapchainExtent();
+
+	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0] = { {0.0f, 0.0f, 0.033f, 0.0f} };   // clear values for color
+	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
 
 	// specify render pass information
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -205,19 +280,13 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.framebuffer = _mkSwapchainRef.GetFramebuffer(swapchainImageIndex);
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = swapchainExtent;
-
-	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0] = { {0.0f, 0.0f, 0.0f, 1.0f} }; // clear values for color
-	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
-	renderPassInfo.clearValueCount = SafeStaticCast<size_t, uint32>(clearValues.size());
+	renderPassInfo.clearValueCount = static_cast<uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
 	
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
-
+	// set viewport and scissor for drawing
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -232,12 +301,9 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	scissor.extent = swapchainExtent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
-	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
-	
+	// bind graphics pipeline
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
+	// bind descriptor sets
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
 		VK_PIPELINE_BIND_POINT_GRAPHICS, 
@@ -248,6 +314,12 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		0, 
 		nullptr
 	);
+
+	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);    // bind index buffer
 	vkCmdDrawIndexed(commandBuffer, vikingRoom.indices.size(), 1, 0, 0, 0);
 
 	// end render pass
@@ -296,13 +368,15 @@ void MKGraphicsPipeline::CreateStorageImage()
 	subresouceRange.levelCount = 1;
 	subresouceRange.baseArrayLayer = 0;
 	subresouceRange.layerCount = 1;
-	util::TransitionImageLayout(
+	util::TransitionImageLayoutVerbose(
 		cmdBuffer, 
 		_vkStorageImage.imageAllocated.image, 
 		_vkStorageImage.format, 
 		VK_IMAGE_LAYOUT_UNDEFINED, 
 		VK_IMAGE_LAYOUT_GENERAL, 
-		subresouceRange
+		subresouceRange,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		{}, {}
 	);
 	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
 
@@ -483,6 +557,7 @@ void MKGraphicsPipeline::DrawFrame()
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		_mkSwapchainRef.RecreateSwapchain();
+		RecreateStorageImage();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -536,8 +611,9 @@ void MKGraphicsPipeline::DrawFrame()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) 
 	{
 		// swapchain recreation is required at this moment.
-		_mkSwapchainRef.RequestFramebufferResize(false);
+		_mkSwapchainRef.RequestFramebufferResize(false); // framebuffer resize is not required
 		_mkSwapchainRef.RecreateSwapchain();
+		RecreateStorageImage();
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");
@@ -553,4 +629,15 @@ void MKGraphicsPipeline::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAlloc
 		copyRegion.size = size;
 		vkCmdCopyBuffer(commandBuffer, src.buffer, dest.buffer, 1, &copyRegion);
 	});
+}
+
+void MKGraphicsPipeline::RecreateStorageImage()
+{
+	// destroy storage image for recreation
+	util::DestroyImageResource(_mkDeviceRef.GetVmaAllocator(), _mkDeviceRef.GetDevice(), _vkStorageImage.imageAllocated, _vkStorageImage.imageView);
+	// recreate storage image
+	CreateStorageImage();
+
+	// request ray tracer to update descriptor write for storage image
+	//GRaytracer->UpdateDescriptorImageWrite(_vkStorageImage);
 }
