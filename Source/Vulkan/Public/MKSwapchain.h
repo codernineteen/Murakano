@@ -7,11 +7,6 @@
 #include "MKCommandService.h"
 #include "MKDescriptorManager.h"
 
-// [MKSwapchain class]
-// - Responsibility :
-//    - swapchain and image management.
-// - Dependency :
-//    - MkDevice as refernece
 class MKSwapchain
 {
 public:
@@ -20,11 +15,12 @@ public:
 
 public:
 	/* getters */
-	VkSwapchainKHR GetSwapchain()			           const { return _vkSwapchain; }
-	VkFormat       GetSwapchainImageFormat()           const { return _vkSwapchainImageFormat; }
-	VkExtent2D     GetSwapchainExtent()	               const { return _vkSwapchainExtent; }
-	VkFramebuffer  GetFramebuffer(uint32 imageIndex)   const { return _vkSwapchainFramebuffers[imageIndex]; }
-	VkRenderPass   RequestRenderPass()                 const { return _mkRenderPassPtr->GetRenderPass(); }
+	VkSwapchainKHR GetSwapchain()			            const { return _vkSwapchain; }
+	VkFormat       GetSwapchainImageFormat()            const { return _vkSwapchainImageFormat; }
+	VkExtent2D     GetSwapchainExtent()	                const { return _vkSwapchainExtent; }
+	VkImage        GetSwapchainImage(uint32 imageIndex) const { return _vkSwapchainImages[imageIndex]; }
+	VkFramebuffer  GetFramebuffer(uint32 imageIndex)    const { return _vkSwapchainFramebuffers[imageIndex]; }
+	VkRenderPass   RequestRenderPass()                  const { return _mkRenderPassPtr->GetRenderPass(); }
 
 	/* setters */
 	void RequestFramebufferResize(bool isResized) { _mkDeviceRef.SetFrameBufferResized(isResized); }
