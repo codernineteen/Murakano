@@ -2,8 +2,8 @@
 
 #include "Utilities.h"
 #include "MKCommandService.h"
-#include "MKGraphicsPipeline.h"
 #include "MKDescriptorManager.h"
+#include "OBJModel.h"
 
 class MKGraphicsPipeline;
 
@@ -21,10 +21,11 @@ class MKRaytracer
 public:
 	MKRaytracer(MKRaytracer const&) = delete;            // remove copy constructor
 	MKRaytracer& operator=(MKRaytracer const&) = delete; // remove copy assignment operator
-	MKRaytracer(MKDevice& mkDeviceRef, MKGraphicsPipeline& mkPipelineRef);
+	MKRaytracer() = default;
 	~MKRaytracer();
-
-	void   BuildRayTracer(const OBJModel& model, const std::vector<OBJInstance>& instances);
+	
+	/* instance build */
+	void   BuildRayTracer(MKDevice* devicePtr, const OBJModel& model, const std::vector<OBJInstance>& instances, VkDeviceAddress vertexAddr, VkDeviceAddress indexAddr);
 	/* loader for getting proxy address of extended functions */
 	void   LoadVkRaytracingExtension();
 	/* converter from obj model to geometry */
@@ -38,31 +39,31 @@ public:
 	VkAccelKHR CreateAccelerationStructureKHR(VkAccelerationStructureCreateInfoKHR& accelCreateInfo);
 	
 	/* BLAS */
-	void   CreateBLAS(const OBJModel& model);
-	void   BuildBLAS(const std::vector<VkBLAS>& blases, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-	void   CmdCreateBLAS(
+	void CreateBLAS(const OBJModel& model);
+	void BuildBLAS(const std::vector<VkBLAS>& blases, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+	void CmdCreateBLAS(
 		VkCommandBuffer commandBuffer, 
 		std::vector<uint32>& indices, 
 		std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, 
 		VkDeviceAddress scratchAddress, 
 		VkQueryPool queryPool
 	);
-	void   CmdCreateCompactBLAS(
+	void CmdCreateCompactBLAS(
 		VkCommandBuffer commandBuffer, 
 		std::vector<uint32> indices, 
 		std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, 
 		VkQueryPool queryPool
 	);
-	void   DestroyNonCompactedBLAS(std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo);
+	void DestroyNonCompactedBLAS(std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo);
 
 	/* TLAS */
-	void   CreateTLAS(const std::vector<OBJInstance> instances);
-	void   BuildTLAS(
+	void CreateTLAS(const std::vector<OBJInstance> instances);
+	void BuildTLAS(
 		const std::vector<VkAccelerationStructureInstanceKHR>& tlases, 
 		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, 
 		bool isUpdated = false
 	);
-	void   CmdCreateTLAS(
+	void CmdCreateTLAS(
 		VkCommandBuffer commandBuffer,
 		uint32 instanceCount,
 		VkDeviceAddress instanceBufferDeviceAddr,
@@ -72,7 +73,8 @@ public:
 	);
 
 	/* Ray tracing descriptor set */
-	void  CreateRayTracingDescriptorSet();
+	void InitializeRayTracingDescriptorSet(VkStorageImage& storageImage);
+	void UpdateDescriptorImageWrite(VkStorageImage& storageImage);
 	
 	/* helpers */
 	bool                         HasFlag(VkFlags item, VkFlags flag);
@@ -126,9 +128,12 @@ public:
 
 private:
 	/* device reference */
-	MKDevice&            _mkDeviceRef;
-	MKGraphicsPipeline&  _mkPipelineRef;
+	MKDevice*            _mkDevicePtr;
 	uint32               _graphicsQueueIndex;
+
+	/* buffer device address */
+	VkDeviceAddress      _vertexDeviceAddress;
+	VkDeviceAddress      _indexDeviceAddress;
 
 	/* acceleration structures */
 	std::vector<VkAccelKHR> _blases;

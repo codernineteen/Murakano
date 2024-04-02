@@ -12,6 +12,7 @@
 #include "MKDevice.h"
 #include "MKSwapchain.h"
 #include "MKDescriptorManager.h"
+#include "MKRaytracer.h"
 
 class MKGraphicsPipeline 
 {
@@ -53,6 +54,8 @@ private:
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
     /* update uniform buffer */
     void            UpdateUniformBuffer(float elapsedTime);
+    /* helpers */
+    void            RecreateStorageImage();
 
 public:
     /* 3d model */

@@ -88,7 +88,7 @@ namespace vkinfo
 		swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
 		swapchainCreateInfo.imageExtent = extent;
 		swapchainCreateInfo.imageArrayLayers = 1; // always 1 except for stereoscopic 3D application
-		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // render directly to images
+		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT; // render directly to images
 		if (!isExclusive) 
 		{
 			// If graphics family and present family are separate queue, swapchain image shared by multiple queue families
@@ -125,7 +125,7 @@ namespace vkinfo
 		return framebufferInfo;
 	}
 
-	VkRenderPassCreateInfo GetRenderPassCreateInfo(const std::array<VkAttachmentDescription, 2>& attachments, const VkSubpassDescription& subpass, const VkSubpassDependency& dependency)
+	VkRenderPassCreateInfo GetRenderPassCreateInfo(const std::array<VkAttachmentDescription, 2>& attachments, const VkSubpassDescription& subpass, uint32 depCount, const VkSubpassDependency* pDependencies)
 	{
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -133,8 +133,8 @@ namespace vkinfo
 		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
+		renderPassInfo.dependencyCount = depCount;
+		renderPassInfo.pDependencies = pDependencies;
 
 		return renderPassInfo;
 	}

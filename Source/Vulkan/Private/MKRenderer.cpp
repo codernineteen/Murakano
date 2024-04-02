@@ -6,10 +6,8 @@ MKRenderer::MKRenderer()
 	_mkInstance(), 
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
-	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
-	_mkRaytracer(_mkDevice, _mkGraphicsPipeline)
+	_mkGraphicsPipeline(_mkDevice, _mkSwapchain)
 {
-	_mkRaytracer.BuildRayTracer(_mkGraphicsPipeline.vikingRoom, _mkGraphicsPipeline.vikingRoomInstance);
 }
 
 MKRenderer::~MKRenderer() 
