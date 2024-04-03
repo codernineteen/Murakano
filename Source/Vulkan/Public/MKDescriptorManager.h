@@ -44,6 +44,7 @@ private:
 	std::vector<VkDescriptorSetLayoutBinding>                   _vkWaitingBindings = std::vector<VkDescriptorSetLayoutBinding>();
 	std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>> _vkWaitingBufferInfos = std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>>();
 	std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>  _vkWaitingImageInfos = std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>();
+	std::unordered_set<std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR>> _vkWaitingAsWrites = std::unordered_set<std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR>>();
 	std::vector<VkWriteDescriptorSet>                           _vkWaitingWrites = std::vector<VkWriteDescriptorSet>();
 
 	std::vector<VkDescriptorPool>                               _vkDescriptorPoolReady; // available descriptor pool
