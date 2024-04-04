@@ -1,6 +1,7 @@
 # Murakano
 
-Murakano is a simple renderer engine written in C++ using Vulkan API.
+Murakano is a simple renderer implementation written in C++ using Vulkan API.
+This project aims to add realtime global illumination rendering features to the applicattion.
 
 If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/devlog).<br>
 For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/implementation)
@@ -15,10 +16,20 @@ For anyone who are curious about implementation details, visualized architecture
 
 # Planned Features
 
-- compute shader support
-- hardware accelerated ray tracing
-- PBR material rendering
-- deep learning based denoising
+## Ray tracing
+
+- Acceleration structure 
+- Ray tracing pupeline
+- ReSTIR
+- compute shader 
+
+## Material 
+
+- PBR material implementation
+
+## Denoising
+
+- DLSS
 
 # Examples
 
