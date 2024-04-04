@@ -2,6 +2,9 @@
 
 MKRaytracer::~MKRaytracer()
 {
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDevicePtr->GetDevice(), _vkRayTracingDescriptorSetLayout, nullptr);
+
 	for (auto& blas : _blases)
 	{
 		DestroyAccelerationStructureKHR(blas);
@@ -9,6 +12,7 @@ MKRaytracer::~MKRaytracer()
 	DestroyAccelerationStructureKHR(_tlas);
 
 #ifndef NDEBUG
+	MK_LOG("ray tracer's descriptor set layout destroyed");
 	MK_LOG("bottom-level and top-level acceleration structures destroyed");
 #endif
 }
@@ -229,7 +233,7 @@ void MKRaytracer::InitializeRayTracingDescriptorSet(VkStorageImage& storageImage
 	// allocate descriptor set 
 	GDescriptorManager->AllocateDescriptorSet(_vkRayTracingDescriptorSet, _vkRayTracingDescriptorSetLayout);
 
-	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(_tlas.handle, VkRtxDescriptorBinding::TLAS);
+	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(&_tlas.handle, VkRtxDescriptorBinding::TLAS);
 	GDescriptorManager->WriteImageToDescriptorSet(storageImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VkRtxDescriptorBinding::OUT_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	// update and flush waiting writes
