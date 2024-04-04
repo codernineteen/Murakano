@@ -88,7 +88,7 @@ namespace vkinfo
 		swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
 		swapchainCreateInfo.imageExtent = extent;
 		swapchainCreateInfo.imageArrayLayers = 1; // always 1 except for stereoscopic 3D application
-		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT; // render directly to images
+		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // render directly to images
 		if (!isExclusive) 
 		{
 			// If graphics family and present family are separate queue, swapchain image shared by multiple queue families

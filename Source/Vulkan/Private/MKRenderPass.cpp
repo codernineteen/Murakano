@@ -6,22 +6,12 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 	VkAttachmentDescription colorAttachment{};
 	colorAttachment.format = swapchainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;				// TODO : multisampling
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;			// clear framebuffer to black before drawing a new frame
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;			// clear framebuffer to black before drawing a new frame
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;			// store rendered contents in memory
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;	// TODO : for depth testing , use VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-
-	//VkAttachmentDescription colorAttachmentResolve{};
-	//colorAttachmentResolve.format = _mkSwapchainRef.GetSwapchainImageFormat();
-	//colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT; // no multisampling for presentation.
-	//colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	//colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	//colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	//colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	//colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	VkAttachmentDescription depthAttachment{};
 	depthAttachment.format = util::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
@@ -41,10 +31,6 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 	depthAttachmentRef.attachment = 1; // set an index next to color attachment
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	/*VkAttachmentReference colorAttachmentResolveRef{};
-	colorAttachmentResolveRef.attachment = 2;
-	colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;*/
-
 	std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 
 	// subpass
@@ -55,6 +41,12 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 	subpass.pColorAttachments = &colorAttachmentRef;
 	//subpass.pResolveAttachments = &colorAttachmentResolveRef;
 	subpass.pDepthStencilAttachment = &depthAttachmentRef;
+	// belows are default
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = nullptr;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = nullptr;
+	subpass.pResolveAttachments = nullptr;
 
 	/**
 	* 1. srcSubpass - the index of the first subpass in the dependency

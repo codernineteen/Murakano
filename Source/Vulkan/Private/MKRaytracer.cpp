@@ -2,11 +2,19 @@
 
 MKRaytracer::~MKRaytracer()
 {
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDevicePtr->GetDevice(), _vkRayTracingDescriptorSetLayout, nullptr);
+
 	for (auto& blas : _blases)
 	{
 		DestroyAccelerationStructureKHR(blas);
 	}
 	DestroyAccelerationStructureKHR(_tlas);
+
+#ifndef NDEBUG
+	MK_LOG("ray tracer's descriptor set layout destroyed");
+	MK_LOG("bottom-level and top-level acceleration structures destroyed");
+#endif
 }
 
 void MKRaytracer::LoadVkRaytracingExtension()
@@ -214,7 +222,7 @@ void MKRaytracer::InitializeRayTracingDescriptorSet(VkStorageImage& storageImage
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,               // binding type - storage image
 		VK_SHADER_STAGE_RAYGEN_BIT_KHR,                 // shader stage - ray generation
-		VkRtxDescriptorBinding::TLAS,                   // binding point of output image 
+		VkRtxDescriptorBinding::OUT_IMAGE,              // binding point of output image 
 		1                                               // number of descriptors
 	);
 
@@ -225,7 +233,7 @@ void MKRaytracer::InitializeRayTracingDescriptorSet(VkStorageImage& storageImage
 	// allocate descriptor set 
 	GDescriptorManager->AllocateDescriptorSet(_vkRayTracingDescriptorSet, _vkRayTracingDescriptorSetLayout);
 
-	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(_tlas.handle, VkRtxDescriptorBinding::TLAS);
+	GDescriptorManager->WriteAccelerationStructureToDescriptorSet(&_tlas.handle, VkRtxDescriptorBinding::TLAS);
 	GDescriptorManager->WriteImageToDescriptorSet(storageImage.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VkRtxDescriptorBinding::OUT_IMAGE, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	// update and flush waiting writes
@@ -363,7 +371,7 @@ void MKRaytracer::CreateTLAS(const std::vector<OBJInstance> instances)
 void MKRaytracer::BuildTLAS(const std::vector<VkAccelerationStructureInstanceKHR>& tlases, VkBuildAccelerationStructureFlagsKHR flags, bool isUpdated)
 {
 	assert(_tlas.handle == VK_NULL_HANDLE || isUpdated); // TLAS should be created before updating it.
-	uint32 instanceCount = SafeStaticCast<size_t, uint32>(tlases.size());
+	uint32 instanceCount = static_cast<uint32>(tlases.size());
 
 	VkCommandPool cmdPool;
 	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT); // transient command pool for one-time command buffer

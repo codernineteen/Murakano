@@ -27,7 +27,7 @@ public:
 	void                   AllocateDescriptorSet(std::vector<VkDescriptorSet>& descriptorSets, VkDescriptorSetLayout layout);
 	void                   WriteBufferToDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteImageToDescriptorSet(VkImageView imageView, VkSampler imageSampler, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType);
-	void                   WriteAccelerationStructureToDescriptorSet(VkAccelerationStructureKHR as, uint32 dstBinding);
+	void                   WriteAccelerationStructureToDescriptorSet(const VkAccelerationStructureKHR* as, uint32 dstBinding);
 	void                   UpdateDescriptorSet(VkDescriptorSet descriptorSet);
 	void                   ResetDescriptorPool();
 private:
@@ -44,6 +44,7 @@ private:
 	std::vector<VkDescriptorSetLayoutBinding>                   _vkWaitingBindings = std::vector<VkDescriptorSetLayoutBinding>();
 	std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>> _vkWaitingBufferInfos = std::unordered_set<std::shared_ptr<VkDescriptorBufferInfo>>();
 	std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>  _vkWaitingImageInfos = std::unordered_set<std::shared_ptr<VkDescriptorImageInfo>>();
+	std::unordered_set<std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR>> _vkWaitingAsWrites = std::unordered_set<std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR>>();
 	std::vector<VkWriteDescriptorSet>                           _vkWaitingWrites = std::vector<VkWriteDescriptorSet>();
 
 	std::vector<VkDescriptorPool>                               _vkDescriptorPoolReady; // available descriptor pool
