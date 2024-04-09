@@ -47,6 +47,9 @@ namespace util
 		uint32 mipLevels
 	);
 
+	/* create shader module and return it */
+	VkShaderModule CreateShaderModule(const VkDevice& device, const std::vector<char>& code);
+
 	/* image resource destroyer */
 	void DestroyImageResource(const VmaAllocator& allocator, const VkDevice& device, VkImageAllocated& imageAllocated, VkImageView& imageView);
 
