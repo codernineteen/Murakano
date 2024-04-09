@@ -72,14 +72,23 @@ public:
 		bool update
 	);
 
-	/* Ray tracing descriptor set */
+	/* shader binding table */
+	void CreateShaderBindingTable();
+
+	/* ray tracing descriptor set */
 	void InitializeRayTracingDescriptorSet(VkStorageImage& storageImage);
 	void UpdateDescriptorImageWrite(VkStorageImage& storageImage);
+
+	/* ray tracing pipeline & shaders */
+	void CreateRayTracingPipeline(VkDescriptorSetLayout externalDescriptorSetLayout);
 	
 	/* helpers */
-	bool                         HasFlag(VkFlags item, VkFlags flag);
-	inline VkTransformMatrixKHR  ConvertGLMToVkMat4(const glm::mat4& glmMat4);
-	void                         DestroyAccelerationStructureKHR(VkAccelKHR& accelStruct);
+	bool                                             HasFlag(VkFlags item, VkFlags flag);
+	void						                     DestroyAccelerationStructureKHR(VkAccelKHR& accelStruct);
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR  GetRayTracingPipelineProperties();
+	inline VkTransformMatrixKHR                      ConvertGLMToVkMat4(const glm::mat4& glmMat4);
+	inline uint32                                    GetAlignedSize(uint32 value, uint32 alignment) { return (value + alignment - 1) & ~(alignment - 1); }
+
 	/* abstraction for buffer creation logic with staging buffer */
 	template<typename T>
 	VkBufferAllocated            CreateBufferWithInstanceData(
@@ -125,6 +134,8 @@ public:
 	PFN_vkCmdBuildAccelerationStructuresKHR            vkCmdBuildAccelerationStructuresKHR = nullptr;
 	PFN_vkCmdWriteAccelerationStructuresPropertiesKHR  vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
 	PFN_vkDestroyAccelerationStructureKHR              vkDestroyAccelerationStructureKHR = nullptr;
+	PFN_vkCreateRayTracingPipelinesKHR                 vkCreateRayTracingPipelinesKHR = nullptr;
+	PFN_vkGetRayTracingShaderGroupHandlesKHR           vkGetRayTracingShaderGroupHandlesKHR = nullptr;
 
 private:
 	/* device reference */
@@ -139,7 +150,19 @@ private:
 	std::vector<VkAccelKHR> _blases;
 	VkAccelKHR              _tlas;
 
-	/* sescriptor resources */
+	/* descriptor resources */
 	VkDescriptorSetLayout         _vkRayTracingDescriptorSetLayout;
 	std::vector<VkDescriptorSet>  _vkRayTracingDescriptorSet;
+
+	/* ray tracing pipeline related */
+	VkPipeline                                         _vkRayTracingPipeline;
+	VkPipelineLayout                                   _vkRayTracingPipelineLayout;
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR>  _vkShaderGroupsInfo;
+
+	/* buffers for each shader type */
+	VkBufferAllocated _sbtBuffer;
+	VkStridedDeviceAddressRegionKHR _raygenRegion;
+	VkStridedDeviceAddressRegionKHR _raymissRegion;
+	VkStridedDeviceAddressRegionKHR _rayhitRegion;
+	VkStridedDeviceAddressRegionKHR _callableRegion;
 };
