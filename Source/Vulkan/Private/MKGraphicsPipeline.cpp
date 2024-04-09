@@ -35,8 +35,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create uniform buffer
 	CreateUniformBuffers();
 
-	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
-	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
+	VkShaderModule vertShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), vertShaderCode); // create shader module   
+	VkShaderModule fragShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), fragShaderCode); // create shader module
 
 	std::string shaderEntryPoint = "main";
 	// vertex shader stage specification
@@ -81,12 +81,19 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 	// specify pipeline layout
 
-	// add descriptor set layout binding
+	/**
+	* add descriptor set layout binding
+	* 1. descriptor type
+	* 2. shader stage flags
+	* 3. binding point
+	* 4. descriptor count
+	*/
+
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                           // descriptor type
-		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR, // shader stage
-		0,								                             // binding point
-		1								                             // descriptor count
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                           
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		0,								                             
+		1								                            
 	);
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -154,6 +161,10 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 	// initialize descriptor for ray tracing pipeline after building ray tracer
 	GRaytracer->InitializeRayTracingDescriptorSet(_vkStorageImage);
+	// create ray tracing pipeline
+	GRaytracer->CreateRayTracingPipeline(_vkDescriptorSetLayout);
+	// create shader binding table
+	GRaytracer->CreateShaderBindingTable();
 }
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
@@ -503,19 +514,6 @@ void MKGraphicsPipeline::UpdateUniformBuffer(float time)
 /*
 -----------	PRIVATE ------------
 */
-
-VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& code)
-{
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const uint32*>(code.data()); // guaranteed to be aligned by default allocator  of std::vector 
-
-	VkShaderModule shaderModule;
-	MK_CHECK(vkCreateShaderModule(_mkDeviceRef.GetDevice(), &createInfo, nullptr, &shaderModule));
-	
-	return shaderModule;
-}
 
 void MKGraphicsPipeline::CreateRenderingResources()
 {
