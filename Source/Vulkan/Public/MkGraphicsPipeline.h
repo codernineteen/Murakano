@@ -37,7 +37,6 @@ public:
     VkStorageImage  GetStorageImage() const { return _vkStorageImage; }
 
 private:
-	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
     /* create rendering resources */
     void            CreateRenderingResources();
     /* create storage image */
