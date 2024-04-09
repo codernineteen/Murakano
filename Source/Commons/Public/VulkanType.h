@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
 #include <vector>
+#include <glm/glm.hpp>
 
 /**
 * Constants
@@ -54,12 +55,35 @@ struct VkStorageImage
 	VkFormat         format;
 };
 
+// ray push constant
+struct VkPushConstantRay
+{
+	glm::vec4  clearColor;
+	glm::vec3  lightPos;
+	float      lightIntensity;
+	int        lightType;
+};
+
 /**
 * Enums
 */
+
+enum ShaderBinding
+{
+	UNIFORM_BUFFER = 0,
+	TEXTURE_SAMPLER = 1,
+};
 
 enum VkRtxDescriptorBinding 
 {
 	TLAS = 2,
 	OUT_IMAGE = 3
+};
+
+enum VkRtxShaderStages
+{
+	RAYGEN,
+	MISS,
+	CLOSEST_HIT,
+	STAGE_COUNT
 };
