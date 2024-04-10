@@ -94,6 +94,19 @@ namespace util
 		MK_CHECK(vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView));
 	}
 
+	VkShaderModule CreateShaderModule(const VkDevice& device, const std::vector<char>& code)
+	{
+		VkShaderModuleCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = code.size();
+		createInfo.pCode = reinterpret_cast<const uint32*>(code.data()); // guaranteed to be aligned by default allocator  of std::vector 
+
+		VkShaderModule shaderModule;
+		MK_CHECK(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule));
+
+		return shaderModule;
+	}
+
 	void DestroyImageResource(const VmaAllocator& allocator, const VkDevice& device, VkImageAllocated& imageAllocated, VkImageView& imageView)
 	{
 		vmaDestroyImage(allocator, imageAllocated.image, imageAllocated.allocation);
@@ -271,49 +284,7 @@ namespace util
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.oldLayout = oldLayout;
 		barrier.newLayout = newLayout;
-		// set src access mask and dst access mask based on a kind of layout transitions
-		//if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-		//{
-		//	barrier.srcAccessMask = 0;                             // no need to wait for anything
-		//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
 
-		//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;       // for operations beyond barrier
-		//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		//}
-		//else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		//{
-		//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
-		//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;     // shader read
-
-		//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		//}
-		//else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-		//{
-		//	barrier.srcAccessMask = 0;
-		//	barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		//	destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // read - EARLY_FRAGMENT_TESTS_BIT, write - LATE_FRAGMENT_TESTS_BIT
-		//}
-		//else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) 
-		//{
-		//	barrier.srcAccessMask = VkAccessFlags();
-		//	barrier.dstAccessMask = VkAccessFlags(); // default flag
-
-		//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		//	destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		//}
-		//else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-		//{
-		//	barrier.srcAccessMask = VkAccessFlags();
-		//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // default flag
-
-		//	sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-		//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		//}
-		//else
-		//	throw std::invalid_argument("unsupported layout transition!");
 		sourceStage = GetPipelineStageFlags(oldLayout);
 		destinationStage = GetPipelineStageFlags(newLayout);
 		barrier.srcAccessMask = GetAccessFlags(oldLayout);
