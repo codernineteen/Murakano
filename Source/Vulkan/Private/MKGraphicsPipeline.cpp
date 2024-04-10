@@ -128,7 +128,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		// update descriptor set
 		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[i]);
 	}
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout);
+	VkPushConstantRange pushConstantRanges{};
+	pushConstantRanges.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRanges.offset = 0;
+	pushConstantRanges.size = sizeof(VkPushConstantRaster);
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout, &pushConstantRanges);
 
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
@@ -210,7 +215,7 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 #endif
 }
 
-void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
+void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -287,8 +292,9 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	auto swapchainExtent = _mkSwapchainRef.GetSwapchainExtent();
 
 	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	const auto clearColor = glm::vec4(1, 1, 1, 1.00f);
 	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0] = { {0.0f, 0.0f, 0.033f, 0.0f} };   // clear values for color
+	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]}};   // clear values for color
 	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
 
 	// specify render pass information
@@ -300,6 +306,15 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.renderArea.extent = swapchainExtent;
 	renderPassInfo.clearValueCount = static_cast<uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
+
+	// trace ray
+	GRaytracer->TraceRay(
+		commandBuffer,
+		clearColor,
+		_vkDescriptorSets[_currentFrame],
+		_vkPushConstantRaster,
+		swapchainExtent
+	);
 
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
@@ -331,6 +346,15 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		_vkDescriptorSets.data(), // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0, 
 		nullptr
+	);
+	// bind push constants
+	vkCmdPushConstants(
+		commandBuffer,
+		_vkPipelineLayout,
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		0,
+		sizeof(VkPushConstantRaster),
+		&_vkPushConstantRaster
 	);
 
 	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
@@ -582,7 +606,7 @@ void MKGraphicsPipeline::DrawFrame()
 
 	// 2. reset command buffer , start recording commands for drawing.
 	GCommandService->ResetCommandBuffer(_currentFrame);
-	RecordFrameBuffferCommand(imageIndex);
+	RecordFrameBufferCommand(imageIndex);
 
 	// sync objects for command buffer submission
 	VkSemaphore waitSemaphores[] = { _renderingResources[_currentFrame].imageAvailableSema };
