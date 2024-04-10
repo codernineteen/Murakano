@@ -81,6 +81,9 @@ public:
 
 	/* ray tracing pipeline & shaders */
 	void CreateRayTracingPipeline(VkDescriptorSetLayout externalDescriptorSetLayout);
+
+	/* ray tracing */
+	void TraceRay(VkCommandBuffer commandBuffer, const glm::vec4 clearColor, VkDescriptorSet externDescSet, VkPushConstantRaster rasterConstant, VkExtent2D extent);
 	
 	/* helpers */
 	bool                                             HasFlag(VkFlags item, VkFlags flag);
@@ -136,6 +139,7 @@ public:
 	PFN_vkDestroyAccelerationStructureKHR              vkDestroyAccelerationStructureKHR = nullptr;
 	PFN_vkCreateRayTracingPipelinesKHR                 vkCreateRayTracingPipelinesKHR = nullptr;
 	PFN_vkGetRayTracingShaderGroupHandlesKHR           vkGetRayTracingShaderGroupHandlesKHR = nullptr;
+	PFN_vkCmdTraceRaysKHR                              vkCmdTraceRaysKHR = nullptr;
 
 private:
 	/* device reference */
@@ -155,11 +159,12 @@ private:
 	std::vector<VkDescriptorSet>  _vkRayTracingDescriptorSet;
 
 	/* ray tracing pipeline related */
+	VkPushConstantRay                                  _vkRayTracingPushConstant{};
 	VkPipeline                                         _vkRayTracingPipeline;
 	VkPipelineLayout                                   _vkRayTracingPipelineLayout;
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR>  _vkShaderGroupsInfo;
 
-	/* buffers for each shader type */
+	/* shader binding table */
 	VkBufferAllocated _sbtBuffer;
 	VkStridedDeviceAddressRegionKHR _raygenRegion;
 	VkStridedDeviceAddressRegionKHR _raymissRegion;

@@ -37,6 +37,7 @@ void MKRaytracer::LoadVkRaytracingExtension()
 	vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(_mkDevicePtr->GetDevice(), "vkDestroyAccelerationStructureKHR");
 	vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(_mkDevicePtr->GetDevice(), "vkCreateRayTracingPipelinesKHR");
 	vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(_mkDevicePtr->GetDevice(), "vkGetRayTracingShaderGroupHandlesKHR");
+	vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(_mkDevicePtr->GetDevice(), "vkCmdTraceRaysKHR");
 #else
 	MK_THROW("VK_KHR_accleration_structure is not enabled.");
 #endif
@@ -371,10 +372,9 @@ void MKRaytracer::CreateShaderBindingTable()
 
 	// sbt : shader binding table
 	const uint32 handleSize = rayTrackingPipelineProperties.shaderGroupHandleSize;
-	const uint32 handleAlignment = rayTrackingPipelineProperties.shaderGroupHandleAlignment;
-	const uint32 handleSizeAligned = GetAlignedSize(handleSize, handleAlignment);
-	const uint32 groupCount = static_cast<uint32>(_vkShaderGroupsInfo.size());
-	const uint32 sbtSize = groupCount * handleSizeAligned;
+	const uint32 handleCount = 1 + missCount + hitCount;
+
+	const uint32 handleSizeAligned = GetAlignedSize(handleSize, rayTrackingPipelineProperties.shaderGroupHandleAlignment);
 
 	/**
 	* Specify regions for ray generation, miss, and hit shaders
@@ -391,14 +391,16 @@ void MKRaytracer::CreateShaderBindingTable()
 	_rayhitRegion.size = GetAlignedSize(handleSizeAligned * hitCount, rayTrackingPipelineProperties.shaderGroupBaseAlignment);
 
 	// create shader handles
-	std::vector<uint8> shaderHandles(sbtSize);
-	MK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(_mkDevicePtr->GetDevice(), _vkRayTracingPipeline, 0, groupCount, sbtSize, shaderHandles.data()));
+	uint32 dataSize = handleCount * handleSize;
+	std::vector<uint8> shaderHandles(dataSize);
+	MK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(_mkDevicePtr->GetDevice(), _vkRayTracingPipeline, 0, handleCount, dataSize, shaderHandles.data()));
 
 	// create shader binding table buffer that hold 'handle data'
+	VkDeviceSize sbtSize = _raygenRegion.size + _raymissRegion.size + _rayhitRegion.size + _callableRegion.size;
 	const VkBufferUsageFlags sbtUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 	_sbtBuffer = util::CreateBuffer(
 		_mkDevicePtr->GetVmaAllocator(),
-		handleSize,
+		sbtSize,
 		sbtUsageFlags,
 		VMA_MEMORY_USAGE_CPU_TO_GPU, // host visible, host coherent
 		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
@@ -436,6 +438,52 @@ void MKRaytracer::CreateShaderBindingTable()
 		memcpy(data, GetHandle(handleIndex++), handleSize);
 		data += _rayhitRegion.stride;
 	}
+}
+
+void MKRaytracer::TraceRay(VkCommandBuffer commandBuffer, const glm::vec4 clearColor, VkDescriptorSet externDescSet, VkPushConstantRaster rasterConstant, VkExtent2D extent)
+{
+	// initialize push constant for ray tracing
+	_vkRayTracingPushConstant.clearColor = clearColor;
+	_vkRayTracingPushConstant.lightIntensity = rasterConstant.lightIntensity;
+	_vkRayTracingPushConstant.lightPos = rasterConstant.lightPosition;
+	_vkRayTracingPushConstant.lightType = rasterConstant.lightType;
+
+	// populate descriptor sets
+	std::vector<VkDescriptorSet> descriptorSets = { _vkRayTracingDescriptorSet.front(), externDescSet};
+	// bind ray tracing pipeline
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _vkRayTracingPipeline);
+	// bind descriptor sets
+	vkCmdBindDescriptorSets(
+		commandBuffer, 
+		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, 
+		_vkRayTracingPipelineLayout, 
+		0, 
+		static_cast<uint32>(descriptorSets.size()), 
+		descriptorSets.data(), 
+		0, 
+		nullptr
+	);
+	// bind push constants
+	vkCmdPushConstants(
+		commandBuffer,
+		_vkRayTracingPipelineLayout,
+		VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
+		0,
+		sizeof(VkPushConstantRay),
+		&_vkRayTracingPushConstant
+	);
+
+	// record ray trace command
+	vkCmdTraceRaysKHR(
+		commandBuffer,
+		&_raygenRegion,
+		&_raymissRegion,
+		&_rayhitRegion,
+		&_callableRegion,
+		extent.width,
+		extent.height,
+		1
+	);
 }
 
 
