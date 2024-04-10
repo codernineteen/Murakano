@@ -55,6 +55,18 @@ struct VkStorageImage
 	VkFormat         format;
 };
 
+// rasterization push constant
+struct VkPushConstantRaster
+{
+	glm::mat4     modelMatrix;
+	glm::vec3     lightPosition;
+	unsigned int  objIndex;
+	float         lightIntensity;
+	int           lightType;
+};
+
+
+
 // ray push constant
 struct VkPushConstantRay
 {
