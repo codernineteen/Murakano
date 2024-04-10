@@ -152,3 +152,26 @@ If a group of function is const, there should be space mathcing of them either.
 		// ...
 	}
 	```
+
+
+# 3. enum convention
+- All of the enum definition should starts with capital letter.
+- ex)
+	```cpp
+	enum Result
+	{
+		SUCCESS,
+		FAIL,
+	};
+	```
+- Variants of enum should be named in uppercase and separated by underscore.
+- ex)
+	```cpp
+	enum RayTracingShaderType
+	{
+		RAYGEN,
+		MISS,
+		CLOSEST_HIT,
+		ANY_HIT,
+	};
+	```

@@ -69,7 +69,7 @@ namespace vkinfo
 	/* pipeline color blend state create info */
 	VkPipelineColorBlendStateCreateInfo    GetPipelineColorBlendStateCreateInfo(const VkPipelineColorBlendAttachmentState& colorBlendAttachment);
 	/* pipeline layout create info */
-	VkPipelineLayoutCreateInfo             GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr);
+	VkPipelineLayoutCreateInfo             GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, VkPushConstantRange* pushConstantRangesPtr);
 	/* graphics pipeline create info */
 	VkGraphicsPipelineCreateInfo           GetGraphicsPipelineCreateInfo(
 	                                      	 VkPipelineLayout layout,  

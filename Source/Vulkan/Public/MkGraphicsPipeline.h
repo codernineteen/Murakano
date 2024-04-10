@@ -37,7 +37,6 @@ public:
     VkStorageImage  GetStorageImage() const { return _vkStorageImage; }
 
 private:
-	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
     /* create rendering resources */
     void            CreateRenderingResources();
     /* create storage image */
@@ -49,7 +48,7 @@ private:
     /* uniform buffer creation */
     void            CreateUniformBuffers();
     /* Frame buffer commands recording and calling command service interfaces */
-    void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
+    void            RecordFrameBufferCommand(uint32 swapchainImageIndex);
     /* copy source buffer to destination buffer */
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
     /* update uniform buffer */
@@ -78,6 +77,15 @@ private:
     
     /* index buffer */
     VkBufferAllocated _vkIndexBuffer;
+
+    /* push constant */
+    VkPushConstantRaster _vkPushConstantRaster{
+        glm::mat4(1.0),
+        glm::vec3(10.0f, 15.0f, 8.0f),
+        0,
+        100.0f,
+        0
+    };
 
     /* descriptor set */
     VkDescriptorSetLayout         _vkDescriptorSetLayout;
