@@ -1,18 +1,60 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_GOOGLE_include_directive : enable
 
-layout(binding = 0) uniform UniformBufferObject {
+// common ray tracing structures
+#include "raycommon.glsl"
+
+// uniform buffer object binding
+layout(binding = 0, set = 1) uniform UniformBufferObject {
     mat4 model;
-    mat4 view;
-    mat4 proj;
+    mat4 viewInverse;
+    mat4 projInverse;
 } ubo;
+
+// ray tracing descriptor set binding
 layout(binding = 2, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 3, set = 0, rgba8) uniform image2D image;
 
-layout(location = 0) rayPayloadEXT vec3 hitValue;
+// ray tracing payload (hit value stored in this struct)
+layout(location = 0) rayPayloadEXT HitPayload payload;
 
 void main() 
 {
+    // get the pixel center from image, not sampler
+    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    // normalize the pixel center to [0, 1]
+    const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+    // transform to normalized device coordinates , top left is (-1, -1)
+    vec2 ndc = inUV * 2.0 - 1.0; 
 
+    // calculate ray origin and direction
+    vec4 rayOrigin = ubo.viewInverse * vec4(0,0,0,1); // view space origin -> world space origin
+    vec4 target    = ubo.projInverse * vec4(ndc.x, ndc.y, 1, 1); // projection space -> view space
+    vec4 direction = ubo.viewInverse * vec4(normalize(target.xyz), 0); // view space direction -> world space direction
+
+    // all geometry is consdiered opaque
+    uint rayFlags = gl_RayFlagsOpaqueEXT;
+
+    // min, max distance of ray, prefix 't' is mangitude of ray direction vector
+    float tMin = 0.001;
+    float tMax = 10000.0;
+
+    // trace ray
+    traceRayEXT(
+        topLevelAS,     // top level acceleration struture the ray searching for
+        rayFlags,       // ray flags
+        0xFF,           // cull mask , intersection skipped if AND result is 0
+        0,              // shader binding table record offset
+        0,              // shader binding table record stride
+        0,              // miss shader index
+        rayOrigin.xyz,  // ray origin
+        tMin,           // minimum t value
+        direction.xyz,  // ray direction
+        tMax,           // ray maximum t value
+        0               // payload (location = 0)
+    );
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.hitValue, 1.0));
 }
 
