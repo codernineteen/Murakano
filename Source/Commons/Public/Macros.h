@@ -4,7 +4,10 @@
 #include <stdexcept>
 #include <vulkan/vk_enum_string_helper.h>
 
+// compile definition
 // #define USE_HLSL
+#define USE_RAYTRACING
+
 
 // validation macros ( use do-while(0) to avoid a problem that may happen while macro expansion )
 #define MK_CHECK(x)                                                                                       \
