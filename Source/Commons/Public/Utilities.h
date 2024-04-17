@@ -75,10 +75,10 @@ namespace util
 	);
 	void TransitionImageLayoutVerbose(
 		VkCommandBuffer commandBuffer,
-		VkImage image, VkFormat format,
+		VkImage image,
 		VkImageLayout oldLayout, VkImageLayout newLayout,
-		VkImageSubresourceRange subresourceRange,
 		VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
-		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask
+		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+		VkImageSubresourceRange subresourceRange
 	);
 }

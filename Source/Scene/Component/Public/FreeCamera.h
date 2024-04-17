@@ -20,8 +20,10 @@ public:
 	XMMATRIX GetViewMatrix()        const { return _viewMat; }
 	XMMATRIX GetProjectionMatrix()  const { return _projectionMat; }
 #else
-	glm::mat4 GetViewMatrix()       const { return _viewMat; }
-	glm::mat4 GetProjectionMatrix() const { return _projectionMat; }
+	glm::mat4 GetViewMatrix()              const { return _viewMat; }
+	glm::mat4 GetProjectionMatrix()        const { return _projectionMat; }
+	glm::mat4 GetViewInverseMatrix()       const { return glm::inverse(_viewMat); }
+	glm::mat4 GetProjectionInverseMatrix() const { return glm::inverse(_projectionMat); }
 #endif
 
 private:

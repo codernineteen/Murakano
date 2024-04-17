@@ -3,21 +3,43 @@
 #include "Utilities.h"
 #include "MKCommandService.h"
 #include "MKDescriptorManager.h"
+#include "MKOffscreenRenderPass.h"
 #include "OBJModel.h"
 
 class MKGraphicsPipeline;
 
+struct ScractchBuffer
+{
+	uint64         deviceAddress;
+	VkBuffer       handle;
+	VkDeviceMemory memory;
+};
+
+struct AcceleraationStructure
+{
+	uint64                             deviceAddress;
+	VkAccelerationStructureKHR         handle;
+	std::unique_ptr<VkBufferAllocated> buffer; // alllocated by VMA
+};
+
+struct StorageImage
+{	
+	VkDeviceMemory memory;
+	VkImage        image;
+	VkImageView    imageView;
+	VkFormat       format;
+	uint32         width;
+	uint32         height;
+};
+
+struct UniformBufferObject
+{
+	glm::mat4 viewInverse;
+	glm::mat4 projInverse;
+};
+
 class MKRaytracer
 {
-	struct VkAccelerationStructureKHRInfo 
-	{
-		VkAccelerationStructureBuildGeometryInfoKHR      buildInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
-		VkAccelerationStructureBuildSizesInfoKHR         sizeInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-		const VkAccelerationStructureBuildRangeInfoKHR*  rangeInfo;
-		VkAccelKHR                                       accelStruct; // range
-		VkAccelKHR                                       cleanupAS;
-	};
-
 public:
 	MKRaytracer(MKRaytracer const&) = delete;            // remove copy constructor
 	MKRaytracer& operator=(MKRaytracer const&) = delete; // remove copy assignment operator
@@ -25,53 +47,18 @@ public:
 	~MKRaytracer();
 	
 	/* instance build */
-	void   BuildRayTracer(MKDevice* devicePtr, const OBJModel& model, const std::vector<OBJInstance>& instances, VkDeviceAddress vertexAddr, VkDeviceAddress indexAddr);
+	void   BuildRayTracer(MKDevice* devicePtr, const OBJModel& model, const std::vector<OBJInstance>& instances, VkDeviceAddress vertexAddr, VkDeviceAddress indexAddr, VkExtent2D extent);
 	/* loader for getting proxy address of extended functions */
 	void   LoadVkRaytracingExtension();
-	/* converter from obj model to geometry */
-	VkBLAS ObjectToVkGeometryKHR(const OBJModel& model);
-	/* getters*/
-	VkDeviceAddress GetBLASDeviceAddress(uint32 index);
-	
-	/**
-	* acceleration structure building
-	*/
-	VkAccelKHR CreateAccelerationStructureKHR(VkAccelerationStructureCreateInfoKHR& accelCreateInfo);
 	
 	/* BLAS */
-	void CreateBLAS(const OBJModel& model);
-	void BuildBLAS(const std::vector<VkBLAS>& blases, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-	void CmdCreateBLAS(
-		VkCommandBuffer commandBuffer, 
-		std::vector<uint32>& indices, 
-		std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, 
-		VkDeviceAddress scratchAddress, 
-		VkQueryPool queryPool
-	);
-	void CmdCreateCompactBLAS(
-		VkCommandBuffer commandBuffer, 
-		std::vector<uint32> indices, 
-		std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo, 
-		VkQueryPool queryPool
-	);
-	void DestroyNonCompactedBLAS(std::vector<uint32> indices, std::vector<VkAccelerationStructureKHRInfo>& buildAsInfo);
+	
 
 	/* TLAS */
-	void CreateTLAS(const std::vector<OBJInstance> instances);
-	void BuildTLAS(
-		const std::vector<VkAccelerationStructureInstanceKHR>& tlases, 
-		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, 
-		bool isUpdated = false
-	);
-	void CmdCreateTLAS(
-		VkCommandBuffer commandBuffer,
-		uint32 instanceCount,
-		VkDeviceAddress instanceBufferDeviceAddr,
-		VkBufferAllocated& scratchBuffer,
-		VkBuildAccelerationStructureFlagsKHR flags,
-		bool update
-	);
 
+	/* storage image */
+	void CreateStorageImage(VkExtent2D extent);
+	
 	/* shader binding table */
 	void CreateShaderBindingTable();
 
@@ -91,6 +78,7 @@ public:
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR  GetRayTracingPipelineProperties();
 	inline VkTransformMatrixKHR                      ConvertGLMToVkMat4(const glm::mat4& glmMat4);
 	inline uint32                                    GetAlignedSize(uint32 value, uint32 alignment) { return (value + alignment - 1) & ~(alignment - 1); }
+	uint32                                           FindMemoryType(uint32 bits, VkMemoryPropertyFlags properties, VkBool32* memoryTypeFound=(VkBool32*)nullptr);
 
 	/* abstraction for buffer creation logic with staging buffer */
 	template<typename T>
@@ -146,25 +134,29 @@ private:
 	MKDevice*            _mkDevicePtr;
 	uint32               _graphicsQueueIndex;
 
-	/* buffer device address */
-	VkDeviceAddress      _vertexDeviceAddress;
-	VkDeviceAddress      _indexDeviceAddress;
+	// storage image
+	StorageImage		  _storageImage;
+	VkBufferAllocated 	  _ubo;
+
+	// vertex and index buffer
+	VkBufferAllocated     _vertexBuffer;
+	VkBufferAllocated     _indexBuffer;
+	
 
 	/* acceleration structures */
-	std::vector<VkAccelKHR> _blases;
-	VkAccelKHR              _tlas;
+	AcceleraationStructure _blas;
+	AcceleraationStructure _tlas;
 
 	/* descriptor resources */
 	VkDescriptorSetLayout         _vkRayTracingDescriptorSetLayout;
 	std::vector<VkDescriptorSet>  _vkRayTracingDescriptorSet;
 
 	/* ray tracing pipeline related */
-	VkPushConstantRay                                  _vkRayTracingPushConstant{};
 	VkPipeline                                         _vkRayTracingPipeline;
 	VkPipelineLayout                                   _vkRayTracingPipelineLayout;
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR>  _vkShaderGroupsInfo;
 
 	/* shader binding table */
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR>  _vkShaderGroupsInfo;
 	VkBufferAllocated _sbtBuffer;
 	VkStridedDeviceAddressRegionKHR _raygenRegion;
 	VkStridedDeviceAddressRegionKHR _raymissRegion;

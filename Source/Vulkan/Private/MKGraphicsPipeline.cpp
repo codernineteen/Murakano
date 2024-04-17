@@ -162,7 +162,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// build ray tracer
 	auto vertexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkVertexBuffer.buffer);
 	auto indexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkIndexBuffer.buffer);
-	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr);
+	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr, mkSwapchainRef.GetSwapchainExtent());
 
 	// initialize descriptor for ray tracing pipeline after building ray tracer
 	GRaytracer->InitializeRayTracingDescriptorSet(_vkStorageImage);
@@ -308,6 +308,7 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.pClearValues = clearValues.data();
 
 	// trace ray
+#ifdef USE_RAYTRACING
 	GRaytracer->TraceRay(
 		commandBuffer,
 		clearColor,
@@ -315,7 +316,7 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 		_vkPushConstantRaster,
 		swapchainExtent
 	);
-
+#else
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
 	
@@ -366,6 +367,7 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
+#endif
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }

@@ -6,22 +6,29 @@ This project aims to add realtime global illumination rendering features to the 
 If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/devlog).<br>
 For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/implementation)
 
-# Features
+# Supported Features
 
 - Abstractions for Vulkan API
 - OBJ format model rendering support
-- HLSL, GLSL shader compilation support (HLSL is a default shader language)
-- Easy to use Global command service interface
-- Vulkan Memory Allocator support
+- GLSL, HLSL shader compilation support (GLSL is a default shader language)
+- Easy to use Global service instances
+	- ray tracing pipeline
+	- command service
+	- descriptor manager
+- Vulkan Memory Allocator support (provided by GPU-open)
+- Acceleration structure 
+- Ray tracing pipeline
 
 # Planned Features
 
+## Shading
+
+- Glossy BRDF
+
 ## Ray tracing
 
-- Acceleration structure 
-- Ray tracing pupeline
 - ReSTIR
-- compute shader 
+- compute shader
 
 ## Material 
 
@@ -60,7 +67,8 @@ For anyone who are curious about implementation details, visualized architecture
 
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)
 - [glfw](https://github.com/glfw/glfw/tree/3.3-stable)
-- [DirectXMath](https://github.com/microsoft/DirectXMath)
+- [glm](https://github.com/g-truc/glm)
+- [Vulkan memory allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 - [DirectXShaderCompiler](https://github.com/microsoft/DirectXMath)
 - [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader)
 - [stb_image](https://github.com/nothings/stb)

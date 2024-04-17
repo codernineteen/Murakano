@@ -38,9 +38,9 @@ FreeCamera::FreeCamera(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 		glm::radians(45.0f),
 		extent.width / SafeStaticCast<uint32, float>(extent.height),
 		0.1f,
-		10.0f
+		512.0f
 	);
-	_projectionMat[1][1] *= -1; // flip y coordinate
+	//_projectionMat[1][1] *= -1; // flip y coordinate
 #endif
 }
 

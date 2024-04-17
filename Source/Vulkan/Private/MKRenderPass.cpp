@@ -6,7 +6,7 @@ MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageF
 	VkAttachmentDescription colorAttachment{};
 	colorAttachment.format = swapchainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;				// TODO : multisampling
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;			// clear framebuffer to black before drawing a new frame
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;			
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;			// store rendered contents in memory
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

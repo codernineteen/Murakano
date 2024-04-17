@@ -322,11 +322,11 @@ namespace util
 	// transition image layout
 	void TransitionImageLayoutVerbose(
 		VkCommandBuffer commandBuffer,
-		VkImage image, VkFormat format,
+		VkImage image,
 		VkImageLayout oldLayout, VkImageLayout newLayout,
-		VkImageSubresourceRange subresourceRange,
 		VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
-		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask
+		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+		VkImageSubresourceRange subresourceRange
 	)
 	{
 		/**
@@ -339,45 +339,19 @@ namespace util
 		* 6. buffer memory barrier count, buffer memory barriers - reference to buffer memory barriers
 		* 7. image memory barrier count, image memory barriers - reference to image memory barriers
 		*/
-		VkPipelineStageFlags sourceStage;
-		VkPipelineStageFlags destinationStage;
-
+		// Create an image barrier object
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = oldLayout;
-		barrier.newLayout = newLayout;
-
-		sourceStage = srcStage;
-		destinationStage = dstStage;
 		barrier.srcAccessMask = srcAccessMask;
 		barrier.dstAccessMask = dstAccessMask;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = image;
+		barrier.subresourceRange = subresourceRange;
 
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
-		barrier.image = image;                                           // specify image to transition layout
-
-		// set proper aspect mask based on the layout
-		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-		{
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-			if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) // check if format has stencil component
-				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
-		else
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-		barrier.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
-		barrier.subresourceRange.levelCount = subresourceRange.levelCount;
-		barrier.subresourceRange.baseArrayLayer = subresourceRange.baseArrayLayer;
-		barrier.subresourceRange.layerCount = subresourceRange.layerCount;
-
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			sourceStage, destinationStage,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier
-		);
+		// Put barrier inside setup command buffer
+		vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	}
 } 
