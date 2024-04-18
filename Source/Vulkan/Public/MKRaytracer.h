@@ -8,7 +8,7 @@
 
 class MKGraphicsPipeline;
 
-struct ScractchBuffer
+struct ScratchBuffer
 {
 	uint64         deviceAddress;
 	VkBuffer       handle;
@@ -19,7 +19,7 @@ struct AcceleraationStructure
 {
 	uint64                             deviceAddress;
 	VkAccelerationStructureKHR         handle;
-	std::unique_ptr<VkBufferAllocated> buffer; // alllocated by VMA
+	VkBufferAllocated                  bufferAllocated; // alllocated by VMA
 };
 
 struct StorageImage
@@ -32,7 +32,7 @@ struct StorageImage
 	uint32         height;
 };
 
-struct UniformBufferObject
+struct UniformBuffer
 {
 	glm::mat4 viewInverse;
 	glm::mat4 projInverse;
@@ -52,29 +52,37 @@ public:
 	void   LoadVkRaytracingExtension();
 	
 	/* BLAS */
-	
+	void   CreateBLAS();
 
 	/* TLAS */
+	void   CreateTLAS();
+
+	/* Create buffer allocated */
+	VkBufferAllocated CreateBufferAllocated(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage, VkMemoryAllocateFlags memoryFlags,  void* data);
 
 	/* storage image */
 	void CreateStorageImage(VkExtent2D extent);
+
+	/* scratch buffer */
+	ScratchBuffer CreateScratchBuffer(VkDeviceSize size);
+	void          DestroyScratchBuffer(ScratchBuffer& scratchBuffer);
 	
 	/* shader binding table */
 	void CreateShaderBindingTable();
 
 	/* ray tracing descriptor set */
 	void InitializeRayTracingDescriptorSet(VkStorageImage& storageImage);
-	void UpdateDescriptorImageWrite(VkStorageImage& storageImage);
+	void UpdateDescriptorImageWrite();
 
 	/* ray tracing pipeline & shaders */
-	void CreateRayTracingPipeline(VkDescriptorSetLayout externalDescriptorSetLayout);
+	void CreateRayTracingPipeline();
 
 	/* ray tracing */
 	void TraceRay(VkCommandBuffer commandBuffer, const glm::vec4 clearColor, VkDescriptorSet externDescSet, VkPushConstantRaster rasterConstant, VkExtent2D extent);
 	
 	/* helpers */
 	bool                                             HasFlag(VkFlags item, VkFlags flag);
-	void						                     DestroyAccelerationStructureKHR(VkAccelKHR& accelStruct);
+	void						                     DestroyAccelerationStructureKHR(AcceleraationStructure& accelStruct);
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR  GetRayTracingPipelineProperties();
 	inline VkTransformMatrixKHR                      ConvertGLMToVkMat4(const glm::mat4& glmMat4);
 	inline uint32                                    GetAlignedSize(uint32 value, uint32 alignment) { return (value + alignment - 1) & ~(alignment - 1); }
@@ -149,7 +157,7 @@ private:
 
 	/* descriptor resources */
 	VkDescriptorSetLayout         _vkRayTracingDescriptorSetLayout;
-	std::vector<VkDescriptorSet>  _vkRayTracingDescriptorSet;
+	VkDescriptorSet               _vkRayTracingDescriptorSet;
 
 	/* ray tracing pipeline related */
 	VkPipeline                                         _vkRayTracingPipeline;

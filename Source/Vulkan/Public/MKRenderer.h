@@ -7,7 +7,6 @@
 #include "MKValidationLayer.h"
 #include "MKDevice.h"
 #include "MKSwapchain.h"
-#include "MkGraphicsPipeline.h"
 #include "MKCommandService.h"
 #include "MKRaytracer.h"
 
@@ -23,6 +22,5 @@ private:
 	MKInstance			_mkInstance;
 	MKDevice			_mkDevice;
 	MKSwapchain	        _mkSwapchain;
-	MKGraphicsPipeline	_mkGraphicsPipeline;
 };
 

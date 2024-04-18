@@ -23,9 +23,6 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create rendering resources
 	CreateRenderingResources();
 
-	// create storage image
-	CreateStorageImage();
-
 	// create vertex buffer
 	CreateVertexBuffer();
 
@@ -162,14 +159,6 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// build ray tracer
 	auto vertexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkVertexBuffer.buffer);
 	auto indexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkIndexBuffer.buffer);
-	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr, mkSwapchainRef.GetSwapchainExtent());
-
-	// initialize descriptor for ray tracing pipeline after building ray tracer
-	GRaytracer->InitializeRayTracingDescriptorSet(_vkStorageImage);
-	// create ray tracing pipeline
-	GRaytracer->CreateRayTracingPipeline(_vkDescriptorSetLayout);
-	// create shader binding table
-	GRaytracer->CreateShaderBindingTable();
 }
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
@@ -229,61 +218,7 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 	* Copy ray tracing output to swapchain image
 	*/
 	// 1. prepare current swapchain image for transfer destination
-	VkImageSubresourceRange defaultSubresourceRange{};
-	defaultSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	defaultSubresourceRange.baseMipLevel = 0;
-	defaultSubresourceRange.levelCount = 1;
-	defaultSubresourceRange.baseArrayLayer = 0;
-	defaultSubresourceRange.layerCount = 1;
-
-	util::TransitionImageLayout(
-		commandBuffer,
-		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
-		_mkSwapchainRef.GetSwapchainImageFormat(),
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,      // src layout , dst layout
-		defaultSubresourceRange
-	);
-
-	// 2. prepare ray tracing output image for transfer source
-	util::TransitionImageLayoutVerbose(
-		commandBuffer,
-		_vkStorageImage.imageAllocated.image,
-		_vkStorageImage.format,
-		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,         // src layout , dst layout
-		defaultSubresourceRange,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,    // src stage , dst stage
-		0U, VK_ACCESS_TRANSFER_READ_BIT
-	);
-
-	// 3. copy ray tracing output to swapchain image
-	util::CopyImageToImage(
-		commandBuffer,
-		_vkStorageImage.imageAllocated.image,
-		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
-		_mkSwapchainRef.GetSwapchainExtent().width,
-		_mkSwapchainRef.GetSwapchainExtent().height
-	);
-
-	// 4. transition swap chain image back for presentation
-	util::TransitionImageLayout(
-		commandBuffer,
-		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
-		_mkSwapchainRef.GetSwapchainImageFormat(),
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // src layout , dst layout
-		defaultSubresourceRange
-	);
-
-	// 5. transition ray tracing output image back to general layout
-	util::TransitionImageLayoutVerbose(
-		commandBuffer,
-		_vkStorageImage.imageAllocated.image,
-		_vkStorageImage.format,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,         // src layout , dst layout
-		defaultSubresourceRange,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		VK_ACCESS_TRANSFER_READ_BIT, 0U
-	);
-
+	
 
 	/**
 	* Prepare render pass !
@@ -307,16 +242,6 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.clearValueCount = static_cast<uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	// trace ray
-#ifdef USE_RAYTRACING
-	GRaytracer->TraceRay(
-		commandBuffer,
-		clearColor,
-		_vkDescriptorSets[_currentFrame],
-		_vkPushConstantRaster,
-		swapchainExtent
-	);
-#else
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
 	
@@ -367,64 +292,10 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
-#endif
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
-void MKGraphicsPipeline::CreateStorageImage()
-{
-	auto extent = _mkSwapchainRef.GetSwapchainExtent();
-
-	// create storage image
-	_vkStorageImage.format = VK_FORMAT_R8G8B8A8_UNORM;
-	util::CreateImage(
-		_mkDeviceRef.GetVmaAllocator(),
-		_vkStorageImage.imageAllocated,
-		extent.width,
-		extent.height,
-		_vkStorageImage.format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY,
-		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
-	);
-
-	// create image view for the storage image
-	util::CreateImageView(
-		_mkDeviceRef.GetDevice(),
-		_vkStorageImage.imageAllocated.image,
-		_vkStorageImage.imageView,
-		_vkStorageImage.format,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		1
-	);
-
-	// create image memory barrier for transition layout
-	VkCommandPool cmdPool;
-	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-	VkCommandBuffer cmdBuffer;
-	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
-
-	VkImageSubresourceRange subresouceRange{};
-	subresouceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	subresouceRange.baseMipLevel = 0;
-	subresouceRange.levelCount = 1;
-	subresouceRange.baseArrayLayer = 0;
-	subresouceRange.layerCount = 1;
-	util::TransitionImageLayoutVerbose(
-		cmdBuffer, 
-		_vkStorageImage.imageAllocated.image, 
-		_vkStorageImage.format, 
-		VK_IMAGE_LAYOUT_UNDEFINED, 
-		VK_IMAGE_LAYOUT_GENERAL, 
-		subresouceRange,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-		{}, {}
-	);
-	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
-
-}
 
 void MKGraphicsPipeline::CreateVertexBuffer()
 {
@@ -588,7 +459,6 @@ void MKGraphicsPipeline::DrawFrame()
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		_mkSwapchainRef.RecreateSwapchain();
-		RecreateStorageImage();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -644,7 +514,6 @@ void MKGraphicsPipeline::DrawFrame()
 		// swapchain recreation is required at this moment.
 		_mkSwapchainRef.RequestFramebufferResize(false); // framebuffer resize is not required
 		_mkSwapchainRef.RecreateSwapchain();
-		RecreateStorageImage();
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");
@@ -660,18 +529,4 @@ void MKGraphicsPipeline::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAlloc
 		copyRegion.size = size;
 		vkCmdCopyBuffer(commandBuffer, src.buffer, dest.buffer, 1, &copyRegion);
 	});
-}
-
-void MKGraphicsPipeline::RecreateStorageImage()
-{
-	// destroy storage image for recreation
-	util::DestroyImageResource(_mkDeviceRef.GetVmaAllocator(), _mkDeviceRef.GetDevice(), _vkStorageImage.imageAllocated, _vkStorageImage.imageView);
-	// recreate storage image
-	CreateStorageImage();
-
-	// request ray tracer to update descriptor write for storage image
-	GRaytracer->UpdateDescriptorImageWrite(_vkStorageImage);
-#ifndef NDEBUG
-	MK_LOG("storage image recreated.")
-#endif
 }

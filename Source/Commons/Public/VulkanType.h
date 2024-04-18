@@ -88,8 +88,9 @@ enum ShaderBinding
 
 enum VkRtxDescriptorBinding 
 {
-	TLAS = 2,
-	OUT_IMAGE = 3
+	UNIFORM = 0,
+	TLAS = 1,
+	OUT_IMAGE = 2,
 };
 
 enum VkRtxShaderStages
