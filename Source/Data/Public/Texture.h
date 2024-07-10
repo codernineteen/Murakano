@@ -4,8 +4,8 @@
 
 #include "VulkanType.h"
 #include "Utilities.h"
-#include "MKDevice.h"
-#include "MKCommandService.h"
+#include "Device.h"
+#include "CommandService.h"
 
 // an abstract class to combine texture resources altogether
 struct Texture

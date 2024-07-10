@@ -1,7 +1,7 @@
 #include "Global.h"
-#include "MKCommandService.h"
-#include "MKDescriptorManager.h"
-#include "MKRaytracer.h"
+#include "CommandService.h"
+#include "DescriptorManager.h"
+#include "Raytracer.h"
 
 MKCommandService* GCommandService = nullptr;
 MKDescriptorManager* GDescriptorManager = nullptr;

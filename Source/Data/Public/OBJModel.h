@@ -3,7 +3,7 @@
 #include <tiny_obj_loader.h>
 
 #include "Utilities.h"
-#include "MKDescriptorManager.h"
+#include "DescriptorManager.h"
 #include "Vertex.h"
 #include "Texture.h"
 

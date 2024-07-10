@@ -1,7 +1,7 @@
 #pragma once
 
-#include "MKDevice.h"
-#include "MKSwapchain.h"
+#include "Device.h"
+#include "Swapchain.h"
 #include "Utilities.h"
 
 class FreeCamera
