@@ -1,4 +1,4 @@
-#include "MKValidationLayer.h"
+#include "ValidationLayer.h"
 
 MKValidationLayer::MKValidationLayer()
     : _debugMessenger(VK_NULL_HANDLE)

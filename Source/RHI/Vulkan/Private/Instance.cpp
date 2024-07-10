@@ -1,4 +1,4 @@
-#include "MKInstance.h"
+#include "Instance.h"
 
 MKInstance::MKInstance() 
     : _validationLayer()

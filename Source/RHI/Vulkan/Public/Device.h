@@ -7,7 +7,7 @@
 // internal
 #include "Utilities.h"
 #include "Global.h"
-#include "MKInstance.h"
+#include "Instance.h"
 
 
 // [MKDevice class]

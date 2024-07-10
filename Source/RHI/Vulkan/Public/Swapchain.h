@@ -2,10 +2,10 @@
 
 // internal
 #include "Utilities.h"
-#include "MKDevice.h"
-#include "MKRenderPass.h"
-#include "MKCommandService.h"
-#include "MKDescriptorManager.h"
+#include "Device.h"
+#include "RenderPass.h"
+#include "CommandService.h"
+#include "DescriptorManager.h"
 
 class MKSwapchain
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Utilities.h"
-#include "MKDevice.h"
+#include "Device.h"
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 

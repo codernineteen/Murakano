@@ -1,4 +1,4 @@
-#include "MKRaytracer.h"
+#include "Raytracer.h"
 
 MKRaytracer::~MKRaytracer()
 {

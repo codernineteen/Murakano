@@ -3,8 +3,8 @@
 // internal
 #include "Utilities.h"
 #include "Info.h"
-#include "MKWindow.h"
-#include "MKValidationLayer.h"
+#include "Window.h"
+#include "ValidationLayer.h"
 
 class MKInstance
 {

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Utilities.h"
-#include "MKCommandService.h"
-#include "MKDescriptorManager.h"
+#include "CommandService.h"
+#include "DescriptorManager.h"
 #include "OBJModel.h"
 
 class MKGraphicsPipeline;

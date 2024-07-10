@@ -1,4 +1,4 @@
-#include "MKRenderPass.h"
+#include "RenderPass.h"
 
 MKRenderPass::MKRenderPass(const MKDevice& mkDeviceRef, VkFormat swapchainImageFormat)
 	: _mkDeviceRef(mkDeviceRef)

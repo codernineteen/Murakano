@@ -1,4 +1,4 @@
-#include "MKWindow.h"
+#include "Window.h"
 
 MKWindow::MKWindow(bool isResizable)
 {

@@ -1,5 +1,5 @@
-#include "MKDevice.h"
-#include "MKCommandService.h"
+#include "Device.h"
+#include "CommandService.h"
 
 MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	: _mkWindowRef(windowRef), _mkInstanceRef(instanceRef)

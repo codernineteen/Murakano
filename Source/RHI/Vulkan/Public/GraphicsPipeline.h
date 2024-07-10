@@ -9,10 +9,10 @@
 #include "InputController.h"
 
 // vulkan wrappers
-#include "MKDevice.h"
-#include "MKSwapchain.h"
-#include "MKDescriptorManager.h"
-#include "MKRaytracer.h"
+#include "Device.h"
+#include "Swapchain.h"
+#include "DescriptorManager.h"
+#include "Raytracer.h"
 
 class MKGraphicsPipeline 
 {
