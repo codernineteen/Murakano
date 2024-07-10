@@ -93,7 +93,7 @@ endif()
 ####################### Include directories #######################
 
 # internal headers include
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Vulkan/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/RHI/Vulkan/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Data/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Templates/")
@@ -113,10 +113,20 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_
 target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw ${Vulkan_LIBRARIES} fmt::fmt-header-only)
 
 ####################### HLSL Shader build #######################
+
+find_program(DXC_EXEC dxc HINTS
+  ${Vulkan_DXC_EXECUTABLE} 
+  /usr/bin 
+  /usr/local/bin 
+  ${VULKAN_SDK_PATH}/Bin
+  ${VULKAN_SDK_PATH}/Bin32
+  $ENV{VULKAN_SDK}/Bin/ 
+  $ENV{VULKAN_SDK}/Bin32/
+)
+
 # get all hlsl files in shaders directory
-set(DXC_PATH "C:/VulkanDev/Murakano/thirdparty/hlsl.bin/Debug/bin") # YOU NEED TO CHANGE THIS TO YOUR DXC PATH
-find_program(DXC_EXECUTABLE dxc PATHS ${DXC_PATH} NO_DEFAULT_PATH)
-message(STATUS ${DXC_EXECUTABLE})
+
+message(STATUS ${DXC_EXEC})
 
 # Define shader model versions as variables
 set(VERTEX_SHADER_MODEL vs_6_0)
@@ -128,7 +138,7 @@ get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
 set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
 add_custom_command(
     OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXECUTABLE} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
+    COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
     DEPENDS ${HLSL_VERTEX}
 )
 list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
@@ -139,7 +149,7 @@ get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
 set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
 add_custom_command(
     OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXECUTABLE} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
+    COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
     DEPENDS ${HLSL_FRAG}
 )
 list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})

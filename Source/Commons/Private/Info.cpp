@@ -125,16 +125,20 @@ namespace vkinfo
 		return framebufferInfo;
 	}
 
-	VkRenderPassCreateInfo GetRenderPassCreateInfo(const std::array<VkAttachmentDescription, 2>& attachments, const VkSubpassDescription& subpass, const VkSubpassDependency& dependency)
+	VkRenderPassCreateInfo GetRenderPassCreateInfo(
+		const std::vector<VkAttachmentDescription>& attachments,
+		const std::vector<VkSubpassDescription>& subpasses,
+		const std::vector<VkSubpassDependency>& dependencies
+	)
 	{
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = SafeStaticCast<size_t, uint32>(attachments.size());
 		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
+		renderPassInfo.attachmentCount = static_cast<uint32>(attachments.size());
+		renderPassInfo.pSubpasses = subpasses.data();
+		renderPassInfo.subpassCount = static_cast<uint32>(subpasses.size());
+		renderPassInfo.pDependencies = dependencies.data();
+		renderPassInfo.dependencyCount = static_cast<uint32>(dependencies.size());
 
 		return renderPassInfo;
 	}

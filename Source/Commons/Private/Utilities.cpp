@@ -94,7 +94,7 @@ namespace util
 	}
 
 	// Find supported device format
-	VkFormat FindSupportedTilingFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 	{
 		for (VkFormat format : candidates)
 		{
@@ -116,13 +116,28 @@ namespace util
 		MK_THROW("failed to find supported tiling format!");
 	}
 
-	// Find depth-specific format
+	// Find depth stencil format
 	VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice)
 	{
-		std::vector<VkFormat> depthFormatCandidates{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
-		return util::FindSupportedTilingFormat(
+		return FindSupportedFormat(
 			physicalDevice,
-			depthFormatCandidates,
+			{
+				VK_FORMAT_X8_D24_UNORM_PACK32,
+				VK_FORMAT_D24_UNORM_S8_UINT,
+				VK_FORMAT_D32_SFLOAT_S8_UINT,
+				VK_FORMAT_D16_UNORM,
+				VK_FORMAT_D16_UNORM_S8_UINT,
+			},
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+			);
+	}
+
+	VkFormat FindDepthStencilFormat(VkPhysicalDevice physicalDevice)
+	{
+		return FindSupportedFormat(
+			physicalDevice,
+			{ VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT },
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 		);

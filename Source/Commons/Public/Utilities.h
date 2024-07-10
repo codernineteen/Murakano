@@ -47,10 +47,13 @@ namespace util
 	);
 
 	/* find supported device format */
-	VkFormat FindSupportedTilingFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	/* find depth - specific format */
+	/* find depth format */
 	VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
+
+	/* find depth stencil format */
+	VkFormat FindDepthStencilFormat(VkPhysicalDevice physicalDevice);
 
 	/* copy resources */
 	void CopyBufferToBuffer(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
