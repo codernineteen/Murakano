@@ -1,11 +1,16 @@
 #pragma once
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 // third-party
-#include <vulkan/vulkan.h> // vulkan
-#include <fmt/core.h>
-#include <DirectXMath.h> // directx math
-#include <DirectXPackedVector.h>
-#include <vma/vk_mem_alloc.h>
+#include <vulkan/vulkan.h>               // vulkan header
+#include <fmt/core.h>                    // fmt lib for logging
+#include <DirectXMath.h>                 // directx math
+#include <DirectXPackedVector.h>         // directx packed vector
+#include <vma/vk_mem_alloc.h>            // vulkan memory allocator from GPUopen
+#include <glm/glm.hpp>                   // glm math
+#include <glm/gtc/matrix_transform.hpp>  // glm matrix transform
+#include <glm/gtx/hash.hpp>              // glm hash
 
 // std
 #include <cstdint>
@@ -31,6 +36,7 @@ using namespace DirectX;
 using namespace DirectX::PackedVector;
 
 // integer aliases
+using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;
 using uint32 = std::uint32_t;
 using uint64 = std::uint64_t;

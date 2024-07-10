@@ -73,7 +73,7 @@ namespace vkinfo
 	/* pipeline color blend state create info */
 	VkPipelineColorBlendStateCreateInfo    GetPipelineColorBlendStateCreateInfo(const VkPipelineColorBlendAttachmentState& colorBlendAttachment);
 	/* pipeline layout create info */
-	VkPipelineLayoutCreateInfo             GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr);
+	VkPipelineLayoutCreateInfo             GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, VkPushConstantRange* pushConstantRangesPtr);
 	/* graphics pipeline create info */
 	VkGraphicsPipelineCreateInfo           GetGraphicsPipelineCreateInfo(
 	                                      	 VkPipelineLayout layout,  
@@ -95,7 +95,8 @@ namespace vkinfo
 	                                         uint32 height, 
 	                                         VkFormat format, 
 	                                         VkImageTiling tiling,
-	                                         VkImageUsageFlags usage
+	                                         VkImageUsageFlags usage,
+		                                     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED
 	                                       );
 	/* create image view info */
 	VkImageViewCreateInfo                  GetImageViewCreateInfo(

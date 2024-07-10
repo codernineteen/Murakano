@@ -67,11 +67,12 @@ namespace util
 		VkImageTiling tiling,
 		VkImageUsageFlags usage,
 		VmaMemoryUsage memoryUsage,
-		VmaAllocationCreateFlags memoryAllocationFlags
+		VmaAllocationCreateFlags memoryAllocationFlags,
+		VkImageLayout layout
 	)
 	{
 		// specify image creation info
-		VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage);
+		VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
 
 		VmaAllocationCreateInfo imageAllocInfo{};
 		imageAllocInfo.usage = memoryUsage;
@@ -91,6 +92,25 @@ namespace util
 	{
 		VkImageViewCreateInfo imageViewCreateInfo = vkinfo::GetImageViewCreateInfo(image, imageFormat, aspectFlags, mipLevels);
 		MK_CHECK(vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView));
+	}
+
+	VkShaderModule CreateShaderModule(const VkDevice& device, const std::vector<char>& code)
+	{
+		VkShaderModuleCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = code.size();
+		createInfo.pCode = reinterpret_cast<const uint32*>(code.data()); // guaranteed to be aligned by default allocator  of std::vector 
+
+		VkShaderModule shaderModule;
+		MK_CHECK(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule));
+
+		return shaderModule;
+	}
+
+	void DestroyImageResource(const VmaAllocator& allocator, const VkDevice& device, VkImageAllocated& imageAllocated, VkImageView& imageView)
+	{
+		vmaDestroyImage(allocator, imageAllocated.image, imageAllocated.allocation);
+		vkDestroyImageView(device, imageView, nullptr);
 	}
 
 	// Find supported device format
@@ -175,8 +195,92 @@ namespace util
 		);
 	}
 
+	// copy image to image
+	void CopyImageToImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height) 
+	{
+		// TODO : remove hard-coded subresource range
+		VkImageCopy copy_region{};
+		copy_region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copy_region.srcOffset = { 0, 0, 0 };
+		copy_region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		copy_region.dstOffset = { 0, 0, 0 };
+		copy_region.extent = { width, height, 1 }; // depth : 1
+
+		vkCmdCopyImage(
+			commandBuffer,
+			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &copy_region
+		);
+	}
+
+	VkAccessFlags GetAccessFlags(VkImageLayout layout)
+	{
+		switch (layout)
+		{
+		case VK_IMAGE_LAYOUT_UNDEFINED:
+		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+			return 0;
+		case VK_IMAGE_LAYOUT_PREINITIALIZED:
+			return VK_ACCESS_HOST_WRITE_BIT;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+			return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		case VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR:
+			return VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			return VK_ACCESS_TRANSFER_READ_BIT;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			return VK_ACCESS_TRANSFER_WRITE_BIT;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			assert(false && "Don't know how to get a meaningful VkAccessFlags for VK_IMAGE_LAYOUT_GENERAL! Don't use it!");
+			return 0;
+		default:
+			assert(false);
+			return 0;
+		}
+	}
+
+	VkPipelineStageFlags GetPipelineStageFlags(VkImageLayout layout)
+	{
+		switch (layout)
+		{
+		case VK_IMAGE_LAYOUT_UNDEFINED:
+			return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		case VK_IMAGE_LAYOUT_PREINITIALIZED:
+			return VK_PIPELINE_STAGE_HOST_BIT;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			return VK_PIPELINE_STAGE_TRANSFER_BIT;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+			return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		case VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR:
+			return VK_PIPELINE_STAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+			return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			assert(false && "Don't know how to get a meaningful VkPipelineStageFlags for VK_IMAGE_LAYOUT_GENERAL! Don't use it!");
+			return 0;
+		default:
+			assert(false);
+			return 0;
+		}
+	}
+
 	// transition image layout
-	void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+	void TransitionImageLayout(
+		VkCommandBuffer commandBuffer, 
+		VkImage image, VkFormat format, 
+		VkImageLayout oldLayout, VkImageLayout newLayout, 
+		VkImageSubresourceRange subresourceRange
+	)
 	{
 		/**
 		* vkCmdPipelineBarrier specification
@@ -195,33 +299,11 @@ namespace util
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.oldLayout = oldLayout;
 		barrier.newLayout = newLayout;
-		// set src access mask and dst access mask based on a kind of layout transitions
-		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-		{
-			barrier.srcAccessMask = 0;                             // no need to wait for anything
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
 
-			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;       // for operations beyond barrier
-			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		}
-		else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-		{
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // transfer write
-			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;     // shader read
-
-			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		}
-		else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-		{
-			barrier.srcAccessMask = 0;
-			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // read - EARLY_FRAGMENT_TESTS_BIT, write - LATE_FRAGMENT_TESTS_BIT
-		}
-		else
-			throw std::invalid_argument("unsupported layout transition!");
+		sourceStage = GetPipelineStageFlags(oldLayout);
+		destinationStage = GetPipelineStageFlags(newLayout);
+		barrier.srcAccessMask = GetAccessFlags(oldLayout);
+		barrier.dstAccessMask = GetAccessFlags(newLayout);
 
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
@@ -237,12 +319,72 @@ namespace util
 		else
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
-		barrier.srcAccessMask = 0; // TODO
-		barrier.dstAccessMask = 0; // TODO
+		barrier.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
+		barrier.subresourceRange.levelCount = subresourceRange.levelCount;
+		barrier.subresourceRange.baseArrayLayer = subresourceRange.baseArrayLayer;
+		barrier.subresourceRange.layerCount = subresourceRange.layerCount;
+
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			sourceStage, destinationStage,
+			0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier
+		);
+	}
+
+	// transition image layout
+	void TransitionImageLayoutVerbose(
+		VkCommandBuffer commandBuffer,
+		VkImage image, VkFormat format,
+		VkImageLayout oldLayout, VkImageLayout newLayout,
+		VkImageSubresourceRange subresourceRange,
+		VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask
+	)
+	{
+		/**
+		* vkCmdPipelineBarrier specification
+		* 1. command buffer
+		* 2. source stage mask - pipeline stage at which the operations occur that should happen before the barrier
+		* 3. destination stage mask - pipeline stage at which the operations occur that should happen after the barrier
+		* 4. dependency flags - specify how to handle the barrier in terms of memory dependencies
+		* 5. memory barrier count, memory barriers - reference to memory barriers
+		* 6. buffer memory barrier count, buffer memory barriers - reference to buffer memory barriers
+		* 7. image memory barrier count, image memory barriers - reference to image memory barriers
+		*/
+		VkPipelineStageFlags sourceStage;
+		VkPipelineStageFlags destinationStage;
+
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+
+		sourceStage = srcStage;
+		destinationStage = dstStage;
+		barrier.srcAccessMask = srcAccessMask;
+		barrier.dstAccessMask = dstAccessMask;
+
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
+		barrier.image = image;                                           // specify image to transition layout
+
+		// set proper aspect mask based on the layout
+		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+		{
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) // check if format has stencil component
+				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+		else
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		barrier.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
+		barrier.subresourceRange.levelCount = subresourceRange.levelCount;
+		barrier.subresourceRange.baseArrayLayer = subresourceRange.baseArrayLayer;
+		barrier.subresourceRange.layerCount = subresourceRange.layerCount;
 
 		vkCmdPipelineBarrier(
 			commandBuffer,

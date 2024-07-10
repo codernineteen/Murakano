@@ -133,7 +133,7 @@ void MKDescriptorManager::CreateDescriptorSetLayout(VkDescriptorSetLayout& layou
     // specify descriptor set layout creation info
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = SafeStaticCast<size_t, uint32>(_vkWaitingBindings.size());
+    layoutInfo.bindingCount = static_cast<uint32>(_vkWaitingBindings.size());
     layoutInfo.pBindings = _vkWaitingBindings.data();
 
     // create descriptor set layout
@@ -185,6 +185,24 @@ void MKDescriptorManager::WriteImageToDescriptorSet(VkImageView imageView, VkSam
 	_vkWaitingWrites.push_back(descriptorWrite);
 }
 
+void MKDescriptorManager::WriteAccelerationStructureToDescriptorSet(const VkAccelerationStructureKHR* as, uint32 dstBinding) 
+{
+    std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR> descriptorAsInfo = std::make_shared<VkWriteDescriptorSetAccelerationStructureKHR>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR);
+    descriptorAsInfo->accelerationStructureCount = 1;
+    descriptorAsInfo->pAccelerationStructures = as;
+    descriptorAsInfo->pNext = nullptr;
+    _vkWaitingAsWrites.insert(descriptorAsInfo);
+
+    VkWriteDescriptorSet descriptorWrite = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    descriptorWrite.dstSet = VK_NULL_HANDLE; // specify dst set when update descriptor set
+    descriptorWrite.dstBinding = dstBinding;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pNext = descriptorAsInfo.get();
+
+    _vkWaitingWrites.push_back(descriptorWrite);
+}
+
 void MKDescriptorManager::UpdateDescriptorSet(VkDescriptorSet descriptorSet)
 {
     for(auto& write : _vkWaitingWrites)
@@ -193,7 +211,7 @@ void MKDescriptorManager::UpdateDescriptorSet(VkDescriptorSet descriptorSet)
     // update descriptor sets with waiting writes.
     vkUpdateDescriptorSets(
 		_mkDevicePtr->GetDevice(),
-		SafeStaticCast<uint32, size_t>(_vkWaitingWrites.size()),
+		static_cast<uint32>(_vkWaitingWrites.size()),
 		_vkWaitingWrites.data(),
 		0,
 		nullptr

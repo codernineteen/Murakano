@@ -88,7 +88,7 @@ namespace vkinfo
 		swapchainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
 		swapchainCreateInfo.imageExtent = extent;
 		swapchainCreateInfo.imageArrayLayers = 1; // always 1 except for stereoscopic 3D application
-		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // render directly to images
+		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // render directly to images
 		if (!isExclusive) 
 		{
 			// If graphics family and present family are separate queue, swapchain image shared by multiple queue families
@@ -265,14 +265,14 @@ namespace vkinfo
 		return colorBlending;
 	}
 
-	VkPipelineLayoutCreateInfo GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr)
+	VkPipelineLayoutCreateInfo GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, VkPushConstantRange* pushConstantRangesPtr)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;				      // a descriptor set layout for uniform buffer object is set
-		pipelineLayoutInfo.pSetLayouts = descriptorSetLayoutPtr;  // specify descriptor set layout
-		pipelineLayoutInfo.pushConstantRangeCount = 0;		      // Optional
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;	      // Optional
+		pipelineLayoutInfo.setLayoutCount = 1;				                  // a descriptor set layout for uniform buffer object is set
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayoutPtr;              // specify descriptor set layout
+		pipelineLayoutInfo.pushConstantRangeCount = 1;		                  // a push constant range is set
+		pipelineLayoutInfo.pPushConstantRanges = pushConstantRangesPtr;	      // specify push constant range
 
 		return pipelineLayoutInfo;
 	}
@@ -318,7 +318,8 @@ namespace vkinfo
 		uint32 height,
 		VkFormat format,
 		VkImageTiling tiling,
-		VkImageUsageFlags usage
+		VkImageUsageFlags usage,
+		VkImageLayout layout
 	)
 	{
 		// specify image creation info
@@ -332,7 +333,7 @@ namespace vkinfo
 		imageInfo.arrayLayers = 1;
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageInfo.initialLayout = layout;
 		imageInfo.usage = usage;
 		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;         // multisampling-related
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // If there are more than two queues using the image, then you should use VK_SHARING_MODE_CONCURRENT
@@ -353,10 +354,11 @@ namespace vkinfo
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
 		imageViewCreateInfo.format = format;						    // follw the format of the given swapchain image
 		imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
-		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
-		imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
+		imageViewCreateInfo.pNext = nullptr;
 
 		return imageViewCreateInfo;
 	}

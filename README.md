@@ -1,6 +1,6 @@
 # Murakano
 
-Murakano is a simple renderer engine written in C++ using Vulkan API.
+Murakano is a very simple implementation of graphics application that renders OBJ model.
 
 If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/devlog).<br>
 For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/implementation)
@@ -12,13 +12,7 @@ For anyone who are curious about implementation details, visualized architecture
 - HLSL, GLSL shader compilation support (HLSL is a default shader language)
 - Easy to use Global command service interface
 - Vulkan Memory Allocator support
-
-# Planned Features
-
-- compute shader support
-- hardware accelerated ray tracing
-- PBR material rendering
-- deep learning based denoising
+- Descriptor Manager to allocate descriptor set
 
 # Examples
 
@@ -43,7 +37,6 @@ For anyone who are curious about implementation details, visualized architecture
 <p align="center">
 <img src="docs/images/camera-moving.gif" alt="move camera perspective" />
 </p>
-
 
 # Dependencies
 

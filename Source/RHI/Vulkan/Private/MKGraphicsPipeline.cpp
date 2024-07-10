@@ -7,7 +7,7 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	: 
 	_mkDeviceRef(mkDeviceRef), 
 	_mkSwapchainRef(mkSwapchainRef),
-	_vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
+	vikingRoom(OBJModel(mkDeviceRef, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png")),
 	_camera(mkDeviceRef, mkSwapchainRef),
 	_inputController(mkDeviceRef.GetWindowRef().GetWindow(), _camera)
 {
@@ -20,8 +20,11 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
 	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
 #endif
-	// create sync objects
-	CreateSyncObjects();
+	// create rendering resources
+	CreateRenderingResources();
+
+	// create storage image
+	CreateStorageImage();
 
 	// create vertex buffer
 	CreateVertexBuffer();
@@ -32,11 +35,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// create uniform buffer
 	CreateUniformBuffers();
 
-	// create texture resources
-	//CreateTextureResources();
-
-	VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode); // create shader module   
-	VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode); // create shader module
+	VkShaderModule vertShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), vertShaderCode); // create shader module   
+	VkShaderModule fragShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), fragShaderCode); // create shader module
 
 	std::string shaderEntryPoint = "main";
 	// vertex shader stage specification
@@ -81,16 +81,23 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 
 	// specify pipeline layout
 
-	// add descriptor set layout binding
+	/**
+	* add descriptor set layout binding
+	* 1. descriptor type
+	* 2. shader stage flags
+	* 3. binding point
+	* 4. descriptor count
+	*/
+
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // descriptor type
-		VK_SHADER_STAGE_VERTEX_BIT,        // shader stage
-		0,								   // binding point
-		1								   // descriptor count
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,                           
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		0,								                             
+		1								                            
 	);
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
+		VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 		1,
 		1
 	);
@@ -112,8 +119,8 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		);
 		// texture image view and sampler is used commonly in descriptor sets
 		GDescriptorManager->WriteImageToDescriptorSet(
-			_vikingRoom.vikingTexture.imageView,                       // texture image view
-			_vikingRoom.vikingTexture.sampler,                         // texture sampler
+			vikingRoom.vikingTexture.imageView,        // texture image view
+			vikingRoom.vikingTexture.sampler,          // texture sampler
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,  // image layout
 			1,                                         // binding point
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER  // descriptor type
@@ -121,7 +128,12 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 		// update descriptor set
 		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[i]);
 	}
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout);
+	VkPushConstantRange pushConstantRanges{};
+	pushConstantRanges.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRanges.offset = 0;
+	pushConstantRanges.size = sizeof(VkPushConstantRaster);
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&_vkDescriptorSetLayout, &pushConstantRanges);
 
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
@@ -146,10 +158,26 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), vertShaderModule, nullptr);
+
+	// build ray tracer
+	auto vertexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkVertexBuffer.buffer);
+	auto indexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkIndexBuffer.buffer);
+	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr);
+
+	// initialize descriptor for ray tracing pipeline after building ray tracer
+	GRaytracer->InitializeRayTracingDescriptorSet(_vkStorageImage);
+	// create ray tracing pipeline
+	GRaytracer->CreateRayTracingPipeline(_vkDescriptorSetLayout);
+	// create shader binding table
+	GRaytracer->CreateShaderBindingTable();
 }
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
 {
+	// destroy storage image
+	util::DestroyImageResource(_mkDeviceRef.GetVmaAllocator(), _mkDeviceRef.GetDevice(), _vkStorageImage.imageAllocated, _vkStorageImage.imageView);
+
+
 	// destroy buffers
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkVertexBuffer.buffer, _vkVertexBuffer.allocation);
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), _vkIndexBuffer.buffer, _vkIndexBuffer.allocation);
@@ -163,35 +191,111 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 	// destroy sync objects
 	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _vkRenderFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _vkImageAvailableSemaphores[i], nullptr);
-		vkDestroyFence(_mkDeviceRef.GetDevice(), _vkInFlightFences[i], nullptr);
+		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].renderFinishedSema, nullptr);
+		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].imageAvailableSema, nullptr);
+		vkDestroyFence(_mkDeviceRef.GetDevice(), _renderingResources[i].inFlightFence, nullptr);
 	}
+
+	// destroy ray tracer resources
+	delete GRaytracer;
 
 	// destroy pipeline and pipeline layout
 	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkGraphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
 
 #ifndef NDEBUG
+	MK_LOG("storage image destroyed and memorr freed");
 	MK_LOG("index buffer destroyed and memory freed");
 	MK_LOG("vertex buffer destroyed and memory freed");
+	MK_LOG("uniform buffers destroyed and memory freed");
+	MK_LOG("descriptor set layout destroyed");
 	MK_LOG("sync objects destroyed");
 	MK_LOG("graphics pipeline and its layout destroyed");
+	MK_LOG("Free Global raytracer instance in graphics pipeline");
 #endif
 }
 
-void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
+void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = 0;					// Optional
 	beginInfo.pInheritanceInfo = nullptr;	// Optional
 
-	auto commandBuffer = GCommandService->GetCommandBuffer(_currentFrame);
+	auto commandBuffer = *(_renderingResources[_currentFrame].commandBuffer);
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
+	/**
+	* Copy ray tracing output to swapchain image
+	*/
+	// 1. prepare current swapchain image for transfer destination
+	VkImageSubresourceRange defaultSubresourceRange{};
+	defaultSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	defaultSubresourceRange.baseMipLevel = 0;
+	defaultSubresourceRange.levelCount = 1;
+	defaultSubresourceRange.baseArrayLayer = 0;
+	defaultSubresourceRange.layerCount = 1;
+
+	util::TransitionImageLayout(
+		commandBuffer,
+		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+		_mkSwapchainRef.GetSwapchainImageFormat(),
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,      // src layout , dst layout
+		defaultSubresourceRange
+	);
+
+	// 2. prepare ray tracing output image for transfer source
+	util::TransitionImageLayoutVerbose(
+		commandBuffer,
+		_vkStorageImage.imageAllocated.image,
+		_vkStorageImage.format,
+		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,         // src layout , dst layout
+		defaultSubresourceRange,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,    // src stage , dst stage
+		0U, VK_ACCESS_TRANSFER_READ_BIT
+	);
+
+	// 3. copy ray tracing output to swapchain image
+	util::CopyImageToImage(
+		commandBuffer,
+		_vkStorageImage.imageAllocated.image,
+		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+		_mkSwapchainRef.GetSwapchainExtent().width,
+		_mkSwapchainRef.GetSwapchainExtent().height
+	);
+
+	// 4. transition swap chain image back for presentation
+	util::TransitionImageLayout(
+		commandBuffer,
+		_mkSwapchainRef.GetSwapchainImage(swapchainImageIndex),
+		_mkSwapchainRef.GetSwapchainImageFormat(),
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // src layout , dst layout
+		defaultSubresourceRange
+	);
+
+	// 5. transition ray tracing output image back to general layout
+	util::TransitionImageLayoutVerbose(
+		commandBuffer,
+		_vkStorageImage.imageAllocated.image,
+		_vkStorageImage.format,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,         // src layout , dst layout
+		defaultSubresourceRange,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT, 0U
+	);
+
+
+	/**
+	* Prepare render pass !
+	*/
 	// store swapchain extent for common usage.
 	auto swapchainExtent = _mkSwapchainRef.GetSwapchainExtent();
+
+	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	const auto clearColor = glm::vec4(1, 1, 1, 1.00f);
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]}};   // clear values for color
+	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
 
 	// specify render pass information
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -200,19 +304,22 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.framebuffer = _mkSwapchainRef.GetFramebuffer(swapchainImageIndex);
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = swapchainExtent;
-
-	// settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0] = { {0.0f, 0.0f, 0.0f, 1.0f} }; // clear values for color
-	clearValues[1] = { 1.0f, 0 };                    // clear value for depth and stencil attachment
-	renderPassInfo.clearValueCount = SafeStaticCast<size_t, uint32>(clearValues.size());
+	renderPassInfo.clearValueCount = static_cast<uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
+
+	// trace ray
+	GRaytracer->TraceRay(
+		commandBuffer,
+		clearColor,
+		_vkDescriptorSets[_currentFrame],
+		_vkPushConstantRaster,
+		swapchainExtent
+	);
 
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
 	
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
-
+	// set viewport and scissor for drawing
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -227,12 +334,9 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	scissor.extent = swapchainExtent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
-	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);           // bind index buffer
-	
+	// bind graphics pipeline
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline); // bind graphics pipeline
+	// bind descriptor sets
 	vkCmdBindDescriptorSets(
 		commandBuffer, 
 		VK_PIPELINE_BIND_POINT_GRAPHICS, 
@@ -243,7 +347,22 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 		0, 
 		nullptr
 	);
-	vkCmdDrawIndexed(commandBuffer, _vikingRoom.indices.size(), 1, 0, 0, 0);
+	// bind push constants
+	vkCmdPushConstants(
+		commandBuffer,
+		_vkPipelineLayout,
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		0,
+		sizeof(VkPushConstantRaster),
+		&_vkPushConstantRaster
+	);
+
+	// Index of vertexBuffers and offsets should be the same as the number of binding points in the vertex shader
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);    // bind index buffer
+	vkCmdDrawIndexed(commandBuffer, vikingRoom.indices.size(), 1, 0, 0, 0);
 
 	// end render pass
 	vkCmdEndRenderPass(commandBuffer);
@@ -251,9 +370,63 @@ void MKGraphicsPipeline::RecordFrameBuffferCommand(uint32 swapchainImageIndex)
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
+void MKGraphicsPipeline::CreateStorageImage()
+{
+	auto extent = _mkSwapchainRef.GetSwapchainExtent();
+
+	// create storage image
+	_vkStorageImage.format = VK_FORMAT_R8G8B8A8_UNORM;
+	util::CreateImage(
+		_mkDeviceRef.GetVmaAllocator(),
+		_vkStorageImage.imageAllocated,
+		extent.width,
+		extent.height,
+		_vkStorageImage.format,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+	);
+
+	// create image view for the storage image
+	util::CreateImageView(
+		_mkDeviceRef.GetDevice(),
+		_vkStorageImage.imageAllocated.image,
+		_vkStorageImage.imageView,
+		_vkStorageImage.format,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		1
+	);
+
+	// create image memory barrier for transition layout
+	VkCommandPool cmdPool;
+	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+	VkCommandBuffer cmdBuffer;
+	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
+
+	VkImageSubresourceRange subresouceRange{};
+	subresouceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresouceRange.baseMipLevel = 0;
+	subresouceRange.levelCount = 1;
+	subresouceRange.baseArrayLayer = 0;
+	subresouceRange.layerCount = 1;
+	util::TransitionImageLayoutVerbose(
+		cmdBuffer, 
+		_vkStorageImage.imageAllocated.image, 
+		_vkStorageImage.format, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_GENERAL, 
+		subresouceRange,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		{}, {}
+	);
+	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
+
+}
+
 void MKGraphicsPipeline::CreateVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(_vikingRoom.vertices[0]) * _vikingRoom.vertices.size();
+	VkDeviceSize bufferSize = sizeof(vikingRoom.vertices[0]) * vikingRoom.vertices.size();
 	/**
 	* Staging buffer : temporary host-visible buffer
 	* - usage : source of memory transfer operation
@@ -268,7 +441,7 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 		VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 	);
 
-	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.vertices.data(), (size_t)bufferSize);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, vikingRoom.vertices.data(), (size_t)bufferSize);
 
 	/**
 	* Device local buffer : actual vertex buffer
@@ -279,18 +452,18 @@ void MKGraphicsPipeline::CreateVertexBuffer()
 	_vkVertexBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | vkRayTracingFlags,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
 	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize); // copy staging buffer to vertex buffer
-
+	
 	vmaDestroyBuffer(_mkDeviceRef.GetVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
 }
 
 void MKGraphicsPipeline::CreateIndexBuffer() 
 {
-	VkDeviceSize bufferSize = sizeof(_vikingRoom.indices[0]) * _vikingRoom.indices.size();
+	VkDeviceSize bufferSize = sizeof(vikingRoom.indices[0]) * vikingRoom.indices.size();
 	VkBufferAllocated stagingBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
@@ -299,7 +472,7 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT// must to be set because of VMA_MEMORY_USAGE_AUTO
 	);
 
-	memcpy(stagingBuffer.allocationInfo.pMappedData, _vikingRoom.indices.data(), (size_t)bufferSize);
+	memcpy(stagingBuffer.allocationInfo.pMappedData, vikingRoom.indices.data(), (size_t)bufferSize);
 	/**
 	* Device local buffer : actual index buffer
 	* - usage : destination of memory transfer operation, index buffer
@@ -308,7 +481,7 @@ void MKGraphicsPipeline::CreateIndexBuffer()
 	_vkIndexBuffer = util::CreateBuffer(
 		_mkDeviceRef.GetVmaAllocator(),
 		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | vkRayTracingFlags,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_MAPPED_BIT
 	);
@@ -344,14 +517,20 @@ void MKGraphicsPipeline::UpdateUniformBuffer(float time)
 {
 	UniformBufferObject ubo{};
 	_camera.UpdateViewTarget();
+#ifdef USE_HLSL
 	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
 
-	// Apply model transformation
-	//auto modelMat = XMMatrixRotationAxis(XMVECTOR{ 0.0f, 0.0f, 1.0f }, time * XMConvertToRadians(90.0f));
+	// initialize model transformation
 	auto modelMat = XMMatrixIdentity();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
 	ubo.mvpMat = projViewMat * modelMat;
+#else
+	// fill out uniform buffer object members
+	ubo.modelMat = glm::mat4(1.0f);
+	ubo.viewMat = _camera.GetViewMatrix();
+	ubo.projMat = _camera.GetProjectionMatrix();
+#endif
 
 	memcpy(_vkUniformBuffersMappedData[_currentFrame], &ubo, sizeof(ubo));
 }
@@ -360,24 +539,9 @@ void MKGraphicsPipeline::UpdateUniformBuffer(float time)
 -----------	PRIVATE ------------
 */
 
-VkShaderModule MKGraphicsPipeline::CreateShaderModule(const std::vector<char>& code)
+void MKGraphicsPipeline::CreateRenderingResources()
 {
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const uint32*>(code.data()); // guaranteed to be aligned by default allocator  of std::vector 
-
-	VkShaderModule shaderModule;
-	MK_CHECK(vkCreateShaderModule(_mkDeviceRef.GetDevice(), &createInfo, nullptr, &shaderModule));
-	
-	return shaderModule;
-}
-
-void MKGraphicsPipeline::CreateSyncObjects()
-{
-	_vkImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	_vkRenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	_vkInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+	_renderingResources.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -388,9 +552,10 @@ void MKGraphicsPipeline::CreateSyncObjects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkImageAvailableSemaphores[i]));
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_vkRenderFinishedSemaphores[i]));
-		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_vkInFlightFences[i]));
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].imageAvailableSema));
+		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].renderFinishedSema));
+		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_renderingResources[i].inFlightFence));
+		_renderingResources[i].commandBuffer = GCommandService->GetCommandBuffer(i);
 	}
 }
 
@@ -412,15 +577,16 @@ void MKGraphicsPipeline::DrawFrame()
 	auto swapChain = _mkSwapchainRef.GetSwapchain();
 
 	// 1. wait until the previous frame is finished
-	vkWaitForFences(device, 1, &_vkInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(device, 1, &_renderingResources[_currentFrame].inFlightFence, VK_TRUE, UINT64_MAX);
 
 	// 2. get an image from swap chain
 	uint32 imageIndex; // index of the swap chain image that has become available. filled by vkAcquireNextImageKHR
 	// semaphore to wait presentation engine to finish presentation here.
-	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, _vkImageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, _renderingResources[_currentFrame].imageAvailableSema, VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		_mkSwapchainRef.RecreateSwapchain();
+		RecreateStorageImage();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -436,16 +602,16 @@ void MKGraphicsPipeline::DrawFrame()
 	UpdateUniformBuffer(elapsedTime);
 
 	// To avoid deadlock on wait fence, only reset the fence if we are submmitting work
-	vkResetFences(device, 1, &_vkInFlightFences[_currentFrame]); // reset fence to unsignaled state manually
+	vkResetFences(device, 1, &_renderingResources[_currentFrame].inFlightFence); // reset fence to unsignaled state manually
 
 	// 2. reset command buffer , start recording commands for drawing.
 	GCommandService->ResetCommandBuffer(_currentFrame);
-	RecordFrameBuffferCommand(imageIndex);
+	RecordFrameBufferCommand(imageIndex);
 
 	// sync objects for command buffer submission
-	VkSemaphore waitSemaphores[] = { _vkImageAvailableSemaphores[_currentFrame] };
+	VkSemaphore waitSemaphores[] = { _renderingResources[_currentFrame].imageAvailableSema };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	VkSemaphore signalSemaphores[] = { _vkRenderFinishedSemaphores[_currentFrame] }; // a semaphore to signal when the command buffer has finished execution
+	VkSemaphore signalSemaphores[] = { _renderingResources[_currentFrame].renderFinishedSema }; // a semaphore to signal when the command buffer has finished execution
 
 	GCommandService->SubmitCommandBufferToQueue(
 		_currentFrame,
@@ -453,7 +619,7 @@ void MKGraphicsPipeline::DrawFrame()
 		waitStages,
 		signalSemaphores, 
 		_mkDeviceRef.GetGraphicsQueue(), 
-		_vkInFlightFences[_currentFrame]
+		_renderingResources[_currentFrame].inFlightFence
 	);
 
 	// presentation
@@ -474,8 +640,9 @@ void MKGraphicsPipeline::DrawFrame()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) 
 	{
 		// swapchain recreation is required at this moment.
-		_mkSwapchainRef.RequestFramebufferResize(false);
+		_mkSwapchainRef.RequestFramebufferResize(false); // framebuffer resize is not required
 		_mkSwapchainRef.RecreateSwapchain();
+		RecreateStorageImage();
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");
@@ -491,4 +658,18 @@ void MKGraphicsPipeline::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAlloc
 		copyRegion.size = size;
 		vkCmdCopyBuffer(commandBuffer, src.buffer, dest.buffer, 1, &copyRegion);
 	});
+}
+
+void MKGraphicsPipeline::RecreateStorageImage()
+{
+	// destroy storage image for recreation
+	util::DestroyImageResource(_mkDeviceRef.GetVmaAllocator(), _mkDeviceRef.GetDevice(), _vkStorageImage.imageAllocated, _vkStorageImage.imageView);
+	// recreate storage image
+	CreateStorageImage();
+
+	// request ray tracer to update descriptor write for storage image
+	GRaytracer->UpdateDescriptorImageWrite(_vkStorageImage);
+#ifndef NDEBUG
+	MK_LOG("storage image recreated.")
+#endif
 }

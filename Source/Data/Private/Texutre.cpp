@@ -58,14 +58,22 @@ void Texture::CreateTextureImage()
     *  1. undefined -> transfer destination (initial layout transfer writes, no need to wait for anything)
     *  2. transfer destination -> shader reading (need to wait 'transfer writes')
     */
+    VkImageSubresourceRange subresourceRange{};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.baseArrayLayer = 0;
+    subresourceRange.layerCount = 1;
+
     std::queue<VoidLambda> commandQueue;
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         util::TransitionImageLayout(
             commandBuffer,                            // command buffer
-            image.image,                       // texture image
+            image.image,                              // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL      // new layout
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // new layout
+            subresourceRange
         );
         });
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
@@ -81,14 +89,15 @@ void Texture::CreateTextureImage()
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         util::TransitionImageLayout(
             commandBuffer,                            // command buffer
-            image.image,                       // texture image
+            image.image,                              // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // old layout
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL  // new layout
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // new layout
+            subresourceRange
         );
         });
 
-    GCommandService->AsyncExecuteCommands(commandQueue);
+    GCommandService->ExecuteCommands(commandQueue);
 
 
     // destroy staging buffer and free memory

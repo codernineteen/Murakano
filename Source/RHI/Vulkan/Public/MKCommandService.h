@@ -12,9 +12,10 @@ public:
 	~MKCommandService();
 
 	/* getter */
-	VkCommandBuffer GetCommandBuffer(uint32 currentFrame) { return _vkCommandBuffers[currentFrame]; }
+	VkCommandBuffer* GetCommandBuffer(uint32 currentFrame) { return &_vkCommandBuffers[currentFrame]; }
 
 	/* supported service */
+	void CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag);
 	void InitCommandService(MKDevice* mkDeviceRef);                               // initialize command service in Device creation stage
 	void SubmitCommandBufferToQueue(                                              // submit command buffer to queue
 			uint32 currentFrame, 												  
@@ -25,7 +26,10 @@ public:
 			VkFence fence = nullptr												  
 		 );
 	void ResetCommandBuffer(uint32 currentFrame);                                 // reset command buffer for reuse
-	void AsyncExecuteCommands(std::queue<VoidLambda>& enqueuedCommands);
+	void ExecuteCommands(std::queue<VoidLambda>& enqueuedCommands);
+	void BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE);                 // begin single time command buffer
+	void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE);                    // end single time command buffer and destroy the buffer right away
+	void CreateCommandBuffers();
 
 public:
 	/* template implementations */
@@ -37,12 +41,6 @@ public:
 		lambda(commandBuffer);
 		EndSingleTimeCommands(commandBuffer);
 	}
-
-private:
-	void BeginSingleTimeCommands(VkCommandBuffer& commandBuffer);                 // begin single time command buffer
-	void EndSingleTimeCommands(VkCommandBuffer commandBuffer);                    // end single time command buffer and destroy the buffer right away
-	void CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag);
-	void CreateCommandBuffers();
 
 private:
 	MKDevice*						_mkDevicePtr = nullptr;

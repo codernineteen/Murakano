@@ -41,7 +41,7 @@ public:
 	MKDevice(MKWindow& windowRef, const MKInstance& instanceRef);
 	~MKDevice();
 
-	/* getters */
+	/* instance getters */
 	inline VkPhysicalDevice  GetPhysicalDevice()  const { return _vkPhysicalDevice; }
 	inline VkDevice		     GetDevice()		  const { return _vkLogicalDevice; }
 	inline VkSurfaceKHR	     GetSurface()		  const { return _vkSurface; }
@@ -49,6 +49,9 @@ public:
 	inline VkQueue			 GetPresentQueue()	  const { return _vkPresentQueue; }
 	inline MKWindow&         GetWindowRef()		  const { return _mkWindowRef; }
 	inline VmaAllocator      GetVmaAllocator()    const { return _vmaAllocator; }
+
+	/* function proxy address getters */
+	VkDeviceAddress          GetBufferDeviceAddress(VkBuffer buffer) const;
 
 	/* setters */
 	inline void              SetFrameBufferResized(bool isResized) { _mkWindowRef.framebufferResized = isResized; }
@@ -80,16 +83,21 @@ private:
 	VkSurfaceKHR	  _vkSurface = VK_NULL_HANDLE;			// an interface to communicate with the window system
 	VkQueue			  _vkGraphicsQueue;
 	VkQueue			  _vkPresentQueue;
-	VmaAllocator      _vmaAllocator;
+	VmaAllocator      _vmaAllocator; 
 
+	/* physical device raytracing pipeline properties */
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR _rayTracingProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
 private:
 	const MKInstance&  _mkInstanceRef;
 	MKWindow&	       _mkWindowRef;
 
 public:
 	const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,             // macro from VK_KHR_swapchain extension
-		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, // macro from VK_KHR_buffer_device_address extension
-		VK_KHR_DEVICE_GROUP_EXTENSION_NAME, // macro from VK_KHR_device_group_creation extension
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,                // macro from VK_KHR_swapchain extension
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,    // macro from VK_KHR_buffer_device_address extension
+		VK_KHR_DEVICE_GROUP_EXTENSION_NAME,             // macro from VK_KHR_device_group_creation extension
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,   // macro from VK_KHR_acceleration_structure extension
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,     // macro from VK_KHR_ray_tracing_pipeline extension
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // macro from VK_KHR_deferred_host_operations extension
 	};
 };

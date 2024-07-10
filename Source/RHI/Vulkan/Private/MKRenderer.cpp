@@ -8,7 +8,6 @@ MKRenderer::MKRenderer()
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain)
 {
-
 }
 
 MKRenderer::~MKRenderer() 

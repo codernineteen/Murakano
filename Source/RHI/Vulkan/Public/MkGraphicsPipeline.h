@@ -1,26 +1,29 @@
 #pragma once
 
-#define USE_HLSL
-
 // internal
 #include "Utilities.h"
 #include "Global.h"
-#include "MKDevice.h"
-#include "MKSwapchain.h"
-#include "MKDescriptorManager.h"
 #include "OBJModel.h"
 #include "Texture.h"
 #include "FreeCamera.h"
 #include "InputController.h"
 
-// [MKGraphicsPipeline class]
-// - Responsibility :
-//    - specify graphics pipeline.
-// - Dependency :
-//    - MKDevice as reference
-//    - MKRenderPass as member
+// vulkan wrappers
+#include "MKDevice.h"
+#include "MKSwapchain.h"
+#include "MKDescriptorManager.h"
+#include "MKRaytracer.h"
+
 class MKGraphicsPipeline 
 {
+    struct RenderingResource
+    {
+        VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
+        VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
+        VkFence           inFlightFence      = VK_NULL_HANDLE;
+        VkCommandBuffer*  commandBuffer       = nullptr;
+    };
+
 public:
 	MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
@@ -28,10 +31,16 @@ public:
     /* draw frames */
     void DrawFrame();
 
+    /* getters */
+    VkBuffer        GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
+    VkBuffer        GetIndexBuffer()  const { return _vkIndexBuffer.buffer; }
+    VkStorageImage  GetStorageImage() const { return _vkStorageImage; }
+
 private:
-	VkShaderModule  CreateShaderModule(const std::vector<char>& code);
-    /* create synchronization objects */
-    void            CreateSyncObjects();
+    /* create rendering resources */
+    void            CreateRenderingResources();
+    /* create storage image */
+    void            CreateStorageImage();
     /* actual buffer creation logic */
     void            CreateVertexBuffer();
     /* index buffer creation*/
@@ -39,27 +48,44 @@ private:
     /* uniform buffer creation */
     void            CreateUniformBuffers();
     /* Frame buffer commands recording and calling command service interfaces */
-    void            RecordFrameBuffferCommand(uint32 swapchainImageIndex);
+    void            RecordFrameBufferCommand(uint32 swapchainImageIndex);
     /* copy source buffer to destination buffer */
     void            CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
     /* update uniform buffer */
     void            UpdateUniformBuffer(float elapsedTime);
+    /* helpers */
+    void            RecreateStorageImage();
+
+public:
+    /* 3d model */
+    OBJModel vikingRoom;
+    std::vector<OBJInstance> vikingRoomInstance{ {glm::mat4(1.0f), 0} };
 
 private:
     /* pipeline instance */
 	VkPipeline	      _vkGraphicsPipeline;
 	VkPipelineLayout  _vkPipelineLayout;
-    
-    /* sync objects */
-    std::vector<VkSemaphore>  _vkImageAvailableSemaphores;
-    std::vector<VkSemaphore>  _vkRenderFinishedSemaphores;
-    std::vector<VkFence>      _vkInFlightFences;
+
+    /* rendering resources */
+    std::vector<RenderingResource> _renderingResources;
+
+    /* storage image */
+    VkStorageImage    _vkStorageImage;
     
     /* vertex buffer */
     VkBufferAllocated _vkVertexBuffer;
     
     /* index buffer */
     VkBufferAllocated _vkIndexBuffer;
+
+    /* push constant */
+    VkPushConstantRaster _vkPushConstantRaster{
+        glm::mat4(1.0),
+        glm::vec3(10.0f, 15.0f, 8.0f),
+        0,
+        100.0f,
+        0
+    };
 
     /* descriptor set */
     VkDescriptorSetLayout         _vkDescriptorSetLayout;
@@ -68,9 +94,6 @@ private:
     /* uniform buffer objects */
     std::vector<VkBufferAllocated>  _vkUniformBuffers;
     std::vector<void*>              _vkUniformBuffersMappedData;
-
-    /* 3d model */
-    OBJModel _vikingRoom;
 
     /* camera */
     FreeCamera _camera;
