@@ -158,18 +158,6 @@ MKGraphicsPipeline::MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwa
 	// destroy shader modules after creating a pipeline.
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(_mkDeviceRef.GetDevice(), vertShaderModule, nullptr);
-
-	// build ray tracer
-	auto vertexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkVertexBuffer.buffer);
-	auto indexAddr = mkDeviceRef.GetBufferDeviceAddress(_vkIndexBuffer.buffer);
-	GRaytracer->BuildRayTracer(&mkDeviceRef, vikingRoom, vikingRoomInstance, vertexAddr, indexAddr);
-
-	// initialize descriptor for ray tracing pipeline after building ray tracer
-	GRaytracer->InitializeRayTracingDescriptorSet(_vkStorageImage);
-	// create ray tracing pipeline
-	GRaytracer->CreateRayTracingPipeline(_vkDescriptorSetLayout);
-	// create shader binding table
-	GRaytracer->CreateShaderBindingTable();
 }
 
 MKGraphicsPipeline::~MKGraphicsPipeline()
@@ -195,9 +183,6 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].imageAvailableSema, nullptr);
 		vkDestroyFence(_mkDeviceRef.GetDevice(), _renderingResources[i].inFlightFence, nullptr);
 	}
-
-	// destroy ray tracer resources
-	delete GRaytracer;
 
 	// destroy pipeline and pipeline layout
 	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkGraphicsPipeline, nullptr);
@@ -306,15 +291,6 @@ void MKGraphicsPipeline::RecordFrameBufferCommand(uint32 swapchainImageIndex)
 	renderPassInfo.renderArea.extent = swapchainExtent;
 	renderPassInfo.clearValueCount = static_cast<uint32>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
-
-	// trace ray
-	GRaytracer->TraceRay(
-		commandBuffer,
-		clearColor,
-		_vkDescriptorSets[_currentFrame],
-		_vkPushConstantRaster,
-		swapchainExtent
-	);
 
 	// begin render pass
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);		// start render pass
@@ -667,8 +643,6 @@ void MKGraphicsPipeline::RecreateStorageImage()
 	// recreate storage image
 	CreateStorageImage();
 
-	// request ray tracer to update descriptor write for storage image
-	GRaytracer->UpdateDescriptorImageWrite(_vkStorageImage);
 #ifndef NDEBUG
 	MK_LOG("storage image recreated.")
 #endif

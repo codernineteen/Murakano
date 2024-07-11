@@ -5,11 +5,11 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 
-#include "MKRenderer.h"
+#include "Renderer.h"
 
 int main()
 {
-	MKRenderer renderer;
+	Renderer renderer;
 	renderer.Render();
 
 #ifdef _MSC_VER

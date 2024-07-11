@@ -29,6 +29,7 @@ struct VkImageAllocated
 {
 	VkImage        image;
 	VmaAllocation  allocation;
+	VmaAllocationInfo allocationInfo;
 };
 
 // Acceleration structure for the raytracer

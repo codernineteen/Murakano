@@ -16,6 +16,7 @@
 
 class MKGraphicsPipeline 
 {
+public:
     struct RenderingResource
     {
         VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
@@ -24,17 +25,19 @@ class MKGraphicsPipeline
         VkCommandBuffer*  commandBuffer       = nullptr;
     };
 
-public:
-	MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
+    MKGraphicsPipeline(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef);
 	~MKGraphicsPipeline();
 
     /* draw frames */
     void DrawFrame();
 
     /* getters */
-    VkBuffer        GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
-    VkBuffer        GetIndexBuffer()  const { return _vkIndexBuffer.buffer; }
-    VkStorageImage  GetStorageImage() const { return _vkStorageImage; }
+    VkBuffer           GetVertexBuffer() const { return _vkVertexBuffer.buffer; }
+    VkBuffer           GetIndexBuffer()  const { return _vkIndexBuffer.buffer; }
+    VkStorageImage     GetStorageImage() const { return _vkStorageImage; }
+    RenderingResource& GetRenderingResource(uint32 index) { return _renderingResources[index]; }
+    VkPipelineLayout   GetPipelineLayout() const { return _vkPipelineLayout; }
+    VkPipeline         GetPipeline() const { return _vkGraphicsPipeline; }
 
 private:
     /* create rendering resources */

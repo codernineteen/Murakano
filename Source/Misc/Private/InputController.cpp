@@ -13,7 +13,7 @@ InputController::~InputController()
 
 }
 
-void InputController::rotateCamera(float deltaTime)
+void InputController::RotateCamera(float deltaTime)
 {
 	if (glfwGetKey(_windowPtr, _keyMaps.rotateUp) == GLFW_PRESS)
 		_camera.UpdateCameraRotationVertical(-_rotationSpeed * deltaTime);
@@ -25,7 +25,7 @@ void InputController::rotateCamera(float deltaTime)
 		_camera.UpdateCameraRotationHorizontal(-_rotationSpeed * deltaTime);
 }
 
-void InputController::moveInPlaneXY(float deltaTime)
+void InputController::MoveInPlaneXY(float deltaTime)
 {
 	//XMVECTOR forward = _mkWindowRef.GetCamera().GetForward();
 	if (glfwGetKey(_windowPtr, _keyMaps.moveForward) == GLFW_PRESS) 
@@ -36,4 +36,10 @@ void InputController::moveInPlaneXY(float deltaTime)
 		_camera.UpdateCameraPositionX(_moveSpeed * deltaTime);
 	if (glfwGetKey(_windowPtr, _keyMaps.moveRight) == GLFW_PRESS) 
 		_camera.UpdateCameraPositionX(-_moveSpeed * deltaTime);
+}
+
+void InputController::Update(float deltaTime)
+{
+	MoveInPlaneXY(deltaTime);
+	RotateCamera(deltaTime);
 }
