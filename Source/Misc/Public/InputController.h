@@ -10,8 +10,9 @@ class InputController
 public:
 	InputController(GLFWwindow* windowPtr, FreeCamera& camera);
 	~InputController();
-	void moveInPlaneXY(float deltaTime);
-	void rotateCamera(float deltaTime);
+	void MoveInPlaneXY(float deltaTime);
+	void RotateCamera(float deltaTime);
+	void Update(float deltaTime);
 
 public:
 	struct KeyboardMappings 
