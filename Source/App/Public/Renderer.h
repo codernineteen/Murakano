@@ -45,6 +45,7 @@ class Renderer
 public:
 	Renderer();
 	~Renderer();
+	void Setup();
 	void Rasterize();
 
 private: 
@@ -53,15 +54,17 @@ private:
 	void CreateIndexBuffer(std::vector<uint32> indices);
 	void CreateUniformBuffers();
 	void CreateRenderPass();
+	void CreateImageSampler();
+	void CreateDescriptorSet();
+	void AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count);
 
 	/* update */
 	void UpdateUniformBuffer();
+	void UpdateModelDescriptor();
 	void Update();
 
 	/* draw */
 	void RecordFrameBufferCommands(uint32 swapchainImageIndex);
-	void Rasterize();
-	void Render();
 
 	/* cleanup */
 	void Cleanup();
@@ -103,9 +106,9 @@ private:
 private:
 	/* per frame member */
 	uint32 _currentFrameIndex = 0;
-	//float  _deltaTime = 0.0f;
-
-	///* system clock */
-	//std::chrono::steady_clock::time_point  _lastTime = std::chrono::high_resolution_clock::now();
+	
+	/* descriptor binding offset */
+	uint32 _bindingOffset = 0;
+	std::unordered_map<VkDescriptorType, uint32> _descriptorTypeMap;
 };
 

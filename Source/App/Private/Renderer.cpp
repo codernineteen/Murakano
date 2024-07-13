@@ -7,16 +7,53 @@ Renderer::Renderer()
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
-	_vikingModel(_mkDevice, "Assets/Models/viking_room.obj", "Assets/Models/viking_room.obj"),
+	_vikingModel(_mkDevice, "Assets/Models/viking_room.obj", "Assets/Textures/viking_room.png"),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
-	//_vkRenderPass = mkvk::CreateRenderPass();
 }
 
 Renderer::~Renderer()
 {
+	GAllocator->DestroyBuffer(_vkVertexBuffer);
+	GAllocator->DestroyBuffer(_vkIndexBuffer);
 
+	for(auto& uniformBuffer : _vkUniformBuffers)
+		GAllocator->DestroyBuffer(uniformBuffer);
+
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkDescriptorSetLayout, nullptr);
+#ifndef NDEBUG
+	MK_LOG("descriptor set layout destroyed");
+#endif
+}
+
+void Renderer::Setup()
+{
+	// create vertex buffer
+	CreateVertexBuffer(_vikingModel.vertices);
+
+	// create index buffer
+	CreateIndexBuffer(_vikingModel.indices);
+
+	// create uniform buffers
+	CreateUniformBuffers();
+
+	// append descriptor set layout binding
+	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1);
+	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+
+	// finalize descriptor set layout and allocate descriptor set for each frame
+	CreateDescriptorSet();
+
+	// update model descriptor set
+	UpdateModelDescriptor();
+
+	// build graphics pipeline
+	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, {});
+
+	// create render pass
+	//CreateRenderPass();
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -104,6 +141,20 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 	GAllocator->DestroyBuffer(stagingBuffer);
 }
 
+void Renderer::CreateDescriptorSet()
+{
+	// create descriptor set layout with bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkDescriptorSetLayout);
+	// allocate descriptor set layout
+	GDescriptorManager->AllocateDescriptorSet(_vkDescriptorSets, _vkDescriptorSetLayout);
+}
+
+void Renderer::AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count)
+{
+	_descriptorTypeMap.insert(std::make_pair(type, _bindingOffset));
+	GDescriptorManager->AddDescriptorSetLayoutBinding(type, stageFlags, _bindingOffset++, count);
+}
+
 void Renderer::CreateUniformBuffers()
 {
 	VkDeviceSize perUniformBufferSize = sizeof(UniformBufferObject);
@@ -142,6 +193,33 @@ void Renderer::UpdateUniformBuffer()
 	// update uniform buffer object
 	// should not use GetMappedData() because update funciton requires state change.
 	memcpy(_vkUniformBuffers[_currentFrameIndex].allocationInfo.pMappedData, &ubo, sizeof(ubo));
+}
+
+void Renderer::UpdateModelDescriptor()
+{
+	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
+	{
+		// write buffer descriptor
+		GDescriptorManager->WriteBufferToDescriptorSet(
+			_vkUniformBuffers[it].buffer,                          // uniform buffer
+			0,                                                     // offset
+			sizeof(UniformBufferObject),                           // range
+			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER], // binding point
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER                      // descriptor type
+		);
+
+		// texture image view and sampler is used commonly in descriptor sets
+		GDescriptorManager->WriteImageToDescriptorSet(
+			_vikingModel.vikingTexture.imageView,                          // texture image view
+			_vikingModel.vikingTexture.sampler,                            // texture sampler
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,                      // image layout
+			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER], // binding point
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER                      // descriptor type
+		);
+
+		// update descriptor set
+		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[it]);
+	}
 }
 
 void Renderer::Update()
