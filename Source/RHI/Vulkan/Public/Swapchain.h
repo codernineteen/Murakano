@@ -31,7 +31,7 @@ public:
 private:
 	void CreateSwapchain();
 	void CreateSwapchainImageViews();
-	void CreateFrameBuffers();
+	void CreateFrameBuffers(VkRenderPass renderPass);
 	void CreateDepthResources();
 
 private:
