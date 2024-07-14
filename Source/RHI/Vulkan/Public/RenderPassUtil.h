@@ -8,6 +8,7 @@
 
 namespace mkvk
 {
+	VkRenderPass CreateDefaultRenderPass(VkDevice device, VkFormat colorAttachmentFormat, VkFormat depthAttachmentFormat);
 	VkRenderPass CreateRenderPass(
 		VkDevice              device,
 		std::vector<VkFormat> colorAttachmentFormats,
