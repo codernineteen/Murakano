@@ -3,7 +3,6 @@
 // internal
 #include "Utilities.h"
 #include "Device.h"
-#include "RenderPass.h"
 #include "CommandService.h"
 #include "DescriptorManager.h"
 
@@ -20,18 +19,19 @@ public:
 	VkExtent2D     GetSwapchainExtent()	                const { return _vkSwapchainExtent; }
 	VkImage        GetSwapchainImage(uint32 imageIndex) const { return _vkSwapchainImages[imageIndex]; }
 	VkFramebuffer  GetFramebuffer(uint32 imageIndex)    const { return _vkSwapchainFramebuffers[imageIndex]; }
-	VkRenderPass   RequestRenderPass()                  const { return _mkRenderPassPtr->GetRenderPass(); }
 
 	/* setters */
 	void RequestFramebufferResize(bool isResized) { _mkDeviceRef.SetFrameBufferResized(isResized); }
 	void DestroySwapchainResources();
 	void DestroyDepthResources();
-	void RecreateSwapchain();
+
+	/* api */
+	void CreateFrameBuffers(VkRenderPass renderPass);
+	void RecreateSwapchain(VkRenderPass renderPass);
 
 private:
 	void CreateSwapchain();
 	void CreateSwapchainImageViews();
-	void CreateFrameBuffers(VkRenderPass renderPass);
 	void CreateDepthResources();
 
 private:
@@ -46,5 +46,4 @@ private:
 
 private:
 	MKDevice& _mkDeviceRef;
-	std::shared_ptr<MKRenderPass>       _mkRenderPassPtr;
 };

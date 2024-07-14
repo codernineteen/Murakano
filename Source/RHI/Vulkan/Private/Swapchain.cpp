@@ -11,16 +11,12 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef);
 
 	CreateSwapchain();
-	// create main render pass as shared resource. (this should be advance before creating framebuffers)
-	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
 
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
+
 	// create depth resources
 	CreateDepthResources();
-
-	// create framebuffers after creating swap chain image views and depth image view in descriptor manager.
-	CreateFrameBuffers();
 }
 
 MKSwapchain::~MKSwapchain()
