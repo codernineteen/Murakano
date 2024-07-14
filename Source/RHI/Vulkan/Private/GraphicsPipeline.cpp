@@ -31,7 +31,7 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 #endif
 }
 
-void MKGraphicsPipeline::BuildPipeline(VkDescriptorSetLayout descriptorSetLayout, std::vector<VkDescriptorSet> descriptorSets, std::vector<VkPushConstantRange> pushConstants)
+void MKGraphicsPipeline::BuildPipeline(VkDescriptorSetLayout& descriptorSetLayout, std::vector<VkDescriptorSet>& descriptorSets, std::vector<VkPushConstantRange> pushConstants, VkRenderPass& renderPass)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
@@ -88,7 +88,7 @@ void MKGraphicsPipeline::BuildPipeline(VkDescriptorSetLayout descriptorSetLayout
 	VkPipelineColorBlendStateCreateInfo colorBlending = vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	/* create pipeline layout */
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&descriptorSetLayout, pushConstants.size() > 0 ? pushConstants.data() : nullptr);
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&descriptorSetLayout, 1, pushConstants.size() > 0 ? pushConstants.data() : nullptr, (uint32)pushConstants.size());
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
 	// specify graphics pipeline
@@ -104,7 +104,7 @@ void MKGraphicsPipeline::BuildPipeline(VkDescriptorSetLayout descriptorSetLayout
 		&colorBlending,
 		&dynamicState,
 		_vkPipelineLayout,
-		_mkSwapchainRef.RequestRenderPass()
+		renderPass
 	);
 
 	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline));

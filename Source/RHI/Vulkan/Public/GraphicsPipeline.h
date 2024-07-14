@@ -29,7 +29,12 @@ public:
 	~MKGraphicsPipeline();
 
     /* lazy build of pipeline */
-    void BuildPipeline(VkDescriptorSetLayout descriptorSetLayout, std::vector<VkDescriptorSet> descriptorSets, std::vector<VkPushConstantRange> pushConstants);
+    void BuildPipeline(
+        VkDescriptorSetLayout& descriptorSetLayout, 
+        std::vector<VkDescriptorSet>& descriptorSets, 
+        std::vector<VkPushConstantRange> pushConstants, 
+        VkRenderPass& renderPass
+    );
 
     /* getters */
     RenderingResource& GetRenderingResource(uint32 index) { return _renderingResources[index]; }
