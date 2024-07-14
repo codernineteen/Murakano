@@ -41,10 +41,8 @@ VkBufferAllocated Allocator::CreateBuffer(
 
 	// create buffer
 	VkBufferAllocated newBuffer{};
+	newBuffer.name = allocationName;
 	MK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &bufferAllocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.allocationInfo));
-
-	// set buffer name
-	vmaSetAllocationName(_vmaAllocator, newBuffer.allocation, allocationName.c_str());
 
 	return newBuffer;
 }
@@ -70,10 +68,8 @@ VkImageAllocated Allocator::CreateImage(
 
 	// create image
 	VkImageAllocated newImage{};
+	newImage.name = allocationName;
 	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage.image, &newImage.allocation, &newImage.allocationInfo));
-
-	// set image name
-	vmaSetAllocationName(_vmaAllocator, newImage.allocation, allocationName.c_str());
 
 	return newImage;
 }
@@ -85,8 +81,7 @@ void Allocator::DestroyBuffer(VkBufferAllocated& bufferAllocated) const
 {
 	vmaDestroyBuffer(_vmaAllocator, bufferAllocated.buffer, bufferAllocated.allocation);
 #ifndef NDEBUG
-	auto allocName = bufferAllocated.allocationInfo.pName;
-	std::string msg = fmt::format("Destroying buffer with allocation name : {}", allocName);
+	std::string msg = "Destroying buffer with allocation name : " + bufferAllocated.name;
 	MK_LOG(msg);
 #endif
 }
@@ -95,8 +90,7 @@ void Allocator::DestroyImage(VkImageAllocated& imageAllocated) const
 {
 	vmaDestroyImage(_vmaAllocator, imageAllocated.image, imageAllocated.allocation);
 #ifndef NDEBUG
-	auto allocName = imageAllocated.allocationInfo.pName;
-	std::string msg = fmt::format("Destroying image with allocation name : {}", allocName);
+	std::string msg = "Destroying image with allocation name : " + imageAllocated.name;
 	MK_LOG(msg);
 #endif
 }
