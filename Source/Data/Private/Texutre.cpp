@@ -24,7 +24,7 @@ void Texture::CreateTextureImage()
     VkDeviceSize imageSize = SafeStaticCast<int, VkDeviceSize>(texWidth * texHeight * 4);
 
     if (!pixels)
-        throw std::runtime_error("failed to load texture image!");
+        MK_THROW("failed to load texture image!");
 
     // same manner as vertex buffer creation
     VkBufferAllocated stagingBuffer = util::CreateBuffer(
