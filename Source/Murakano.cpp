@@ -10,6 +10,8 @@
 int main()
 {
 	Renderer renderer;
+	
+	renderer.Setup();
 	renderer.Render();
 
 #ifdef _MSC_VER
