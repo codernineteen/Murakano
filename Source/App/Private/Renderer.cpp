@@ -7,14 +7,16 @@ Renderer::Renderer()
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
-	_vikingModel(_mkDevice, "Assets/Models/viking_room.obj", "Assets/Textures/viking_room.png"),
+	_vikingModel(_mkDevice, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
+	GAllocator->InitVMAAllocator(_mkInstance.GetVkInstance(), _mkDevice.GetPhysicalDevice(), _mkDevice.GetDevice());
 }
 
 Renderer::~Renderer()
 {
+	// destroy buffers
 	GAllocator->DestroyBuffer(_vkVertexBuffer);
 	GAllocator->DestroyBuffer(_vkIndexBuffer);
 
@@ -23,6 +25,12 @@ Renderer::~Renderer()
 
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkDescriptorSetLayout, nullptr);
+
+	// destroy render pass
+	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
+
+	// destroy allocator instance
+	delete GAllocator;
 #ifndef NDEBUG
 	MK_LOG("descriptor set layout destroyed");
 #endif
@@ -30,6 +38,16 @@ Renderer::~Renderer()
 
 void Renderer::Setup()
 {
+	// query required color & depth attachment formats
+	VkFormat swapchainImageFormat = _mkSwapchain.GetSwapchainImageFormat(); // color attachment format
+	VkFormat depthFormat = util::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
+	
+	// create render pass
+	_vkRenderPass = mkvk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat);
+
+	// request creation of frame buffers
+	_mkSwapchain.CreateFrameBuffers(_vkRenderPass);
+
 	// create vertex buffer
 	CreateVertexBuffer(_vikingModel.vertices);
 
@@ -50,10 +68,7 @@ void Renderer::Setup()
 	UpdateModelDescriptor();
 
 	// build graphics pipeline
-	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, {});
-
-	// create render pass
-	//CreateRenderPass();
+	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, {}, _vkRenderPass);
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -166,7 +181,8 @@ void Renderer::CreateUniformBuffers()
 			perUniformBufferSize,
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
-			VMA_ALLOCATION_CREATE_MAPPED_BIT
+			VMA_ALLOCATION_CREATE_MAPPED_BIT,
+			"uniform buffer(" + std::to_string(it) + ")"
 		);
 	}
 }
@@ -287,7 +303,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.renderPass = _mkSwapchain.RequestRenderPass();
+	renderPassBeginInfo.renderPass = _vkRenderPass;
 	renderPassBeginInfo.framebuffer = _mkSwapchain.GetFramebuffer(swapchainImageIndex);
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 	renderPassBeginInfo.renderArea.extent = swapchainExtent;
@@ -363,7 +379,7 @@ void Renderer::Rasterize()
 	);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) // 2.1 error by out of date -> recreate swapchain
 	{
-		_mkSwapchain.RecreateSwapchain();
+		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // 2. error by another reason
@@ -411,7 +427,7 @@ void Renderer::Rasterize()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) // 7.1 error by out of date or suboptimal -> recreate swapchain
 	{
 		_mkSwapchain.RequestFramebufferResize(false); // framebuffer resize is not required
-		_mkSwapchain.RecreateSwapchain();
+		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");

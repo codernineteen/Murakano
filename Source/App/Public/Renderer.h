@@ -46,7 +46,7 @@ public:
 	Renderer();
 	~Renderer();
 	void Setup();
-	void Rasterize();
+	void Render();
 
 private: 
 	/* initialization */
@@ -65,6 +65,7 @@ private:
 
 	/* draw */
 	void RecordFrameBufferCommands(uint32 swapchainImageIndex);
+	void Rasterize();
 
 	/* cleanup */
 	void Cleanup();
