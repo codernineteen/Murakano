@@ -2,8 +2,8 @@
 
 Murakano is a very simple implementation of graphics application that renders OBJ model.
 
-If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/devlog).<br>
-For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/project-2024/tree/main/project-2024/renderer-dev/implementation)
+If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/rendering-archive/tree/main/devlog).<br>
+For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/rendering-archive/tree/main/rendering/api/vulkan/implementation)
 
 # Features
 

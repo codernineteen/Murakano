@@ -7,16 +7,68 @@ Renderer::Renderer()
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
-	_vikingModel(_mkDevice, "Assets/Models/viking_room.obj", "Assets/Models/viking_room.obj"),
+	_vikingModel(_mkDevice, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
-	//_vkRenderPass = mkvk::CreateRenderPass();
+	GAllocator->InitVMAAllocator(_mkInstance.GetVkInstance(), _mkDevice.GetPhysicalDevice(), _mkDevice.GetDevice());
 }
 
 Renderer::~Renderer()
 {
+	// destroy buffers
+	GAllocator->DestroyBuffer(_vkVertexBuffer);
+	GAllocator->DestroyBuffer(_vkIndexBuffer);
 
+	for(auto& uniformBuffer : _vkUniformBuffers)
+		GAllocator->DestroyBuffer(uniformBuffer);
+
+	// destroy descriptor set layout
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkDescriptorSetLayout, nullptr);
+
+	// destroy render pass
+	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
+
+	// destroy allocator instance
+	delete GAllocator;
+#ifndef NDEBUG
+	MK_LOG("descriptor set layout destroyed");
+#endif
+}
+
+void Renderer::Setup()
+{
+	// query required color & depth attachment formats
+	VkFormat swapchainImageFormat = _mkSwapchain.GetSwapchainImageFormat(); // color attachment format
+	VkFormat depthFormat = util::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
+	
+	// create render pass
+	mkvk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
+
+	// request creation of frame buffers
+	_mkSwapchain.CreateFrameBuffers(_vkRenderPass);
+
+	// create vertex buffer
+	CreateVertexBuffer(_vikingModel.vertices);
+
+	// create index buffer
+	CreateIndexBuffer(_vikingModel.indices);
+
+	// create uniform buffers
+	CreateUniformBuffers();
+
+	// append descriptor set layout binding
+	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1);
+	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+
+	// finalize descriptor set layout and allocate descriptor set for each frame
+	CreateDescriptorSet();
+
+	// update model descriptor set
+	UpdateModelDescriptor();
+
+	// build graphics pipeline
+	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, {}, _vkRenderPass);
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -33,7 +85,9 @@ void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
 	* - property : host-visible, host-coherent
 	* - allocation flag : VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT must be set because of VMA_MEMORY_USAGE_AUTO , CREATE_MAPPED_BIT is set by default
 	*/
-	VkBufferAllocated stagingBuffer = GAllocator->CreateBuffer(
+	VkBufferAllocated stagingBuffer;
+	GAllocator->CreateBuffer(
+		&stagingBuffer,
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		VMA_MEMORY_USAGE_AUTO, // following VMA docs's best practice 
@@ -50,20 +104,17 @@ void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
 	* - property : device local
 	* Note that we can't map memory for device-local buffer, but can copy data to it.
 	*/
-	_vkVertexBuffer = GAllocator->CreateBuffer(
+	GAllocator->CreateBuffer(
+		&_vkVertexBuffer,
 		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, // plan to add ray tracing flags later
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, // plan to add ray tracing flags later
 		VMA_MEMORY_USAGE_GPU_ONLY, 
 		VMA_ALLOCATION_CREATE_MAPPED_BIT, 
 		"vertex buffer"
 	);
 
 	// copy staging buffer to vertex buffer
-	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
-		VkBufferCopy copyRegion{};
-		copyRegion.size = bufferSize;
-		vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, _vkVertexBuffer.buffer, 1, &copyRegion);
-	});
+	CopyBufferToBuffer(stagingBuffer, _vkVertexBuffer, bufferSize);
 
 	// destroy staging buffer
 	GAllocator->DestroyBuffer(stagingBuffer);
@@ -75,7 +126,9 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 	uint64 perIndexSize = static_cast<uint64>(sizeof(indices[0]));
 	VkDeviceSize bufferSize = numIndices * perIndexSize;
 
-	VkBufferAllocated stagingBuffer = GAllocator->CreateBuffer(
+	VkBufferAllocated stagingBuffer;
+	GAllocator->CreateBuffer(
+		&stagingBuffer,
 		bufferSize, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		VMA_MEMORY_USAGE_AUTO, 
@@ -85,23 +138,34 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 
 	memcpy(stagingBuffer.allocationInfo.pMappedData, indices.data(), (size_t)(bufferSize));
 
-	_vkIndexBuffer = GAllocator->CreateBuffer(
+	GAllocator->CreateBuffer(
+		&_vkIndexBuffer,
 		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VMA_MEMORY_USAGE_GPU_ONLY, 
 		VMA_ALLOCATION_CREATE_MAPPED_BIT, 
 		"index buffer"
 	);
 
 	// copy staging buffer to index buffer
-	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
-		VkBufferCopy copyRegion{};
-		copyRegion.size = bufferSize;
-		vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, _vkVertexBuffer.buffer, 1, &copyRegion);
-	});
+	CopyBufferToBuffer(stagingBuffer, _vkIndexBuffer, bufferSize);
 
 	// destroy staging buffer
 	GAllocator->DestroyBuffer(stagingBuffer);
+}
+
+void Renderer::CreateDescriptorSet()
+{
+	// create descriptor set layout with bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkDescriptorSetLayout);
+	// allocate descriptor set layout
+	GDescriptorManager->AllocateDescriptorSet(_vkDescriptorSets, _vkDescriptorSetLayout);
+}
+
+void Renderer::AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count)
+{
+	_descriptorTypeMap.insert(std::make_pair(type, _bindingOffset));
+	GDescriptorManager->AddDescriptorSetLayoutBinding(type, stageFlags, _bindingOffset++, count);
 }
 
 void Renderer::CreateUniformBuffers()
@@ -111,11 +175,13 @@ void Renderer::CreateUniformBuffers()
 
 	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
 	{
-		_vkUniformBuffers[it] = GAllocator->CreateBuffer(
+		GAllocator->CreateBuffer(
+			&_vkUniformBuffers[it],
 			perUniformBufferSize,
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_MEMORY_USAGE_CPU_TO_GPU,
-			VMA_ALLOCATION_CREATE_MAPPED_BIT
+			VMA_ALLOCATION_CREATE_MAPPED_BIT,
+			"uniform buffer(" + std::to_string(it) + ")"
 		);
 	}
 }
@@ -144,6 +210,33 @@ void Renderer::UpdateUniformBuffer()
 	memcpy(_vkUniformBuffers[_currentFrameIndex].allocationInfo.pMappedData, &ubo, sizeof(ubo));
 }
 
+void Renderer::UpdateModelDescriptor()
+{
+	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
+	{
+		// write buffer descriptor
+		GDescriptorManager->WriteBufferToDescriptorSet(
+			_vkUniformBuffers[it].buffer,                          // uniform buffer
+			0,                                                     // offset
+			sizeof(UniformBufferObject),                           // range
+			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER], // binding point
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER                      // descriptor type
+		);
+
+		// texture image view and sampler is used commonly in descriptor sets
+		GDescriptorManager->WriteImageToDescriptorSet(
+			_vikingModel.vikingTexture.imageView,                          // texture image view
+			_vikingModel.vikingTexture.sampler,                            // texture sampler
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,                      // image layout
+			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER], // binding point
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER                      // descriptor type
+		);
+
+		// update descriptor set
+		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[it]);
+	}
+}
+
 void Renderer::Update()
 {
 	// timer update
@@ -159,6 +252,16 @@ void Renderer::Update()
 	UpdateUniformBuffer();
 }
 
+void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz)
+{
+	// a command to copy buffer to buffer.
+	GCommandService->ExecuteSingleTimeCommands([&](VkCommandBuffer commandBuffer) { // getting reference parameter outer-scope
+		VkBufferCopy copyRegion{};
+		copyRegion.size = sz;
+		vkCmdCopyBuffer(commandBuffer, src.buffer, dst.buffer, 1, &copyRegion);
+	});
+}
+
 void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 {
 	VkCommandBufferBeginInfo beginInfo{};
@@ -172,32 +275,6 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	auto commandBuffer = *(renderingResource.commandBuffer);
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-	// 1. define image subresource range
-	VkImageSubresourceRange defaultSubresourceRange{};
-	defaultSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	defaultSubresourceRange.baseMipLevel = 0;
-	defaultSubresourceRange.levelCount = 1;
-	defaultSubresourceRange.baseArrayLayer = 0;
-	defaultSubresourceRange.layerCount = 1;
-
-	// 2. transition swap chain image layout into transfer destination
-	util::TransitionImageLayout(
-		commandBuffer,
-		_mkSwapchain.GetSwapchainImage(swapchainImageIndex),
-		_mkSwapchain.GetSwapchainImageFormat(),
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,      // src layout , dst layout
-		defaultSubresourceRange
-	);
-
-	// 3. transition transfer destination layout into present src
-	util::TransitionImageLayout(
-		commandBuffer,
-		_mkSwapchain.GetSwapchainImage(swapchainImageIndex),
-		_mkSwapchain.GetSwapchainImageFormat(),
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // src layout , dst layout
-		defaultSubresourceRange
-	);
-
 	// 4. prepare render pass begin info
 	auto swapchainExtent = _mkSwapchain.GetSwapchainExtent(); // store swapchain extent for common usage.
 
@@ -209,7 +286,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.renderPass = _mkSwapchain.RequestRenderPass();
+	renderPassBeginInfo.renderPass = _vkRenderPass;
 	renderPassBeginInfo.framebuffer = _mkSwapchain.GetFramebuffer(swapchainImageIndex);
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 	renderPassBeginInfo.renderArea.extent = swapchainExtent;
@@ -244,7 +321,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 		_mkGraphicsPipeline.GetPipelineLayout(),
 		0,
 		1,
-		_vkDescriptorSets.data(), // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		&_vkDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0,
 		nullptr
 	);
@@ -285,7 +362,7 @@ void Renderer::Rasterize()
 	);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) // 2.1 error by out of date -> recreate swapchain
 	{
-		_mkSwapchain.RecreateSwapchain();
+		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // 2. error by another reason
@@ -293,7 +370,7 @@ void Renderer::Rasterize()
 		MK_THROW("Failed to acquire swap chain image!.")
 	}
 
-	// 3. reset fence if and only if submission of commands is successful
+	// 3. reset fence if and only if application is submitting commands
 	vkResetFences(_mkDevice.GetDevice(), 1, &renderingResource.inFlightFence); // make current fence unsignaled
 
 	// 4. reset frame buffer command buffer
@@ -333,7 +410,7 @@ void Renderer::Rasterize()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) // 7.1 error by out of date or suboptimal -> recreate swapchain
 	{
 		_mkSwapchain.RequestFramebufferResize(false); // framebuffer resize is not required
-		_mkSwapchain.RecreateSwapchain();
+		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");

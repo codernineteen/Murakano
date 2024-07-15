@@ -24,13 +24,14 @@ void Allocator::InitVMAAllocator(VkInstance instance, VkPhysicalDevice physicalD
 /*
 ----------- Allocation -----------
 */
-VkBufferAllocated Allocator::CreateBuffer(
+void Allocator::CreateBuffer(
+	VkBufferAllocated*       newBuffer,
 	VkDeviceSize             size,
 	VkBufferUsageFlags       bufferUsage,
 	VmaMemoryUsage           memoryUsage,
 	VmaAllocationCreateFlags memoryAllocationFlags,
 	std::string              allocationName
-) const
+)
 {
 	// specify buffer creation info
 	VkBufferCreateInfo bufferInfo = vkinfo::GetBufferCreateInfo(size, bufferUsage, VK_SHARING_MODE_EXCLUSIVE);
@@ -40,16 +41,12 @@ VkBufferAllocated Allocator::CreateBuffer(
 	bufferAllocInfo.flags = memoryAllocationFlags;
 
 	// create buffer
-	VkBufferAllocated newBuffer{};
-	MK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &bufferAllocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.allocationInfo));
-
-	// set buffer name
-	vmaSetAllocationName(_vmaAllocator, newBuffer.allocation, allocationName.c_str());
-
-	return newBuffer;
+	newBuffer->name = allocationName;
+	MK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &bufferAllocInfo, &newBuffer->buffer, &newBuffer->allocation, &newBuffer->allocationInfo));
 }
 
-VkImageAllocated Allocator::CreateImage(
+void Allocator::CreateImage(
+	VkImageAllocated*        newImage,
 	uint32                   width,
 	uint32                   height,
 	VkFormat                 format,
@@ -59,7 +56,7 @@ VkImageAllocated Allocator::CreateImage(
 	VmaAllocationCreateFlags memoryAllocationFlags,
 	VkImageLayout            layout,
 	std::string              allocationName
-) const
+)
 {
 	// specify image creation info
 	VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
@@ -69,13 +66,8 @@ VkImageAllocated Allocator::CreateImage(
 	imageAllocInfo.flags = memoryAllocationFlags;
 
 	// create image
-	VkImageAllocated newImage{};
-	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage.image, &newImage.allocation, &newImage.allocationInfo));
-
-	// set image name
-	vmaSetAllocationName(_vmaAllocator, newImage.allocation, allocationName.c_str());
-
-	return newImage;
+	newImage->name = allocationName;
+	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage->image, &newImage->allocation, &newImage->allocationInfo));
 }
 
 /*
@@ -85,8 +77,7 @@ void Allocator::DestroyBuffer(VkBufferAllocated& bufferAllocated) const
 {
 	vmaDestroyBuffer(_vmaAllocator, bufferAllocated.buffer, bufferAllocated.allocation);
 #ifndef NDEBUG
-	auto allocName = bufferAllocated.allocationInfo.pName;
-	std::string msg = fmt::format("Destroying buffer with allocation name : {}", allocName);
+	std::string msg = "Destroying buffer with allocation name : " + bufferAllocated.name;
 	MK_LOG(msg);
 #endif
 }
@@ -95,8 +86,7 @@ void Allocator::DestroyImage(VkImageAllocated& imageAllocated) const
 {
 	vmaDestroyImage(_vmaAllocator, imageAllocated.image, imageAllocated.allocation);
 #ifndef NDEBUG
-	auto allocName = imageAllocated.allocationInfo.pName;
-	std::string msg = fmt::format("Destroying image with allocation name : {}", allocName);
+	std::string msg = "Destroying image with allocation name : " + imageAllocated.name;
 	MK_LOG(msg);
 #endif
 }

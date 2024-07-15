@@ -11,16 +11,12 @@ MKSwapchain::MKSwapchain(MKDevice& deviceRef)
 	GDescriptorManager->InitDescriptorManager(&_mkDeviceRef);
 
 	CreateSwapchain();
-	// create main render pass as shared resource. (this should be advance before creating framebuffers)
-	_mkRenderPassPtr = std::make_shared<MKRenderPass>(_mkDeviceRef, _vkSwapchainImageFormat);
 
 	// create image views mapped to teh swapchain images.
 	CreateSwapchainImageViews();
+
 	// create depth resources
 	CreateDepthResources();
-
-	// create framebuffers after creating swap chain image views and depth image view in descriptor manager.
-	CreateFrameBuffers();
 }
 
 MKSwapchain::~MKSwapchain()
@@ -58,7 +54,7 @@ void MKSwapchain::DestroyDepthResources()
 	vkDestroyImageView(_mkDeviceRef.GetDevice(), _vkDepthImageView, nullptr);
 }
 
-void MKSwapchain::RecreateSwapchain()
+void MKSwapchain::RecreateSwapchain(VkRenderPass renderPass)
 {
 	// handling window minimization
 	int width = 0, height = 0;
@@ -77,7 +73,7 @@ void MKSwapchain::RecreateSwapchain()
 	CreateSwapchain();
 	CreateSwapchainImageViews();
 	CreateDepthResources();
-	CreateFrameBuffers();
+	CreateFrameBuffers(renderPass);
 }
 
 /*
@@ -87,9 +83,9 @@ void MKSwapchain::RecreateSwapchain()
 void MKSwapchain::CreateSwapchain()
 {
 	MKDevice::SwapChainSupportDetails supportDetails = _mkDeviceRef.QuerySwapChainSupport(_mkDeviceRef.GetPhysicalDevice());
-	VkSurfaceFormatKHR surfaceFormat = _mkDeviceRef.ChooseSwapSurfaceFormat(supportDetails.formats);
-	VkPresentModeKHR presentMode = _mkDeviceRef.ChooseSwapPresentMode(supportDetails.presentModes);
-	VkExtent2D actualExtent = _mkDeviceRef.ChooseSwapExtent(supportDetails.capabilities);
+	VkSurfaceFormatKHR surfaceFormat                 = _mkDeviceRef.ChooseSwapSurfaceFormat(supportDetails.formats);
+	VkPresentModeKHR presentMode                     = _mkDeviceRef.ChooseSwapPresentMode(supportDetails.presentModes);
+	VkExtent2D actualExtent                          = _mkDeviceRef.ChooseSwapExtent(supportDetails.capabilities);
 
 	uint32 imageCount = supportDetails.capabilities.minImageCount + 1;	// It is recommended to request at least one more image than the minimum
 	if (supportDetails.capabilities.maxImageCount > 0 && imageCount > supportDetails.capabilities.maxImageCount)
@@ -97,8 +93,8 @@ void MKSwapchain::CreateSwapchain()
 
 	// query queue family indices and compare them to check if they are exclusive
 	MKDevice::QueueFamilyIndices indices = _mkDeviceRef.FindQueueFamilies(_mkDeviceRef.GetPhysicalDevice());
-	uint32 queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
-	bool isExclusive = indices.graphicsFamily.value() == indices.presentFamily.value();
+	uint32 queueFamilyIndices[]          = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+	bool isExclusive                     = indices.graphicsFamily.value() == indices.presentFamily.value();
 
 	VkSwapchainCreateInfoKHR swapchainCreateInfo = vkinfo::GetSwapchainCreateInfo(
 		_mkDeviceRef.GetSurface(),
@@ -169,7 +165,7 @@ void MKSwapchain::CreateDepthResources()
 	);
 }
 
-void MKSwapchain::CreateFrameBuffers()
+void MKSwapchain::CreateFrameBuffers(VkRenderPass renderPass)
 {
 	_vkSwapchainFramebuffers.resize(_vkSwapchainImageViews.size()); // resize to size of swap chain image views
 
@@ -180,7 +176,7 @@ void MKSwapchain::CreateFrameBuffers()
 			_vkDepthImageView,
 		};
 
-		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_mkRenderPassPtr->GetRenderPass(), attachments, _vkSwapchainExtent);
+		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(renderPass, attachments, _vkSwapchainExtent);
 		MK_CHECK(vkCreateFramebuffer(_mkDeviceRef.GetDevice(), &framebufferInfo, nullptr, &_vkSwapchainFramebuffers[i]));
 	}
 }

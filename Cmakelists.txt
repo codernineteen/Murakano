@@ -172,12 +172,12 @@ find_program(GLSL_VALIDATOR glslangValidator HINTS
 
 # get all .vert and .frag files in shaders directory
 file(GLOB_RECURSE GLSL_SOURCE_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.frag"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.vert"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.comp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rchit"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rmiss"
-  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rgen"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.frag.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.vert.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.comp.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rchit.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rmiss.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/shaders/GLSL/*.rgen.glsl"
 )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})

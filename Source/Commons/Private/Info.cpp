@@ -265,14 +265,14 @@ namespace vkinfo
 		return colorBlending;
 	}
 
-	VkPipelineLayoutCreateInfo GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, VkPushConstantRange* pushConstantRangesPtr)
+	VkPipelineLayoutCreateInfo GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, uint32 layoutCount, VkPushConstantRange* pushConstantRangesPtr, uint32 rangeCount)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;				                  // a descriptor set layout for uniform buffer object is set
-		pipelineLayoutInfo.pSetLayouts = descriptorSetLayoutPtr;              // specify descriptor set layout
-		pipelineLayoutInfo.pushConstantRangeCount = 1;		                  // a push constant range is set
-		pipelineLayoutInfo.pPushConstantRanges = pushConstantRangesPtr;	      // specify push constant range
+		pipelineLayoutInfo.setLayoutCount = layoutCount;				// a descriptor set layout for uniform buffer object is set
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayoutPtr;        // specify descriptor set layout
+		pipelineLayoutInfo.pushConstantRangeCount = rangeCount;		    // a push constant range is set
+		pipelineLayoutInfo.pPushConstantRanges = pushConstantRangesPtr;	// specify push constant range
 
 		return pipelineLayoutInfo;
 	}

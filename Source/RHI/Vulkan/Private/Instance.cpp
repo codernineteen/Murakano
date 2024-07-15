@@ -49,7 +49,7 @@ std::vector<const char*> MKInstance::GetRequiredExtensions()
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-    extensions.push_back(VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME);
+    //extensions.push_back(VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME);
     if (!CheckExtensionSupport(extensions)) 
     {
         throw std::runtime_error("Required extensions are not supported");
@@ -70,6 +70,17 @@ std::vector<VkExtensionProperties> MKInstance::GetAvailableExtensions()
     std::vector<VkExtensionProperties> extensions(extensionCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
    
+#ifndef NDEBUG
+    // print available extensions
+    std::string availableExtensions = "Belows are available extension in current system \n";
+    for (auto& extension : extensions)
+    {
+        availableExtensions += " - ";
+        availableExtensions += extension.extensionName;
+        availableExtensions += "\n";
+    }
+    MK_LOG(availableExtensions);
+#endif
     return extensions;
 }
 

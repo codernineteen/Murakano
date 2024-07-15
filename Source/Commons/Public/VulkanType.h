@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
 #include <vector>
+#include <string>
 #include <glm/glm.hpp>
 
 /**
@@ -22,14 +23,16 @@ struct VkBufferAllocated
 	VkBuffer           buffer;
 	VmaAllocation      allocation;
 	VmaAllocationInfo  allocationInfo;
+	std::string        name;
 };
 
 // a struct to wrap a VkImage and its allocation from VMA
 struct VkImageAllocated 
 {
-	VkImage        image;
-	VmaAllocation  allocation;
+	VkImage           image;
+	VmaAllocation     allocation;
 	VmaAllocationInfo allocationInfo;
+	std::string       name;
 };
 
 // Acceleration structure for the raytracer

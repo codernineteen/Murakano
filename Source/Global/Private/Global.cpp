@@ -19,6 +19,5 @@ public:
 
 	~MKGlobal()
 	{
-		delete GAllocator;
 	}
 } GlobalInstance;

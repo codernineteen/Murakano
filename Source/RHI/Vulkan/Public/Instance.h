@@ -5,6 +5,7 @@
 #include "Info.h"
 #include "Window.h"
 #include "ValidationLayer.h"
+#include "Types.h"
 
 class MKInstance
 {

@@ -96,8 +96,8 @@ public:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,                // macro from VK_KHR_swapchain extension
 		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,    // macro from VK_KHR_buffer_device_address extension
 		VK_KHR_DEVICE_GROUP_EXTENSION_NAME,             // macro from VK_KHR_device_group_creation extension
-		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,   // macro from VK_KHR_acceleration_structure extension
-		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,     // macro from VK_KHR_ray_tracing_pipeline extension
-		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // macro from VK_KHR_deferred_host_operations extension
+	//	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,   // macro from VK_KHR_acceleration_structure extension
+	//	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,     // macro from VK_KHR_ray_tracing_pipeline extension
+	//	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // macro from VK_KHR_deferred_host_operations extension
 	};
 };
