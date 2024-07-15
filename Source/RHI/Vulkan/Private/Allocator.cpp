@@ -24,13 +24,14 @@ void Allocator::InitVMAAllocator(VkInstance instance, VkPhysicalDevice physicalD
 /*
 ----------- Allocation -----------
 */
-VkBufferAllocated Allocator::CreateBuffer(
+void Allocator::CreateBuffer(
+	VkBufferAllocated*       newBuffer,
 	VkDeviceSize             size,
 	VkBufferUsageFlags       bufferUsage,
 	VmaMemoryUsage           memoryUsage,
 	VmaAllocationCreateFlags memoryAllocationFlags,
 	std::string              allocationName
-) const
+)
 {
 	// specify buffer creation info
 	VkBufferCreateInfo bufferInfo = vkinfo::GetBufferCreateInfo(size, bufferUsage, VK_SHARING_MODE_EXCLUSIVE);
@@ -40,14 +41,12 @@ VkBufferAllocated Allocator::CreateBuffer(
 	bufferAllocInfo.flags = memoryAllocationFlags;
 
 	// create buffer
-	VkBufferAllocated newBuffer{};
-	newBuffer.name = allocationName;
-	MK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &bufferAllocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.allocationInfo));
-
-	return newBuffer;
+	newBuffer->name = allocationName;
+	MK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &bufferAllocInfo, &newBuffer->buffer, &newBuffer->allocation, &newBuffer->allocationInfo));
 }
 
-VkImageAllocated Allocator::CreateImage(
+void Allocator::CreateImage(
+	VkImageAllocated*        newImage,
 	uint32                   width,
 	uint32                   height,
 	VkFormat                 format,
@@ -57,7 +56,7 @@ VkImageAllocated Allocator::CreateImage(
 	VmaAllocationCreateFlags memoryAllocationFlags,
 	VkImageLayout            layout,
 	std::string              allocationName
-) const
+)
 {
 	// specify image creation info
 	VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
@@ -67,11 +66,8 @@ VkImageAllocated Allocator::CreateImage(
 	imageAllocInfo.flags = memoryAllocationFlags;
 
 	// create image
-	VkImageAllocated newImage{};
-	newImage.name = allocationName;
-	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage.image, &newImage.allocation, &newImage.allocationInfo));
-
-	return newImage;
+	newImage->name = allocationName;
+	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage->image, &newImage->allocation, &newImage->allocationInfo));
 }
 
 /*

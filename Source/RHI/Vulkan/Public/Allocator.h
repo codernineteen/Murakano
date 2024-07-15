@@ -18,16 +18,21 @@ public:
 	/* initializer */
 	void InitVMAAllocator(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device);
 
+	/* getter */
+	inline VmaAllocator GetVmaAllocator() const { return _vmaAllocator; }
+
 public:
 	/* allocation APIs */
-	VkBufferAllocated CreateBuffer(
+	void CreateBuffer(
+		VkBufferAllocated*       newBuffer,
 		VkDeviceSize             size, 
 		VkBufferUsageFlags       bufferUsage, 
 		VmaMemoryUsage           memoryUsage, 
 		VmaAllocationCreateFlags memoryAllocationFlags,
 		std::string              allocationName = "UNDEFINED"
-	) const;
-	VkImageAllocated CreateImage(
+	);
+	void CreateImage(
+		VkImageAllocated*        newImage,
 		uint32                   width,
 		uint32                   height,
 		VkFormat                 format,
@@ -37,7 +42,7 @@ public:
 		VmaAllocationCreateFlags memoryAllocationFlags,
 		VkImageLayout            layout = VK_IMAGE_LAYOUT_UNDEFINED,
 		std::string              allocationName = "UNDEFINED"
-	) const;
+	);
 
 public:
 	/* destruction APIs */
