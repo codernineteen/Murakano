@@ -22,18 +22,21 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 
 	// specify device properties
 	VkPhysicalDeviceProperties2 deviceProperties2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-	deviceProperties2.pNext = &_rayTracingProperties;
-	_rayTracingProperties.pNext = nullptr;
+	deviceProperties2.pNext = nullptr;
+	/*deviceProperties2.pNext = &_rayTracingProperties;
+	_rayTracingProperties.pNext = nullptr;*/
 
 	// specify the set of device features
 	VkPhysicalDeviceFeatures2 deviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	deviceFeatures2.pNext = nullptr;
 	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+	//VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+	//VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
 	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
-	bufferDeviceAddressFeatures.pNext = &accelerationStructureFeatures;
-	accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
-	rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
+	bufferDeviceAddressFeatures.pNext = nullptr;
+	//bufferDeviceAddressFeatures.pNext = &accelerationStructureFeatures;
+	//accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
+	//rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
 
 	vkGetPhysicalDeviceProperties2(_vkPhysicalDevice, &deviceProperties2); // initialize device properties with raytracing properties
 	vkGetPhysicalDeviceFeatures2(_vkPhysicalDevice, &deviceFeatures2);
@@ -41,8 +44,8 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	// activate anisotropic filtering feature, buffer device address feature
 	deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
 	bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
-	accelerationStructureFeatures.accelerationStructure = VK_TRUE;
-	rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+	/*accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+	rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;*/
 
 	// specify device creation info
 	VkDeviceCreateInfo deviceCreateInfo = vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures2, deviceExtensions);
@@ -120,15 +123,15 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 	// specify the set of device features
 	VkPhysicalDeviceFeatures2 deviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+	/*VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };*/
 
 	// features pNext chain
 	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
-	bufferDeviceAddressFeatures.pNext = &accelerationStructureFeatures;
-	accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
-	rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
-	
+	bufferDeviceAddressFeatures.pNext = nullptr;
+	//accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
+	//rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
+	//
 	vkGetPhysicalDeviceProperties2(device, &deviceProperties2);
 	vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
 
@@ -150,9 +153,7 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 		details.formats.empty() || 
 		details.presentModes.empty() ||
 		!deviceFeatures2.features.samplerAnisotropy ||
-		bufferDeviceAddressFeatures.bufferDeviceAddress != VK_TRUE ||
-		accelerationStructureFeatures.accelerationStructure != VK_TRUE ||
-		rayTracingPipelineFeatures.rayTracingPipeline != VK_TRUE
+		bufferDeviceAddressFeatures.bufferDeviceAddress != VK_TRUE
 	)
 		score = 0;
 
