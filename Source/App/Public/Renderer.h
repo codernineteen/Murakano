@@ -70,6 +70,9 @@ private:
 	/* cleanup */
 	void Cleanup();
 
+	/* helper */
+	void CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz);
+
 private:
 	/* RHI Instance */
 	MKWindow			_mkWindow;
