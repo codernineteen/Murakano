@@ -31,13 +31,14 @@ private:
 
 	/* view, projections settings */
 #ifdef USE_HLSL
-	XMVECTOR _upDirection = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
+	XMVECTOR _upDirection      = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
 	XMVECTOR _forwardDirection = XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f);
-	XMVECTOR _rightDirection = XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);
-	XMVECTOR _cameraPosition = XMVectorSet(4.0f, 0.0f, 0.0f, 0.0f);
-	XMVECTOR _focusPosition = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-	XMMATRIX _viewMat = XMMatrixIdentity();
-	XMMATRIX _projectionMat = XMMatrixIdentity();
+	XMVECTOR _rightDirection   = XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);
+	XMVECTOR _cameraPosition   = XMVectorSet(4.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR _focusPosition    = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMMATRIX _viewInverseMat   = XMMatrixIdentity();
+	XMMATRIX _viewMat          = XMMatrixIdentity();
+	XMMATRIX _projectionMat    = XMMatrixIdentity();
 #else
 	glm::vec3 _upDirection      = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 _forwardDirection = glm::vec3(-1.0f, 0.0f, 0.0f);
