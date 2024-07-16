@@ -32,7 +32,7 @@ public:
     void BuildPipeline(
         VkDescriptorSetLayout& descriptorSetLayout, 
         std::vector<VkDescriptorSet>& descriptorSets, 
-        std::vector<VkPushConstantRange> pushConstants, 
+        std::vector<VkPushConstantRange>& pushConstants, 
         VkRenderPass& renderPass
     );
 
@@ -52,15 +52,6 @@ private:
 
     /* rendering resources */
     std::vector<RenderingResource> _renderingResources;
-
-    /* push constant */
-    VkPushConstantRaster _vkPushConstantRaster{
-        glm::mat4(1.0),
-        glm::vec3(10.0f, 15.0f, 8.0f),
-        0,
-        100.0f,
-        0
-    };
 
 private:
 	MKDevice&     _mkDeviceRef;

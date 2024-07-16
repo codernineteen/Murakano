@@ -56,6 +56,7 @@ private:
 	void CreateRenderPass();
 	void CreateImageSampler();
 	void CreateDescriptorSet();
+	void CreatePushConstantRaster();
 	void AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count);
 
 	/* update */
@@ -97,6 +98,10 @@ private:
 	/* descriptor */
 	VkDescriptorSetLayout         _vkDescriptorSetLayout;
 	std::vector<VkDescriptorSet>  _vkDescriptorSets;
+
+	/* push constants */
+	VkPushConstantRaster             _vkPushConstantRaster;
+	std::vector<VkPushConstantRange> _vkPushConstantRanges;
 
 	/* camera */
 	FreeCamera _camera;
