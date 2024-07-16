@@ -5,7 +5,13 @@
 #include <vector>
 #include <string>
 #include <glm/glm.hpp>
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 
+#define HLSL
+
+using namespace DirectX;
+using namespace DirectX::PackedVector;
 /**
 * Constants
 */
@@ -59,25 +65,38 @@ struct VkStorageImage
 	VkFormat         format;
 };
 
+enum LightType
+{
+	POINT_LIGHT = 0,
+	DIRECTIONAL_LIGHT = 1,
+	SPOT_LIGHT = 2
+};
+
 // rasterization push constant
 struct VkPushConstantRaster
 {
-	glm::mat4     modelMatrix;
-	glm::vec3     lightPosition;
-	unsigned int  objIndex;
-	float         lightIntensity;
-	int           lightType;
+#ifdef HLSL
+	XMMATRIX  modelMat;
+	XMVECTOR  lightPosition;
+#else
+	glm::mat4 modelMat;
+	glm::vec3 lightPosition;
+#endif
+	float     lightIntensity;
+	LightType lightType;
 };
-
-
 
 // ray push constant
 struct VkPushConstantRay
 {
-	glm::vec4  clearColor;
-	glm::vec3  lightPos;
-	float      lightIntensity;
-	int        lightType;
+#ifdef HLSL
+	XMVECTOR  lightPos;
+#else
+	glm::vec3 lightPos;
+#endif
+	glm::vec4 clearColor;
+	float     lightIntensity;
+	int       lightType;
 };
 
 /**

@@ -16,9 +16,14 @@ For anyone who are curious about implementation details, visualized architecture
 
 # Examples
 
-- obj model ([viking room model](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38))
+- obj model rendering with texture color ([viking room model](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38))
 <p align="center">
 <img src="docs/images/render-obj.png" alt="image of rendered viking room"/>
+</p>
+
+- simple diffuse lighting with texture color
+<p align="center">
+<img src="docs/images/render-diffuse-obj.png" alt="image of rendered viking room"/>
 </p>
 
 - camera movement

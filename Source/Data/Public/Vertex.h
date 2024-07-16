@@ -5,11 +5,11 @@ struct Vertex
 {
 #ifdef USE_HLSL
     XMFLOAT3 pos;
-    XMFLOAT3 color;
+    XMFLOAT3 normal;
     XMFLOAT2 texCoord;
 #else
     glm::vec3 pos;
-    glm::vec3 color;
+    glm::vec3 normal;
     glm::vec2 texCoord;
 #endif
 
@@ -46,7 +46,7 @@ struct Vertex
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
+        attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
         // texture coordinate attribute
         attributeDescriptions[2].binding = 0;
@@ -61,7 +61,7 @@ struct Vertex
     {
 #ifdef USE_HLSL 
         return  pos.x == other.pos.x && pos.y == other.pos.y && pos.z == other.pos.z &&
-            color.x == other.color.x && color.y == other.color.y && color.z == other.color.z &&
+            normal.x == other.normal.x && normal.y == other.normal.y && normal.z == other.normal.z &&
             texCoord.x == other.texCoord.x && texCoord.y == other.texCoord.y;
 #else
 		return  pos == other.pos && color == other.color && texCoord == other.texCoord;
@@ -81,9 +81,9 @@ struct VertexHash
         return ((hash<float>()(vertex.pos.x)
             ^ (hash<float>()(vertex.pos.y) << 1)) >> 1)
             ^ (hash<float>()(vertex.pos.z) << 1)
-            ^ (hash<float>()(vertex.color.x) << 1)
-            ^ (hash<float>()(vertex.color.y) << 1)
-            ^ (hash<float>()(vertex.color.z) << 1)
+            ^ (hash<float>()(vertex.normal.x) << 1)
+            ^ (hash<float>()(vertex.normal.y) << 1)
+            ^ (hash<float>()(vertex.normal.z) << 1)
             ^ (hash<float>()(vertex.texCoord.x) << 1)
             ^ (hash<float>()(vertex.texCoord.y) << 1);
 #else

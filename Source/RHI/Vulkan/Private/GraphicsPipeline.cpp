@@ -31,7 +31,12 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 #endif
 }
 
-void MKGraphicsPipeline::BuildPipeline(VkDescriptorSetLayout& descriptorSetLayout, std::vector<VkDescriptorSet>& descriptorSets, std::vector<VkPushConstantRange> pushConstants, VkRenderPass& renderPass)
+void MKGraphicsPipeline::BuildPipeline(
+	VkDescriptorSetLayout& descriptorSetLayout, 
+	std::vector<VkDescriptorSet>& descriptorSets, 
+	std::vector<VkPushConstantRange>& pushConstants, 
+	VkRenderPass& renderPass
+)
 {
 #ifdef USE_HLSL
 	// HLSL shader codes

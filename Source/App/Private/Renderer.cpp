@@ -54,6 +54,9 @@ void Renderer::Setup()
 	// create index buffer
 	CreateIndexBuffer(_vikingModel.indices);
 
+	// create push constant for rasterization
+	CreatePushConstantRaster();
+
 	// create uniform buffers
 	CreateUniformBuffers();
 
@@ -68,7 +71,7 @@ void Renderer::Setup()
 	UpdateModelDescriptor();
 
 	// build graphics pipeline
-	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, {}, _vkRenderPass);
+	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, _vkPushConstantRanges, _vkRenderPass);
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -186,6 +189,28 @@ void Renderer::CreateUniformBuffers()
 	}
 }
 
+void Renderer::CreatePushConstantRaster()
+{
+	// initialize values in push constant raster
+#ifdef USE_HLSL
+	_vkPushConstantRaster.modelMat = XMMatrixIdentity();
+	_vkPushConstantRaster.lightPosition = XMVectorSet(4.0f, 10.0f, 2.0f, 0.0f);
+#else
+	_vkPushConstantRaster.modelMat = glm::mat4(1.0f);
+	_vkPushConstantRaster.lightPosition = glm::vec3(2.0f, 2.0f, 2.0f);
+#endif
+	_vkPushConstantRaster.lightIntensity = 1.0f;
+	_vkPushConstantRaster.lightType = LightType::POINT_LIGHT;
+
+	// create push constant range and insert it into ranges
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(VkPushConstantRaster);
+
+	_vkPushConstantRanges.push_back(pushConstantRange);
+}
+
 void Renderer::UpdateUniformBuffer()
 {
 	UniformBufferObject ubo{};
@@ -279,7 +304,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	auto swapchainExtent = _mkSwapchain.GetSwapchainExtent(); // store swapchain extent for common usage.
 
 
-	const auto clearColor = glm::vec4(1, 1, 1, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	const auto clearColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]} };   // clear values for color
 	clearValues[1] = { 1.0f, 0 };                                                        // clear value for depth and stencil attachment
@@ -326,16 +351,28 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 		nullptr
 	);
 
-	// 9. bind vertex and index buffer
+	// 9. bind push constants
+	uint32 pushConstantOffset = 0;
+	uint32 pushConstantSize = sizeof(VkPushConstantRaster);
+	vkCmdPushConstants(
+		commandBuffer,
+		_mkGraphicsPipeline.GetPipelineLayout(),
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		pushConstantOffset,
+		pushConstantSize,
+		&_vkPushConstantRaster
+	);
+
+	// 10. bind vertex and index buffer
 	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
 	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);    // bind index buffer
 
-	// 10. record draw command
+	// 11. record draw command
 	vkCmdDrawIndexed(commandBuffer, _vikingModel.indices.size(), 1, 0, 0, 0);
 
-	// 11. end up render pass
+	// 12. end up render pass
 	vkCmdEndRenderPass(commandBuffer);
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));

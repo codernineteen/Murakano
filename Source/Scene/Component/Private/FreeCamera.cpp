@@ -6,12 +6,13 @@ FreeCamera::FreeCamera(MKDevice& mkDeviceRef, MKSwapchain& mkSwapchainRef)
 	auto extent = _mkSwapchainRef.GetSwapchainExtent();
 	// Transform into view space
 #ifdef USE_HLSL
-	auto viewMat = XMMatrixLookAtLH(_cameraPosition, _focusPosition, _upDirection);
-	_viewMat = XMMatrixTranspose(viewMat);
+	auto viewMat    = XMMatrixLookAtLH(_cameraPosition, _focusPosition, _upDirection);
+	_viewMat        = XMMatrixTranspose(viewMat);
+	_viewInverseMat = XMMatrixInverse(nullptr, viewMat);
 
 	// update focus direction and right direction
 	_forwardDirection = XMVector3Normalize(_focusPosition - _cameraPosition);
-	_rightDirection = XMVector3Normalize(XMVector3Cross(_upDirection, _forwardDirection));
+	_rightDirection   = XMVector3Normalize(XMVector3Cross(_forwardDirection, _upDirection));
 
 	/**
 	* Perspective projection
@@ -52,13 +53,13 @@ FreeCamera::~FreeCamera()
 void FreeCamera::UpdateCameraPositionX(float moveSpeed)
 {
 	_cameraPosition += moveSpeed * _rightDirection;
-	_focusPosition += moveSpeed * _rightDirection;
+	_focusPosition  += moveSpeed * _rightDirection;
 }
 
 void FreeCamera::UpdateCameraPositionZ(float moveSpeed)
 {
 	_cameraPosition += moveSpeed * _forwardDirection;
-	_focusPosition += moveSpeed * _forwardDirection;
+	_focusPosition  += moveSpeed * _forwardDirection;
 }
 
 void FreeCamera::UpdateCameraRotationHorizontal(float rotationSpeed)
@@ -72,10 +73,11 @@ void FreeCamera::UpdateCameraRotationHorizontal(float rotationSpeed)
 	*/
 #ifdef USE_HLSL
 	auto rotationMatrix = XMMatrixRotationAxis(_upDirection, XMConvertToRadians(rotationSpeed));
+	rotationMatrix      = XMMatrixTranspose(rotationMatrix);
 
 	_forwardDirection = XMVector3TransformNormal(_forwardDirection, rotationMatrix);
-	_rightDirection = XMVector3Normalize(XMVector3Cross(_upDirection, _forwardDirection));
-	_upDirection = XMVector3Normalize(XMVector3Cross(_forwardDirection, _rightDirection));
+	_rightDirection   = XMVector3Normalize(XMVector3Cross(_forwardDirection, _upDirection));
+	_upDirection      = XMVector3Normalize(XMVector3Cross(_rightDirection, _forwardDirection));
 
 	_focusPosition = _cameraPosition + _forwardDirection;
 #else
@@ -93,10 +95,11 @@ void FreeCamera::UpdateCameraRotationVertical(float rotationSpeed)
 {
 #ifdef USE_HLSL
 	auto rotationMatrix = XMMatrixRotationAxis(_rightDirection, XMConvertToRadians(rotationSpeed));
+	rotationMatrix      = XMMatrixTranspose(rotationMatrix);
 
 	_forwardDirection = XMVector3TransformNormal(_forwardDirection, rotationMatrix);
-	_rightDirection = XMVector3Normalize(XMVector3Cross(_upDirection, _forwardDirection));
-	_upDirection = XMVector3Normalize(XMVector3Cross(_forwardDirection, _rightDirection));
+	_rightDirection   = XMVector3Normalize(XMVector3Cross(_upDirection, _forwardDirection));
+	_upDirection      = XMVector3Normalize(XMVector3Cross(_forwardDirection, _rightDirection));
 
 	_focusPosition = _cameraPosition + _forwardDirection;
 #else
@@ -115,8 +118,9 @@ void FreeCamera::UpdateViewTarget()
 {
 #ifdef USE_HLSL
     // Update view matrix
-	auto viewMat = XMMatrixLookAtLH(_cameraPosition, _focusPosition, _upDirection);
-	_viewMat = XMMatrixTranspose(viewMat);
+	auto viewMat    = XMMatrixLookAtLH(_cameraPosition, _focusPosition, _upDirection);
+	_viewMat        = XMMatrixTranspose(viewMat);
+	_viewInverseMat = XMMatrixInverse(nullptr, viewMat);
 #else
 	_viewMat = glm::lookAt(_cameraPosition, _focusPosition, _upDirection);
 #endif
