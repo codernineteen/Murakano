@@ -17,38 +17,18 @@ For anyone who are curious about implementation details, visualized architecture
 # Examples
 
 ### Basic .obj model rendering  ([viking room model](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38))
-<div style="display: flex; flex:1 1 0px; justify-content:center; gap: 4px;">
-	<p align="center" style="display: flex; flex-direction: column;">
-		<label>[texture rendering without illumination]</label>
-		<img 
-		src="docs/images/render-obj.png" 
-		alt="image of rendered viking room"
-		style="width: auto; height: 250px; border: 2px solid #333"
-		/>
-	</p>
-	<p align="center" style="display: flex; flex-direction: column;">
-		<label>[simple diffuse lighting]</label>
-		<img 
-		src="docs/images/render-diffuse-obj.png" 
-		alt="image of rendered viking room"
-		style="wwidth: auto; height: 250px; border: 2px solid #333"
-		/>
-	</p>
-</div>
+
+texture rendering without illumination           |  simple diffuse lighting
+:-------------------------:|:-------------------------:
+![](docs/images/render-obj.png)  |  ![](docs/images/render-diffuse-obj.png)
 
 ### Local illumination with Phong shading
-<div>
-	<p align="center" style="display:flex; flex-direction: column; align-items: center;">
-		<label>[diffuse and specular reflection]</label>
-		<img 
-		src="docs/images/face_render.png" 
-		alt="image of rendered viking room"
-		style="width: 560px; height: 360px; border: 2px solid #333"
-		/>
-	</p>
-</div>
 
-- camera movement
+| diffuse and specular reflection |
+|:-------------------------:|
+|![](docs/images/face_render.png)  | 
+
+### Input control and camera movement
 
 | Action          | Key            |
 |---|---|
