@@ -103,10 +103,15 @@ struct VkPushConstantRay
 * Enums
 */
 
-enum ShaderBinding
+enum EVertexShaderBinding
 {
 	UNIFORM_BUFFER = 0,
-	TEXTURE_SAMPLER = 1,
+};
+
+enum EFragmentShaderBinding
+{
+	SAMPLER = 0,
+	TEXTURE = 1,
 };
 
 enum VkRtxDescriptorBinding 

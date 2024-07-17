@@ -11,15 +11,7 @@
 		}
 	```
 
-## 0.2 one line if statement convention
-- If a if statement can be implemented in a single line, implement it without block scope
-- ex)
-	```cpp
-		if (condition) 
-			return something;
-	```
-
-## 0.3 comment convetion
+## 0.2 comment convetion
 - If it is a single line comment in `*.cpp` files, use `//`
 - If it is a single line comment in `*.h` files, use `/**/`
 - If it is a multi line comment, follow below format
@@ -29,8 +21,31 @@
 		* Comment something
 		*/
 	```
+- If it is a instruction commnet, follow below format
+- ex)
+	```cpp
+		int num = 0; // assign 0 to num variable
+	```
 
 # 1. Class convention
+
+## 1.0 class naming convention
+- All of API specific class should be named with a prefix 'MK' to distinguish from vulkan class.
+- ex)
+	```cpp
+	class MKInstance
+	{
+		// ...
+	};
+	```
+- On the other hand, Any other class can be named without prefix.
+- ex)
+	```cpp
+	class Allocator
+	{
+		// ...
+	};
+	```
 
 ## 1.1 member variable naming convention
 0. private member		
@@ -84,7 +99,9 @@ First, If it is a function to get a proxy address of extension function and retu
 
 - ex)
 	```cpp
-		
+		/* states */
+		bool isValid;
+		int  count;
 	```
 
 
@@ -99,22 +116,19 @@ First, If it is a function to get a proxy address of extension function and retu
 			VkSemaphore signalSemaphores[], 
 			VkQueue loadedQueue, 
 			VkFence fence = nullptr
-		)
-		{
-			// ...
-		}
+		);
 	```
 
 ## 1.5 class member space matching convention.
-- When there are multiple members under an access modifier, a space of longest type name has two spaced between type and its identifier.
+- When there are multiple members under an access modifier, a space of longest type name has a single space between type and its identifier.
 The rest of members follow the space of the member whose type name is the longest.
 - ex)
 	```cpp
 		class MKCommandService
 		{
 		public:
-			VkCommandbuffer  _commandBuffer;
-			VkCommandPool	 _commandPool;
+			VkCommandbuffer _commandBuffer;
+			VkCommandPool   _commandPool;
 		};
 	```
 
@@ -144,21 +158,42 @@ If a group of function is const, there should be space mathcing of them either.
 - If not, implement the function in separate cpp file which included the header file holding the signature of it.
 
 # 2. namespace convention
-- All of the namespace should be named in lowercase.
+
+## 2.0 namespace role
+- namespaces in Murakano project should be used to group utility functions if and only if the functions shares similar role.
 - ex)
 	```cpp
-	namespace util
+	namespace mk
+	{
+		namespace vk
+		{
+			void CreateImage();
+			void CreateImageView();
+		}
+	}
+	```
+
+## 2.2 namespace naming convention
+- All of the namespace should be scoped inside 'mk' namespace
+- ex)
+	```cpp
+	namespace mk
 	{
 		// ...
+		
+		namespace image
+		{
+			//... image uitilites 
+		}
 	}
 	```
 
 
 # 3. enum convention
-- All of the enum definition should starts with capital letter.
+- All of the enum definition should starts with capital letter with a prefix 'E'.
 - ex)
 	```cpp
-	enum Result
+	enum EResult
 	{
 		SUCCESS,
 		FAIL,
@@ -167,11 +202,21 @@ If a group of function is const, there should be space mathcing of them either.
 - Variants of enum should be named in uppercase and separated by underscore.
 - ex)
 	```cpp
-	enum RayTracingShaderType
+	enum ERayTracingShaderType
 	{
 		RAYGEN,
 		MISS,
 		CLOSEST_HIT,
 		ANY_HIT,
 	};
+	```
+
+
+# 4. global object convention
+- All of name of the global objects should starts with a prefix 'G'
+- ex)
+	```cpp
+	class Allocator { /* some code */}
+
+	Allocator* GAllocator; // starts with prefix 'G'
 	```

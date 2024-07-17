@@ -40,12 +40,12 @@ void MKDescriptorManager::AllocateDescriptorSet(std::vector<VkDescriptorSet>& de
     VkDescriptorPool poolInUse = GetDescriptorPool();
 
     // specify a single descriptor set allocation info
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = poolInUse;
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool     = poolInUse;
     allocInfo.descriptorSetCount = static_cast<uint32>(MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
-    allocInfo.pNext = nullptr;
+    allocInfo.pSetLayouts        = layouts.data();
+    allocInfo.pNext              = nullptr;
     
     descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     VkResult res = vkAllocateDescriptorSets(_mkDevicePtr->GetDevice(), &allocInfo, descriptorSets.data());
@@ -90,11 +90,11 @@ VkDescriptorPool MKDescriptorManager::CreateDescriptorPool(uint32 setCount)
     for (auto& poolSize : _vkDescriptorPoolSizes)
         poolSize.descriptorCount = poolSize.descriptorCount * setCount;
 
-    VkDescriptorPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = setCount;
-    poolInfo.poolSizeCount = SafeStaticCast<size_t, uint32>(_vkDescriptorPoolSizes.size());
-    poolInfo.pPoolSizes = _vkDescriptorPoolSizes.data();
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets       = setCount;
+    poolInfo.poolSizeCount = static_cast<uint32>(_vkDescriptorPoolSizes.size());
+    poolInfo.pPoolSizes    = _vkDescriptorPoolSizes.data();
 
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     MK_CHECK(vkCreateDescriptorPool(_mkDevicePtr->GetDevice(), &poolInfo, nullptr, &descriptorPool));
@@ -164,12 +164,11 @@ void MKDescriptorManager::WriteBufferToDescriptorSet(VkBuffer buffer, VkDeviceSi
 	_vkWaitingWrites.push_back(descriptorWrite);
 }
 
-void MKDescriptorManager::WriteImageToDescriptorSet(VkImageView imageView, VkSampler imageSampler, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType)
+void MKDescriptorManager::WriteImageToDescriptorSet(VkImageView imageView, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType)
 {
     // To keep memory of image info, store it in the deque temporarily
     std::shared_ptr<VkDescriptorImageInfo> imageInfo = std::make_shared<VkDescriptorImageInfo>();
     imageInfo->imageView = imageView;
-    imageInfo->sampler = imageSampler;
     imageInfo->imageLayout = imageLayout;
     _vkWaitingImageInfos.insert(imageInfo);
 
@@ -183,6 +182,38 @@ void MKDescriptorManager::WriteImageToDescriptorSet(VkImageView imageView, VkSam
 	descriptorWrite.pImageInfo = imageInfo.get();
 
 	_vkWaitingWrites.push_back(descriptorWrite);
+}
+
+void MKDescriptorManager::WriteImageArrayToDescriptorSet(VkDescriptorImageInfo* imageInfosPtr, uint32 sizeOfArray, uint32 dstBinding, VkDescriptorType descriptorType)
+{
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = VK_NULL_HANDLE; // specify dst set when update descriptor set
+    descriptorWrite.dstBinding = dstBinding;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = descriptorType;
+    descriptorWrite.descriptorCount = sizeOfArray;
+    descriptorWrite.pImageInfo = imageInfosPtr;
+
+    _vkWaitingWrites.push_back(descriptorWrite);
+}
+
+void MKDescriptorManager::WriteSamplerToDescriptorSet(VkSampler sampler, uint32 dstBinding, VkDescriptorType descriptorType)
+{
+    std::shared_ptr<VkDescriptorImageInfo> imageInfo = std::make_shared<VkDescriptorImageInfo>();
+    imageInfo->sampler = sampler;
+    _vkWaitingImageInfos.insert(imageInfo);
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = VK_NULL_HANDLE; // specify dst set when update descriptor set
+    descriptorWrite.dstBinding = dstBinding;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = descriptorType;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pImageInfo = imageInfo.get();
+
+    _vkWaitingWrites.push_back(descriptorWrite);
 }
 
 void MKDescriptorManager::WriteAccelerationStructureToDescriptorSet(const VkAccelerationStructureKHR* as, uint32 dstBinding) 

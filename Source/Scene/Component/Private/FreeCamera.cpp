@@ -84,8 +84,8 @@ void FreeCamera::UpdateCameraRotationHorizontal(float rotationSpeed)
 	auto rotationMat = glm::rotate(glm::mat4(1.0f), glm::radians(rotationSpeed), _upDirection);
 
 	_forwardDirection = glm::normalize(glm::vec3(rotationMat * glm::vec4(_forwardDirection, 0.0f)));
-	_rightDirection = glm::normalize(glm::cross(_upDirection, _forwardDirection));
-	_upDirection = glm::normalize(glm::cross(_forwardDirection, _rightDirection));
+	_rightDirection   = glm::normalize(glm::cross(_upDirection, _forwardDirection));
+	_upDirection      = glm::normalize(glm::cross(_forwardDirection, _rightDirection));
 
 	_focusPosition = _cameraPosition + _forwardDirection;
 #endif
@@ -106,8 +106,8 @@ void FreeCamera::UpdateCameraRotationVertical(float rotationSpeed)
 	auto rotationMat = glm::rotate(glm::mat4(1.0f), glm::radians(rotationSpeed), _rightDirection);
 	
 	_forwardDirection = glm::normalize(glm::vec3(rotationMat * glm::vec4(_forwardDirection, 0.0f)));
-	_rightDirection = glm::normalize(glm::cross(_upDirection, _forwardDirection));
-	_upDirection = glm::normalize(glm::cross(_forwardDirection, _rightDirection));
+	_rightDirection   = glm::normalize(glm::cross(_upDirection, _forwardDirection));
+	_upDirection      = glm::normalize(glm::cross(_forwardDirection, _rightDirection));
 
 	_focusPosition = _cameraPosition + _forwardDirection;
 #endif

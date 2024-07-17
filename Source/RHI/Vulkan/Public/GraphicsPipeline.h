@@ -8,11 +8,10 @@
 #include "FreeCamera.h"
 #include "InputController.h"
 
-// vulkan wrappers
+// RHI
 #include "Device.h"
 #include "Swapchain.h"
 #include "DescriptorManager.h"
-#include "Raytracer.h"
 
 class MKGraphicsPipeline 
 {
@@ -30,8 +29,7 @@ public:
 
     /* lazy build of pipeline */
     void BuildPipeline(
-        VkDescriptorSetLayout& descriptorSetLayout, 
-        std::vector<VkDescriptorSet>& descriptorSets, 
+        std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
         std::vector<VkPushConstantRange>& pushConstants, 
         VkRenderPass& renderPass
     );

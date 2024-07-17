@@ -32,8 +32,7 @@ MKGraphicsPipeline::~MKGraphicsPipeline()
 }
 
 void MKGraphicsPipeline::BuildPipeline(
-	VkDescriptorSetLayout& descriptorSetLayout, 
-	std::vector<VkDescriptorSet>& descriptorSets, 
+	std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
 	std::vector<VkPushConstantRange>& pushConstants, 
 	VkRenderPass& renderPass
 )
@@ -93,7 +92,12 @@ void MKGraphicsPipeline::BuildPipeline(
 	VkPipelineColorBlendStateCreateInfo colorBlending = vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	/* create pipeline layout */
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(&descriptorSetLayout, 1, pushConstants.size() > 0 ? pushConstants.data() : nullptr, (uint32)pushConstants.size());
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = vkinfo::GetPipelineLayoutCreateInfo(
+		descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr,
+		static_cast<uint32>(descriptorSetLayouts.size()), 
+		pushConstants.size() > 0 ? pushConstants.data() : nullptr, 
+		static_cast<uint32>(pushConstants.size())
+	);
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 
 	// specify graphics pipeline

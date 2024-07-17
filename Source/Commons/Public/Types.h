@@ -35,6 +35,9 @@
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
+// parameter aliases
+using TextureMetadata = std::pair<std::string, std::string>; // { {texture_name, texture_path} }
+
 // integer aliases
 using uint8 = std::uint8_t;
 using uint16 = std::uint16_t;

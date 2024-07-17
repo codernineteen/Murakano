@@ -7,7 +7,7 @@ Renderer::Renderer()
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
-	_vikingModel(_mkDevice, "../../../resources/Models/viking_room.obj", "../../../resources/Textures/viking_room.png"),
+	_objModel(_mkDevice),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
@@ -23,8 +23,15 @@ Renderer::~Renderer()
 	for(auto& uniformBuffer : _vkUniformBuffers)
 		GAllocator->DestroyBuffer(uniformBuffer);
 
+	// destroy image sampler
+	vkDestroySampler(_mkDevice.GetDevice(), _vkLinearSampler, nullptr);
+
+	// destroy model and texture resources
+	_objModel.DestroyModel();
+
 	// destroy descriptor set layout
-	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkBaseDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkSamplerDescriptorSetLayout, nullptr);
 
 	// destroy render pass
 	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
@@ -48,11 +55,39 @@ void Renderer::Setup()
 	// request creation of frame buffers
 	_mkSwapchain.CreateFrameBuffers(_vkRenderPass);
 
+	// create linear filtering mode image sampler
+	CreateImageSampler();
+
+	// prepare model resources
+	
+	// for head rendering
+	_objModel.LoadModel(
+		"../../../resources/Models/head_model.obj",
+		{
+			{"diffuse texture", "../../../resources/Textures/head_diffuse.png"},  // diffuse
+			{"specular texture", "../../../resources/Textures/head_specular.png"}, // specular
+			{"normal map", "../../../resources/Textures/head_normal.png"}          // normal
+		}
+	);
+	
+	// for viking room rendering
+	//_objModel.LoadModel(
+	//	"../../../resources/Models/viking_room.obj",
+	//	{
+	//		{"diffuse texture", "../../../resources/Textures/viking_room.png"},  // diffuse
+	//	}
+	//);
+
+	// transform model if needed
+	_objModel.Scale(0.05f, 0.05f, 0.05f); // scale down
+	_objModel.RotateX(90.0f);             // rotate x-axis
+	_objModel.RotateY(90.0f);             // rotate y-axis
+
 	// create vertex buffer
-	CreateVertexBuffer(_vikingModel.vertices);
+	CreateVertexBuffer(_objModel.vertices);
 
 	// create index buffer
-	CreateIndexBuffer(_vikingModel.indices);
+	CreateIndexBuffer(_objModel.indices);
 
 	// create push constant for rasterization
 	CreatePushConstantRaster();
@@ -60,18 +95,19 @@ void Renderer::Setup()
 	// create uniform buffers
 	CreateUniformBuffers();
 
-	// append descriptor set layout binding
-	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1);
-	AppendDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1);
-
-	// finalize descriptor set layout and allocate descriptor set for each frame
-	CreateDescriptorSet();
+	// create required descriptor sets
+	CreateBaseDescriptorSet();
+	CreateSamplerDescriptorSet();
 
 	// update model descriptor set
-	UpdateModelDescriptor();
+	WriteBaseDescriptor();
+	
+	// update sampler descriptor set
+	WriteSamplerDescriptor();
 
 	// build graphics pipeline
-	_mkGraphicsPipeline.BuildPipeline(_vkDescriptorSetLayout, _vkDescriptorSets, _vkPushConstantRanges, _vkRenderPass);
+	std::vector<VkDescriptorSetLayout> layouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
+	_mkGraphicsPipeline.BuildPipeline(layouts, _vkPushConstantRanges, _vkRenderPass);
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -157,18 +193,79 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 	GAllocator->DestroyBuffer(stagingBuffer);
 }
 
-void Renderer::CreateDescriptorSet()
+void Renderer::CreateImageSampler()
 {
-	// create descriptor set layout with bindings
-	GDescriptorManager->CreateDescriptorSetLayout(_vkDescriptorSetLayout);
-	// allocate descriptor set layout
-	GDescriptorManager->AllocateDescriptorSet(_vkDescriptorSets, _vkDescriptorSetLayout);
+	// get device physical properties for limit of max anisotropy 
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties(_mkDevice.GetPhysicalDevice(), &properties);
+
+	/**
+	* Sampler creation info specification
+	* addressMode : how to address region when texture going beyond the image dimensions
+	*/
+	VkSamplerCreateInfo samplerInfo = {};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode                
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode
+	samplerInfo.anisotropyEnable = VK_TRUE;                              // enable anisotropic filtering
+	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;  // max level of anisotropy
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;          // border color
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;                      // normalized u,v coordinates
+	samplerInfo.compareEnable = VK_FALSE;                                // compare enable
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;                        // compare operation
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;              // mipmap mode
+	samplerInfo.mipLodBias = 0.0f;                                       // mipmap level of detail bias
+	samplerInfo.minLod = 0.0f;                                           // minimum level of detail
+	samplerInfo.maxLod = 0.0f;                                           // maximum level of detail
+
+	// specify filtering mode
+	samplerInfo.magFilter = VK_FILTER_LINEAR;                            // linear filtering in magnification
+	samplerInfo.minFilter = VK_FILTER_LINEAR;                            // linear filtering in minification
+
+	MK_CHECK(vkCreateSampler(_mkDevice.GetDevice(), &samplerInfo, nullptr, &_vkLinearSampler));
 }
 
-void Renderer::AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count)
+void Renderer::CreateBaseDescriptorSet()
 {
-	_descriptorTypeMap.insert(std::make_pair(type, _bindingOffset));
-	GDescriptorManager->AddDescriptorSetLayoutBinding(type, stageFlags, _bindingOffset++, count);
+	// single uniform buffer descriptor
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		VK_SHADER_STAGE_VERTEX_BIT,
+		EVertexShaderBinding::UNIFORM_BUFFER,
+		1
+	);
+	// three texture image descriptors
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		EFragmentShaderBinding::TEXTURE,
+		static_cast<uint32>(_objModel.textures.size())
+	);
+
+
+	// create base descriptor set layout based on waiting bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkBaseDescriptorSetLayout);
+
+	// allocate base descriptor set
+	GDescriptorManager->AllocateDescriptorSet(_vkBaseDescriptorSets, _vkBaseDescriptorSetLayout);
+}
+
+void Renderer::CreateSamplerDescriptorSet()
+{
+	// single sampler descriptor
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		EFragmentShaderBinding::SAMPLER,
+		1
+	);
+
+	// create sampler descriptor set layout based on waiting bindings
+	GDescriptorManager->CreateDescriptorSetLayout(_vkSamplerDescriptorSetLayout);
+
+	// allocate sampler descriptor set
+	GDescriptorManager->AllocateDescriptorSet(_vkSamplerDescriptorSets, _vkSamplerDescriptorSetLayout);
 }
 
 void Renderer::CreateUniformBuffers()
@@ -194,7 +291,7 @@ void Renderer::CreatePushConstantRaster()
 	// initialize values in push constant raster
 #ifdef USE_HLSL
 	_vkPushConstantRaster.modelMat = XMMatrixIdentity();
-	_vkPushConstantRaster.lightPosition = XMVectorSet(4.0f, 10.0f, 2.0f, 0.0f);
+	_vkPushConstantRaster.lightPosition = XMVectorSet(12.0f, 11.0f, 0.0f, 0.0f);
 #else
 	_vkPushConstantRaster.modelMat = glm::mat4(1.0f);
 	_vkPushConstantRaster.lightPosition = glm::vec3(2.0f, 2.0f, 2.0f);
@@ -219,13 +316,13 @@ void Renderer::UpdateUniformBuffer()
 	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
 
 	// initialize model transformation
-	auto modelMat = XMMatrixIdentity();
+	auto modelMat = _objModel.GetModelMatrix();
 
 	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
 	ubo.mvpMat = projViewMat * modelMat;
 #else
 	// fill out uniform buffer object members
-	ubo.modelMat = glm::mat4(1.0f);
+	ubo.modelMat = _objModel.GetModelMatrix();
 	ubo.viewMat = _camera.GetViewMatrix();
 	ubo.projMat = _camera.GetProjectionMatrix();
 #endif
@@ -235,30 +332,56 @@ void Renderer::UpdateUniformBuffer()
 	memcpy(_vkUniformBuffers[_currentFrameIndex].allocationInfo.pMappedData, &ubo, sizeof(ubo));
 }
 
-void Renderer::UpdateModelDescriptor()
+void Renderer::WriteBaseDescriptor()
 {
 	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
 	{
 		// write buffer descriptor
 		GDescriptorManager->WriteBufferToDescriptorSet(
-			_vkUniformBuffers[it].buffer,                          // uniform buffer
-			0,                                                     // offset
-			sizeof(UniformBufferObject),                           // range
-			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER], // binding point
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER                      // descriptor type
+			_vkUniformBuffers[it].buffer,         // uniform buffer
+			0,                                    // offset
+			sizeof(UniformBufferObject),          // range
+			EVertexShaderBinding::UNIFORM_BUFFER, // binding point
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER     // descriptor type
 		);
 
-		// texture image view and sampler is used commonly in descriptor sets
-		GDescriptorManager->WriteImageToDescriptorSet(
-			_vikingModel.vikingTexture.imageView,                          // texture image view
-			_vikingModel.vikingTexture.sampler,                            // texture sampler
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,                      // image layout
-			_descriptorTypeMap[VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER], // binding point
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER                      // descriptor type
+		// texture image descriptor
+		// - store a set of image infos to write at once
+		std::vector<VkDescriptorImageInfo> imageInfos; 
+		for (size_t tex_it = 0; tex_it < _objModel.textures.size(); tex_it++) 
+		{
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView   = _objModel.textures[tex_it]->imageView;
+			imageInfo.sampler     = nullptr;
+			imageInfos.push_back(imageInfo);
+		}
+		// - call image array write api 
+		GDescriptorManager->WriteImageArrayToDescriptorSet(
+			imageInfos.data(),
+			static_cast<uint32>(imageInfos.size()),
+			EFragmentShaderBinding::TEXTURE,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
 		);
 
-		// update descriptor set
-		GDescriptorManager->UpdateDescriptorSet(_vkDescriptorSets[it]);
+		// update base descriptor set per frame
+		GDescriptorManager->UpdateDescriptorSet(_vkBaseDescriptorSets[it]);
+	}
+}
+
+void Renderer::WriteSamplerDescriptor()
+{
+	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
+	{
+		// write sampler descriptor
+		GDescriptorManager->WriteSamplerToDescriptorSet(
+			_vkLinearSampler,
+			EFragmentShaderBinding::SAMPLER,
+			VK_DESCRIPTOR_TYPE_SAMPLER
+		);
+
+		// update sampler descriptor set
+		GDescriptorManager->UpdateDescriptorSet(_vkSamplerDescriptorSets[it]);
 	}
 }
 
@@ -304,7 +427,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	auto swapchainExtent = _mkSwapchain.GetSwapchainExtent(); // store swapchain extent for common usage.
 
 
-	const auto clearColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	const auto clearColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]} };   // clear values for color
 	clearValues[1] = { 1.0f, 0 };                                                        // clear value for depth and stencil attachment
@@ -339,14 +462,26 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	// 7. bind graphics pipeline
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
 	
-	// 8. bind descriptor sets
+	// 8. bind base descriptor sets
 	vkCmdBindDescriptorSets(
 		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		_mkGraphicsPipeline.GetPipelineLayout(),
-		0,
+		0,                                          // set index 0
 		1,
-		&_vkDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		&_vkBaseDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		0,
+		nullptr
+	);
+
+	// 9. bind sampler descriptor set
+	vkCmdBindDescriptorSets(
+		commandBuffer,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		_mkGraphicsPipeline.GetPipelineLayout(),
+		1,                                             // set index 1
+		1,
+		&_vkSamplerDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0,
 		nullptr
 	);
@@ -370,7 +505,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);    // bind index buffer
 
 	// 11. record draw command
-	vkCmdDrawIndexed(commandBuffer, _vikingModel.indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, _objModel.indices.size(), 1, 0, 0, 0);
 
 	// 12. end up render pass
 	vkCmdEndRenderPass(commandBuffer);
