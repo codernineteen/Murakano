@@ -16,14 +16,34 @@ For anyone who are curious about implementation details, visualized architecture
 
 # Examples
 
-- obj model rendering with texture color ([viking room model](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38))
-<p align="center">
-<img src="docs/images/render-obj.png" alt="image of rendered viking room"/>
-</p>
+### Basic .obj model rendering  ([viking room model](https://sketchfab.com/3d-models/viking-room-a49f1b8e4f5c4ecf9e1fe7d81915ad38))
+<div style="display: flex; flex:1 1 0px;">
+	<p align="center">
+		<label>[texture rendering without illumination]</label>
+		<img 
+		src="docs/images/render-obj.png" 
+		alt="image of rendered viking room"
+		style="width: auto; height: 250px; border: 2px solid #333"
+		/>
+	</p>
+	<p align="center">
+		<label>[simple diffuse lighting]</label>
+		<img 
+		src="docs/images/render-diffuse-obj.png" 
+		alt="image of rendered viking room"
+		style="wwidth: auto; height: 250px; border: 2px solid #333"
+		/>
+	</p>
+</div>
 
-- simple diffuse lighting with texture color
-<p align="center">
-<img src="docs/images/render-diffuse-obj.png" alt="image of rendered viking room"/>
+### Local illumination with Phong shading
+<p align="center" style="display:flex; flex-direction: column; align-items: center;">
+	<label>[diffuse and specular reflection]</label>
+	<img 
+	src="docs/images/face_render.png" 
+	alt="image of rendered viking room"
+	style="width: 560px; height: 360px; border: 2px solid #333"
+	/>
 </p>
 
 - camera movement
