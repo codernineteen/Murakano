@@ -55,13 +55,14 @@ private:
 	void CreateUniformBuffers();
 	void CreateRenderPass();
 	void CreateImageSampler();
-	void CreateDescriptorSet();
+	void CreateBaseDescriptorSet();
+	void CreateSamplerDescriptorSet();
 	void CreatePushConstantRaster();
-	void AppendDescriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32 count);
 
 	/* update */
 	void UpdateUniformBuffer();
-	void UpdateModelDescriptor();
+	void WriteBaseDescriptor();
+	void WriteSamplerDescriptor();
 	void Update();
 
 	/* draw */
@@ -83,7 +84,7 @@ private:
 	MKGraphicsPipeline	_mkGraphicsPipeline;
 
 	/* source primitives */
-	OBJModel _vikingModel;
+	OBJModel _objModel;
 
 	/* render pass */
 	VkRenderPass _vkRenderPass;
@@ -96,8 +97,13 @@ private:
 	std::vector<VkBufferAllocated>  _vkUniformBuffers;
 
 	/* descriptor */
-	VkDescriptorSetLayout         _vkDescriptorSetLayout;
-	std::vector<VkDescriptorSet>  _vkDescriptorSets;
+	VkDescriptorSetLayout _vkBaseDescriptorSetLayout;
+	VkDescriptorSetLayout _vkSamplerDescriptorSetLayout;
+	std::vector<VkDescriptorSet>  _vkBaseDescriptorSets;
+	std::vector<VkDescriptorSet>  _vkSamplerDescriptorSets;
+
+	/* image sampler */
+	VkSampler _vkLinearSampler;
 
 	/* push constants */
 	VkPushConstantRaster             _vkPushConstantRaster;
@@ -115,9 +121,5 @@ private:
 private:
 	/* per frame member */
 	uint32 _currentFrameIndex = 0;
-	
-	/* descriptor binding offset */
-	uint32 _bindingOffset = 0;
-	std::unordered_map<VkDescriptorType, uint32> _descriptorTypeMap;
 };
 
