@@ -89,7 +89,7 @@ namespace vkinfo
 		swapchainCreateInfo.imageExtent = extent;
 		swapchainCreateInfo.imageArrayLayers = 1; // always 1 except for stereoscopic 3D application
 		swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // render directly to images
-		if (!isExclusive) 
+		if (!isExclusive)
 		{
 			// If graphics family and present family are separate queue, swapchain image shared by multiple queue families
 			swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -107,7 +107,7 @@ namespace vkinfo
 		swapchainCreateInfo.presentMode = presentMode;
 		swapchainCreateInfo.clipped = VK_TRUE; // ignore the pixels that are obscured by other windows
 		swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
-	
+
 		return swapchainCreateInfo;
 	}
 
@@ -165,7 +165,7 @@ namespace vkinfo
 		return inputAssembly;
 	}
 
-	VkPipelineViewportStateCreateInfo GetPipelineViewportStateCreateInfo() 
+	VkPipelineViewportStateCreateInfo GetPipelineViewportStateCreateInfo()
 	{
 		VkPipelineViewportStateCreateInfo viewportState{};	// viewport and scissor rectangle
 		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -174,7 +174,7 @@ namespace vkinfo
 
 		return viewportState;
 	}
-	
+
 	VkPipelineDynamicStateCreateInfo GetPipelineDynamicStateCreateInfo(const std::vector<VkDynamicState>& dynamicStates)
 	{
 		VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -345,7 +345,8 @@ namespace vkinfo
 		VkImage image,
 		VkFormat format,
 		VkImageAspectFlags aspectFlags,
-		uint32 mipLevels
+		uint32 mipLevels,
+		uint32 layerCount
 	)
 	{
 		VkImageViewCreateInfo imageViewCreateInfo{};
@@ -356,11 +357,40 @@ namespace vkinfo
 		imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
 		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;			// first mipmap level accessible to the view
-		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		imageViewCreateInfo.subresourceRange.layerCount = layerCount;
 		imageViewCreateInfo.subresourceRange.levelCount = mipLevels;	// number of mipmap levels accessible to the view
 		imageViewCreateInfo.pNext = nullptr;
 
 		return imageViewCreateInfo;
+	}
+
+	VkSamplerCreateInfo GetDefaultSamplerCreateInfo(float maxAnistropy)
+	{
+		/**
+		* Sampler creation info specification
+		* addressMode : how to address region when texture going beyond the image dimensions
+		*/
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;  // repeat wrapping mode
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;  // repeat wrapping mode                
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;  // repeat wrapping mode
+		samplerInfo.anisotropyEnable = VK_TRUE;                     // enable anisotropic filtering
+		samplerInfo.maxAnisotropy = maxAnistropy;                   // max level of anisotropy
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // border color
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;             // normalized u,v coordinates
+		samplerInfo.compareEnable = VK_FALSE;                       // compare enable
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;               // compare operation
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;     // mipmap mode
+		samplerInfo.mipLodBias = 0.0f;                              // mipmap level of detail bias
+		samplerInfo.minLod = 0.0f;                                  // minimum level of detail
+		samplerInfo.maxLod = 0.0f;                                  // maximum level of detail
+
+		// specify filtering mode
+		samplerInfo.magFilter = VK_FILTER_LINEAR;                   // linear filtering in magnification
+		samplerInfo.minFilter = VK_FILTER_LINEAR;                   // linear filtering in minification
+
+		return samplerInfo;
 	}
 
 	VkBufferCreateInfo GetBufferCreateInfo(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode)

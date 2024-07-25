@@ -103,8 +103,12 @@ namespace vkinfo
 	                                         VkImage image, 
 	                                         VkFormat format, 
 	                                         VkImageAspectFlags aspectFlags, 
-	                                         uint32 mipLevels
+	                                         uint32 mipLevels = 0U,
+											 uint32 layerCount = 1U
 	                                       );
+	/* create sampler info */
+	VkSamplerCreateInfo                    GetDefaultSamplerCreateInfo(float maxAnistropy);
+
 	/* create buffer info */
 	VkBufferCreateInfo                     GetBufferCreateInfo(
 	                                         VkDeviceSize size, 
