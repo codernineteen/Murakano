@@ -53,11 +53,13 @@ private:
 	void CreateVertexBuffer(std::vector<Vertex> vertices);
 	void CreateIndexBuffer(std::vector<uint32> indices);
 	void CreateUniformBuffers();
-	void CreateRenderPass();
-	void CreateImageSampler();
+	void CreateOffscreenRenderPass();
 	void CreateBaseDescriptorSet();
 	void CreateSamplerDescriptorSet();
 	void CreatePushConstantRaster();
+
+	/* destroyer */
+	void DestroyOffscreenRenderPassResources();
 
 	/* update */
 	void UpdateUniformBuffer();
@@ -83,8 +85,22 @@ private:
 	MKSwapchain	        _mkSwapchain;
 	MKGraphicsPipeline	_mkGraphicsPipeline;
 
+	/* device properties */
+	VkPhysicalDeviceProperties _vkDeviceProperties;
+
 	/* source primitives */
 	OBJModel _objModel;
+
+	/* offscreen render pass */
+	VkRenderPass     _vkOffscreenRednerPass{ VK_NULL_HANDLE };
+	VkFormat         _vkOffscreenColorFormat{ VK_FORMAT_R32G32B32A32_SFLOAT };
+	VkFormat         _vkOffscreenDepthFormat{ VK_FORMAT_X8_D24_UNORM_PACK32 };
+	VkImageAllocated _vkOffscreenColorImage;
+	VkImageView      _vkOffscreenColorImageView;
+	VkSampler        _vkOffscreenColorSampler;
+	VkImageAllocated _vkOffscreenDepthImage;
+	VkImageView      _vkOffscreenDepthImageView;
+	VkFramebuffer    _vkOffscreenFramebuffer{ VK_NULL_HANDLE };
 
 	/* render pass */
 	VkRenderPass _vkRenderPass;

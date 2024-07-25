@@ -12,6 +12,10 @@ Renderer::Renderer()
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
 	GAllocator->InitVMAAllocator(_mkInstance.GetVkInstance(), _mkDevice.GetPhysicalDevice(), _mkDevice.GetDevice());
+	
+	// get device physical properties for later use
+	vkGetPhysicalDeviceProperties(_mkDevice.GetPhysicalDevice(), &_vkDeviceProperties);
+
 }
 
 Renderer::~Renderer()
@@ -36,6 +40,9 @@ Renderer::~Renderer()
 	// destroy render pass
 	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
 
+	// destroy offscreen render pass resources
+	DestroyOffscreenRenderPassResources();
+
 	// destroy allocator instance
 	delete GAllocator;
 #ifndef NDEBUG
@@ -43,20 +50,24 @@ Renderer::~Renderer()
 #endif
 }
 
+/**
+* ----------------- Initialization -----------------
+*/
+
 void Renderer::Setup()
 {
 	// query required color & depth attachment formats
 	VkFormat swapchainImageFormat = _mkSwapchain.GetSwapchainImageFormat(); // color attachment format
-	VkFormat depthFormat = util::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
+	VkFormat depthFormat = mk::vk::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
 	
 	// create render pass
-	mkvk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
+	mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
 
 	// request creation of frame buffers
 	_mkSwapchain.CreateFrameBuffers(_vkRenderPass);
 
 	// create linear filtering mode image sampler
-	CreateImageSampler();
+	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkLinearSampler, _vkDeviceProperties);
 
 	// prepare model resources
 	
@@ -104,6 +115,9 @@ void Renderer::Setup()
 	
 	// update sampler descriptor set
 	WriteSamplerDescriptor();
+
+	// create offscreen render pass
+	CreateOffscreenRenderPass();
 
 	// build graphics pipeline
 	std::vector<VkDescriptorSetLayout> layouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
@@ -193,39 +207,6 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 	GAllocator->DestroyBuffer(stagingBuffer);
 }
 
-void Renderer::CreateImageSampler()
-{
-	// get device physical properties for limit of max anisotropy 
-	VkPhysicalDeviceProperties properties;
-	vkGetPhysicalDeviceProperties(_mkDevice.GetPhysicalDevice(), &properties);
-
-	/**
-	* Sampler creation info specification
-	* addressMode : how to address region when texture going beyond the image dimensions
-	*/
-	VkSamplerCreateInfo samplerInfo = {};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode                
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;           // repeat wrapping mode
-	samplerInfo.anisotropyEnable = VK_TRUE;                              // enable anisotropic filtering
-	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;  // max level of anisotropy
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;          // border color
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;                      // normalized u,v coordinates
-	samplerInfo.compareEnable = VK_FALSE;                                // compare enable
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;                        // compare operation
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;              // mipmap mode
-	samplerInfo.mipLodBias = 0.0f;                                       // mipmap level of detail bias
-	samplerInfo.minLod = 0.0f;                                           // minimum level of detail
-	samplerInfo.maxLod = 0.0f;                                           // maximum level of detail
-
-	// specify filtering mode
-	samplerInfo.magFilter = VK_FILTER_LINEAR;                            // linear filtering in magnification
-	samplerInfo.minFilter = VK_FILTER_LINEAR;                            // linear filtering in minification
-
-	MK_CHECK(vkCreateSampler(_mkDevice.GetDevice(), &samplerInfo, nullptr, &_vkLinearSampler));
-}
-
 void Renderer::CreateBaseDescriptorSet()
 {
 	// single uniform buffer descriptor
@@ -249,6 +230,136 @@ void Renderer::CreateBaseDescriptorSet()
 
 	// allocate base descriptor set
 	GDescriptorManager->AllocateDescriptorSet(_vkBaseDescriptorSets, _vkBaseDescriptorSetLayout);
+}
+
+void Renderer::CreateOffscreenRenderPass()
+{
+	if (_vkOffscreenColorImage.image != VK_NULL_HANDLE)
+	{
+		GAllocator->DestroyImage(_vkOffscreenColorImage);
+		vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenColorImageView, nullptr);
+		vkDestroySampler(_mkDevice.GetDevice(), _vkOffscreenColorSampler, nullptr);
+	}
+
+	if (_vkOffscreenDepthImage.image != VK_NULL_HANDLE)
+	{
+		GAllocator->DestroyImage(_vkOffscreenDepthImage);
+		vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenDepthImageView, nullptr);
+	}
+
+	/**
+	* specify color image usage
+	* - transfer source : for copying image to other image
+	* - transfer destination : for copying image from other image
+	* - color attachment : framebuffer resolver
+	* - sampled image : make image view suitable for texture sampling
+	* - storage image : make image view suitable for storage image
+	*/
+	auto transferUsages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	auto colorImageUsages = transferUsages | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	auto depthImageUsages = transferUsages | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+	// create color image
+	GAllocator->CreateImage(
+		&_vkOffscreenColorImage,
+		WIDTH, HEIGHT,
+		_vkOffscreenColorFormat, 
+		VK_IMAGE_TILING_OPTIMAL, 
+		colorImageUsages, // for storage image, sampler and framebuffer resolver
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	);
+	
+	// create color image view
+	mk::vk::CreateImageView(
+		_mkDevice.GetDevice(),
+		_vkOffscreenColorImage.image,
+		_vkOffscreenColorImageView,
+		_vkOffscreenColorFormat,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_REMAINING_MIP_LEVELS
+	);
+	
+	// create offscreen color sampler
+	VkSamplerCreateInfo samplerInfo{};
+	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
+
+	// create depth image
+	GAllocator->CreateImage(
+		&_vkOffscreenDepthImage,
+		WIDTH, HEIGHT,
+		_vkOffscreenDepthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		depthImageUsages,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	);
+
+	// create color image view
+	mk::vk::CreateImageView(
+		_mkDevice.GetDevice(),
+		_vkOffscreenDepthImage.image,
+		_vkOffscreenDepthImageView,
+		_vkOffscreenDepthFormat,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		1, // mip levels
+		1  // layer count
+	);
+
+	// record transition image layout commands
+	
+	VkCommandPool cmdPool;
+	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	VkCommandBuffer cmdBuffer;
+	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
+	mk::vk::TransitionImageLayout(
+		cmdBuffer,
+		_vkOffscreenColorImage.image,
+		_vkOffscreenColorFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		{ VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+	);
+
+	mk::vk::TransitionImageLayout(
+		cmdBuffer,
+		_vkOffscreenDepthImage.image,
+		_vkOffscreenDepthFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		{ VK_IMAGE_ASPECT_DEPTH_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+	);
+
+	GCommandService->EndSingleTimeCommands(cmdBuffer);
+
+	// create offscreen render pass
+	if (_vkOffscreenRednerPass == VK_NULL_HANDLE)
+	{
+		_vkOffscreenRednerPass = mk::vk::CreateRenderPass(
+			_mkDevice.GetDevice(),
+			{ _vkOffscreenColorFormat },
+			_vkOffscreenDepthFormat,
+			1,                       // subpass count
+			true,                    // use clear color
+			true,                    // use clear depth
+			VK_IMAGE_LAYOUT_GENERAL, // initial layout
+			VK_IMAGE_LAYOUT_GENERAL  // final layout
+		);
+	}
+
+	// create offscreen frame buffer
+	std::array<VkImageView, 2> attachments = { _vkOffscreenColorImageView, _vkOffscreenDepthImageView };
+	
+	// destroy framebuffer
+	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
+
+	VkExtent2D extent = { WIDTH, HEIGHT };
+	VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_vkOffscreenRednerPass, attachments, extent);
+	
+	// create framebuffer
+	MK_CHECK(vkCreateFramebuffer(_mkDevice.GetDevice(), &framebufferInfo, nullptr, &_vkOffscreenFramebuffer));
 }
 
 void Renderer::CreateSamplerDescriptorSet()
@@ -306,6 +417,33 @@ void Renderer::CreatePushConstantRaster()
 	pushConstantRange.size = sizeof(VkPushConstantRaster);
 
 	_vkPushConstantRanges.push_back(pushConstantRange);
+}
+
+/**
+* ----------------- Destroy -----------------
+*/
+void Renderer::DestroyOffscreenRenderPassResources()
+{
+	// destroy offscreen render pass
+	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkOffscreenRednerPass, nullptr);
+
+	// destroy offscreen color image
+	GAllocator->DestroyImage(_vkOffscreenColorImage);
+
+	// destroy offscreen color image view
+	vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenColorImageView, nullptr);
+
+	// destroy offscreen color sampler
+	vkDestroySampler(_mkDevice.GetDevice(), _vkOffscreenColorSampler, nullptr);
+
+	// destroy offscreen depth image
+	GAllocator->DestroyImage(_vkOffscreenDepthImage);
+
+	// destroy offscreen depth image view
+	vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenDepthImageView, nullptr);
+
+	// destroy offscreen framebuffer
+	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
 }
 
 void Renderer::UpdateUniformBuffer()
