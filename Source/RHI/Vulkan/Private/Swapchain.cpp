@@ -125,7 +125,7 @@ void MKSwapchain::CreateSwapchainImageViews()
 	_vkSwapchainImageViews.resize(_vkSwapchainImages.size());
 	for (size_t i = 0; i < _vkSwapchainImages.size(); i++)
 	{
-		util::CreateImageView(
+		mk::vk::CreateImageView(
 			_mkDeviceRef.GetDevice(), 
 			_vkSwapchainImages[i],
 			_vkSwapchainImageViews[i],
@@ -139,10 +139,10 @@ void MKSwapchain::CreateSwapchainImageViews()
 void MKSwapchain::CreateDepthResources()
 {
 	// find depth format first
-	VkFormat depthFormat = util::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
+	VkFormat depthFormat = mk::vk::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
 
 	// create depth image
-	util::CreateImage(
+	mk::vk::CreateImage(
 		_mkDeviceRef.GetVmaAllocator(),
 		_vkDepthImage,
 		_vkSwapchainExtent.width,
@@ -155,7 +155,7 @@ void MKSwapchain::CreateDepthResources()
 	);
 
 	// create depth image view
-	util::CreateImageView(
+	mk::vk::CreateImageView(
 		_mkDeviceRef.GetDevice(),
 		_vkDepthImage.image,
 		_vkDepthImageView,

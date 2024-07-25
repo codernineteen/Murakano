@@ -39,16 +39,16 @@ void MKGraphicsPipeline::BuildPipeline(
 {
 #ifdef USE_HLSL
 	// HLSL shader codes
-	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertex.spv");
-	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragment.spv");
+	auto vertShaderCode = mk::file::ReadFile("../../../shaders/output/spir-v/vertex.spv");
+	auto fragShaderCode = mk::file::ReadFile("../../../shaders/output/spir-v/fragment.spv");
 #else
 	// GLSL shader codes
-	auto vertShaderCode = util::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
-	auto fragShaderCode = util::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
+	auto vertShaderCode = mk::file::ReadFile("../../../shaders/output/spir-v/vertexShader.spv");
+	auto fragShaderCode = mk::file::ReadFile("../../../shaders/output/spir-v/fragmentShader.spv");
 #endif
 
-	VkShaderModule vertShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), vertShaderCode); // create shader module   
-	VkShaderModule fragShaderModule = util::CreateShaderModule(_mkDeviceRef.GetDevice(), fragShaderCode); // create shader module
+	VkShaderModule vertShaderModule = mk::vk::CreateShaderModule(_mkDeviceRef.GetDevice(), vertShaderCode); // create shader module   
+	VkShaderModule fragShaderModule = mk::vk::CreateShaderModule(_mkDeviceRef.GetDevice(), fragShaderCode); // create shader module
 
 	std::string shaderEntryPoint = "main";
 	// vertex shader stage specification
