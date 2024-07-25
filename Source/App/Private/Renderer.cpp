@@ -37,6 +37,9 @@ Renderer::~Renderer()
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkBaseDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkSamplerDescriptorSetLayout, nullptr);
 
+	// destroy frame buffers
+	DestroyFrameBuffers();
+
 	// destroy render pass
 	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
 
@@ -64,7 +67,7 @@ void Renderer::Setup()
 	mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
 
 	// request creation of frame buffers
-	_mkSwapchain.CreateFrameBuffers(_vkRenderPass);
+	CreateFrameBuffers();
 
 	// create linear filtering mode image sampler
 	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkLinearSampler, _vkDeviceProperties);
@@ -117,7 +120,7 @@ void Renderer::Setup()
 	WriteSamplerDescriptor();
 
 	// create offscreen render pass
-	CreateOffscreenRenderPass();
+	//CreateOffscreenRenderPass();
 
 	// build graphics pipeline
 	std::vector<VkDescriptorSetLayout> layouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
@@ -205,6 +208,24 @@ void Renderer::CreateIndexBuffer(std::vector<uint32> indices)
 
 	// destroy staging buffer
 	GAllocator->DestroyBuffer(stagingBuffer);
+}
+
+void Renderer::CreateFrameBuffers()
+{
+	auto imageViewCount = _mkSwapchain.GetImageViewCount();
+	_vkFramebuffers.resize(imageViewCount);
+
+	// create frame buffer as much as the number of image views
+	for (size_t it = 0; it < imageViewCount; it++) {
+		
+		std::array<VkImageView, 2> attachments = {
+			_mkSwapchain.GetSwapchainImageView(it), // only color image views are different for each frame buffer
+			_mkSwapchain.GetDepthImageView(),
+		};
+
+		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_vkRenderPass, attachments, _mkSwapchain.GetSwapchainExtent());
+		MK_CHECK(vkCreateFramebuffer(_mkDevice.GetDevice(), &framebufferInfo, nullptr, &_vkFramebuffers[it]));
+	}
 }
 
 void Renderer::CreateBaseDescriptorSet()
@@ -309,7 +330,6 @@ void Renderer::CreateOffscreenRenderPass()
 	);
 
 	// record transition image layout commands
-	
 	VkCommandPool cmdPool;
 	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 	VkCommandBuffer cmdBuffer;
@@ -446,6 +466,16 @@ void Renderer::DestroyOffscreenRenderPassResources()
 	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
 }
 
+void Renderer::DestroyFrameBuffers()
+{
+	for (auto framebuffer : _vkFramebuffers)
+		vkDestroyFramebuffer(_mkDevice.GetDevice(), framebuffer, nullptr);
+}
+
+/**
+* ----------------- Update -----------------
+*/
+
 void Renderer::UpdateUniformBuffer()
 {
 	UniformBufferObject ubo{};
@@ -538,6 +568,31 @@ void Renderer::Update()
 	UpdateUniformBuffer();
 }
 
+void Renderer::OnResizeWindow()
+{
+	// handling window minimization
+	int width = 0, height = 0;
+	glfwGetFramebufferSize(_mkWindow.GetWindow(), &width, &height);
+	while (width == 0 || height == 0)
+	{
+		glfwGetFramebufferSize(_mkWindow.GetWindow(), &width, &height);
+		glfwWaitEvents();
+	}
+
+	// wait until the device is idle
+	vkDeviceWaitIdle(_mkDevice.GetDevice()); 
+
+	// destroy resources first
+	_mkSwapchain.DestroySwapchainResources();
+	DestroyFrameBuffers();
+
+	// recreate swapchain
+	_mkSwapchain.CreateSwapchain();
+	_mkSwapchain.CreateSwapchainImageViews();
+	_mkSwapchain.CreateDepthResources();
+	CreateFrameBuffers();
+}
+
 void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz)
 {
 	// a command to copy buffer to buffer.
@@ -573,7 +628,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.renderPass = _vkRenderPass;
-	renderPassBeginInfo.framebuffer = _mkSwapchain.GetFramebuffer(swapchainImageIndex);
+	renderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 	renderPassBeginInfo.renderArea.extent = swapchainExtent;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32>(clearValues.size());
@@ -672,7 +727,7 @@ void Renderer::Rasterize()
 	);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) // 2.1 error by out of date -> recreate swapchain
 	{
-		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
+		OnResizeWindow();
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // 2. error by another reason
@@ -719,8 +774,8 @@ void Renderer::Rasterize()
 	result = vkQueuePresentKHR(_mkDevice.GetPresentQueue(), &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) // 7.1 error by out of date or suboptimal -> recreate swapchain
 	{
-		_mkSwapchain.RequestFramebufferResize(false); // framebuffer resize is not required
-		_mkSwapchain.RecreateSwapchain(_vkRenderPass);
+		_mkDevice.SetFrameBufferResized(false);
+		OnResizeWindow();
 	}
 	else if (result != VK_SUCCESS)
 		MK_THROW("failed to present swap chain image!");

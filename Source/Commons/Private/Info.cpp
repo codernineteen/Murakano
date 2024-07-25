@@ -278,7 +278,6 @@ namespace vkinfo
 	}
 
 	VkGraphicsPipelineCreateInfo GetGraphicsPipelineCreateInfo(
-		VkPipelineLayout layout,
 		VkPipelineShaderStageCreateInfo* shaderStages,
 		VkPipelineVertexInputStateCreateInfo* vertexInputInfo,
 		VkPipelineInputAssemblyStateCreateInfo* inputAssembly,

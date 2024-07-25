@@ -102,7 +102,6 @@ void MKGraphicsPipeline::BuildPipeline(
 
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = vkinfo::GetGraphicsPipelineCreateInfo(
-		_vkPipelineLayout,
 		shaderStages,
 		&vertexInputInfo,
 		&inputAssembly,

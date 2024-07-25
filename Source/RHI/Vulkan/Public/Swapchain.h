@@ -14,22 +14,19 @@ public:
 
 public:
 	/* getters */
-	VkSwapchainKHR GetSwapchain()			            const { return _vkSwapchain; }
-	VkFormat       GetSwapchainImageFormat()            const { return _vkSwapchainImageFormat; }
-	VkExtent2D     GetSwapchainExtent()	                const { return _vkSwapchainExtent; }
-	VkImage        GetSwapchainImage(uint32 imageIndex) const { return _vkSwapchainImages[imageIndex]; }
-	VkFramebuffer  GetFramebuffer(uint32 imageIndex)    const { return _vkSwapchainFramebuffers[imageIndex]; }
+	VkSwapchainKHR GetSwapchain()			                const { return _vkSwapchain; }
+	VkFormat       GetSwapchainImageFormat()                const { return _vkSwapchainImageFormat; }
+	VkExtent2D     GetSwapchainExtent()	                    const { return _vkSwapchainExtent; }
+	VkImage        GetSwapchainImage(uint32 imageIndex)     const { return _vkSwapchainImages[imageIndex]; }
+	VkImageView    GetSwapchainImageView(uint32 imageIndex) const { return _vkSwapchainImageViews[imageIndex]; }
+	VkImageView    GetDepthImageView()                      const { return _vkDepthImageView; }
+	size_t         GetImageViewCount()                      const { return _vkSwapchainImageViews.size(); }
 
 	/* setters */
-	void RequestFramebufferResize(bool isResized) { _mkDeviceRef.SetFrameBufferResized(isResized); }
 	void DestroySwapchainResources();
 	void DestroyDepthResources();
 
 	/* api */
-	void CreateFrameBuffers(VkRenderPass renderPass);
-	void RecreateSwapchain(VkRenderPass renderPass);
-
-private:
 	void CreateSwapchain();
 	void CreateSwapchainImageViews();
 	void CreateDepthResources();
@@ -38,7 +35,6 @@ private:
 	VkSwapchainKHR				_vkSwapchain;
 	std::vector<VkImage>		_vkSwapchainImages;
 	std::vector<VkImageView>	_vkSwapchainImageViews;
-	std::vector<VkFramebuffer>  _vkSwapchainFramebuffers;
 	VkFormat					_vkSwapchainImageFormat;
 	VkExtent2D					_vkSwapchainExtent;
 	VkImageAllocated            _vkDepthImage;

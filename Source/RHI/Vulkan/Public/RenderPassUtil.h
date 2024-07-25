@@ -22,5 +22,15 @@ namespace mk
 			VkImageLayout         initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			VkImageLayout         finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR // use different layout when the result is stored in the image or buffer
 		);
+		VkRenderPass CreateRenderPass(
+			VkDevice              device,
+			std::vector<VkFormat> colorAttachmentFormats,
+			VkFormat              depthAttachmentFormat,
+			uint32                subpassCount,
+			bool                  clearColor,
+			bool                  clearDepthStencil,
+			VkImageLayout         initialLayout,
+			VkImageLayout         finalLayout
+		);
 	}
 }

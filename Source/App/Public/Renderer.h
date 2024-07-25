@@ -57,15 +57,18 @@ private:
 	void CreateBaseDescriptorSet();
 	void CreateSamplerDescriptorSet();
 	void CreatePushConstantRaster();
+	void CreateFrameBuffers();
 
 	/* destroyer */
 	void DestroyOffscreenRenderPassResources();
+	void DestroyFrameBuffers();
 
 	/* update */
 	void UpdateUniformBuffer();
 	void WriteBaseDescriptor();
 	void WriteSamplerDescriptor();
 	void Update();
+	void OnResizeWindow();
 
 	/* draw */
 	void RecordFrameBufferCommands(uint32 swapchainImageIndex);
@@ -100,7 +103,11 @@ private:
 	VkSampler        _vkOffscreenColorSampler;
 	VkImageAllocated _vkOffscreenDepthImage;
 	VkImageView      _vkOffscreenDepthImageView;
-	VkFramebuffer    _vkOffscreenFramebuffer{ VK_NULL_HANDLE };
+
+	/* frame buffers */
+	VkFramebuffer    _vkOffscreenFramebuffer;
+	std::vector<VkFramebuffer>    _vkFramebuffers;
+	
 
 	/* render pass */
 	VkRenderPass _vkRenderPass;

@@ -76,7 +76,6 @@ namespace vkinfo
 	VkPipelineLayoutCreateInfo             GetPipelineLayoutCreateInfo(VkDescriptorSetLayout* descriptorSetLayoutPtr, uint32 layoutCount, VkPushConstantRange* pushConstantRangesPtr, uint32 rangeCount);
 	/* graphics pipeline create info */
 	VkGraphicsPipelineCreateInfo           GetGraphicsPipelineCreateInfo(
-	                                      	 VkPipelineLayout layout,  
 	                                      	 VkPipelineShaderStageCreateInfo* shaderStages, 
 	                                      	 VkPipelineVertexInputStateCreateInfo* vertexInputInfo, 
 	                                      	 VkPipelineInputAssemblyStateCreateInfo* inputAssembly, 
