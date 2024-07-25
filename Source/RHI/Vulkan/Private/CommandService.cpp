@@ -70,10 +70,6 @@ void MKCommandService::ExecuteCommands(std::queue<VoidLambda>& commandQueue)
 	EndSingleTimeCommands(commandBuffer);
 }
 
-/**
-* ---------------- Private -------------------- 
-*/
-
 void MKCommandService::CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag)
 {
 	// find queue family indices
