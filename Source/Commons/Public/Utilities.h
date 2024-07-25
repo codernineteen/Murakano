@@ -6,83 +6,105 @@
 #include "Info.h"
 
 // helper function
-namespace util 
+namespace mk
 {
-	/* read local file */
-	std::vector<char> ReadFile(const std::string& filename);
-	
-	/* a utility to find a suitable memory type*/
-	uint32 FindMemoryType(uint32 typeFilter, VkPhysicalDeviceMemoryProperties deviceMemProperties, VkMemoryPropertyFlags properties);
+	namespace file
+	{
+		/* read local file */
+		std::vector<char> ReadFile(const std::string& filename);
+	}
 
-	/* create a buffer */
-	VkBufferAllocated CreateBuffer(
-		const VmaAllocator& allocator,
-		VkDeviceSize size,
-		VkBufferUsageFlags bufferUsage,
-		VmaMemoryUsage memoryUsage,
-		VmaAllocationCreateFlags memoryAllocationFlags
-	);
+	namespace vk
+	{
+		/* a utility to find a suitable memory type*/
+		uint32 FindMemoryType(uint32 typeFilter, VkPhysicalDeviceMemoryProperties deviceMemProperties, VkMemoryPropertyFlags properties);
 
-	/* create an image */
-	void CreateImage(
-		const VmaAllocator& allocator,
-		VkImageAllocated& newImage,
-		uint32 width,
-		uint32 height,
-		VkFormat format,
-		VkImageTiling tiling,
-		VkImageUsageFlags usage,
-		VmaMemoryUsage memoryUsage,
-		VmaAllocationCreateFlags memoryAllocationFlags,
-		VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED
-	);
+		/* create shader module and return it */
+		VkShaderModule CreateShaderModule(const VkDevice& device, const std::vector<char>& code);
 
-	/* create single image view related to the given image parameter */
-	void CreateImageView(
-		VkDevice logicalDevice,
-		VkImage image,
-		VkImageView& imageView,
-		VkFormat imageFormat,
-		VkImageAspectFlags aspectFlags,
-		uint32 mipLevels
-	);
+		/* create an image */
+		void CreateImage(
+			const VmaAllocator& allocator,
+			VkImageAllocated& newImage,
+			uint32 width,
+			uint32 height,
+			VkFormat format,
+			VkImageTiling tiling,
+			VkImageUsageFlags usage,
+			VmaMemoryUsage memoryUsage,
+			VmaAllocationCreateFlags memoryAllocationFlags,
+			VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED
+		);
 
-	/* create shader module and return it */
-	VkShaderModule CreateShaderModule(const VkDevice& device, const std::vector<char>& code);
+		/* create single image view related to the given image parameter */
+		void CreateImageView(
+			VkDevice logicalDevice,
+			VkImage image,
+			VkImageView& imageView,
+			VkFormat imageFormat,
+			VkImageAspectFlags aspectFlags,
+			uint32 mipLevels = 0U,
+			uint32 layerCount = 1U
+		);
 
-	/* image resource destroyer */
-	void DestroyImageResource(const VmaAllocator& allocator, const VkDevice& device, VkImageAllocated& imageAllocated, VkImageView& imageView);
+		/* create a sampler */
+		void CreateSampler(
+			VkDevice   logicalDevice,
+			VkSampler* sampler,
+			VkPhysicalDeviceProperties deviceProperties
+		);
 
-	/* find supported device format */
-	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		/* image resource destroyer */
+		void DestroyImageResource(const VmaAllocator& allocator, const VkDevice& device, VkImageAllocated& imageAllocated, VkImageView& imageView);
 
-	/* find depth format */
-	VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
+		/* find supported device format */
+		VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	/* find depth stencil format */
-	VkFormat FindDepthStencilFormat(VkPhysicalDevice physicalDevice);
+		/* find depth format */
+		VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
 
-	/* copy resources */
-	void CopyBufferToBuffer(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	void CopyImageToImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height);
-	void CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
+		/* find depth stencil format */
+		VkFormat FindDepthStencilFormat(VkPhysicalDevice physicalDevice);
 
-	/* transition image layout */
-	VkPipelineStageFlags GetPipelineStageFlags(VkImageLayout layout);
-	VkAccessFlags GetAccessFlags(VkImageLayout layout);
-	void TransitionImageLayout(
-		VkCommandBuffer commandBuffer,
-		VkImage image, VkFormat format,
-		VkImageLayout oldLayout, VkImageLayout newLayout,
-		VkImageSubresourceRange subresourceRange
-	);
-	void TransitionImageLayoutVerbose(
-		VkCommandBuffer commandBuffer,
-		VkImage image, VkFormat format,
-		VkImageLayout oldLayout, VkImageLayout newLayout,
-		VkImageSubresourceRange subresourceRange,
-		VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
-		VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask
-	);
+		/* attain suitable stage flags for given layout */
+		VkPipelineStageFlags GetPipelineStageFlags(VkImageLayout layout);
+
+		/* attain suitable access flags for given layout */
+		VkAccessFlags GetAccessFlags(VkImageLayout layout);
+
+		/* transition image layout */
+		void TransitionImageLayout(
+			VkCommandBuffer commandBuffer,
+			VkImage image, VkFormat format,
+			VkImageLayout oldLayout, VkImageLayout newLayout,
+			VkImageSubresourceRange subresourceRange
+		);
+		void TransitionImageLayoutVerbose(
+			VkCommandBuffer commandBuffer,
+			VkImage image, VkFormat format,
+			VkImageLayout oldLayout, VkImageLayout newLayout,
+			VkImageSubresourceRange subresourceRange,
+			VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage,
+			VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask
+		);
+
+		/* copy */
+		void CopyImageToImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height);
+		
+
+
+		/* create a buffer */
+		VkBufferAllocated CreateBuffer(
+			const VmaAllocator& allocator,
+			VkDeviceSize size,
+			VkBufferUsageFlags bufferUsage,
+			VmaMemoryUsage memoryUsage,
+			VmaAllocationCreateFlags memoryAllocationFlags
+		);
+
+		/* copy resources */
+		void CopyBufferToBuffer(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		void CopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		void CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dest, VkDeviceSize size);
+	}
 }
