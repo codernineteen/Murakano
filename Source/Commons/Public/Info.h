@@ -100,6 +100,7 @@ namespace vkinfo
 	/* create image view info */
 	VkImageViewCreateInfo                  GetImageViewCreateInfo(
 	                                         VkImage image, 
+											 VkImageViewType viewType,
 	                                         VkFormat format, 
 	                                         VkImageAspectFlags aspectFlags, 
 	                                         uint32 mipLevels = 0U,

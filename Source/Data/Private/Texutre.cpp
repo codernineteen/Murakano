@@ -113,6 +113,7 @@ void Texture::CreateTextureImageView(MKDevice& device)
         device.GetDevice(),
         image.image,
         imageView,
+        VK_IMAGE_VIEW_TYPE_2D_ARRAY,
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_ASPECT_COLOR_BIT,
         1

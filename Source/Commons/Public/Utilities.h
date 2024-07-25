@@ -41,6 +41,7 @@ namespace mk
 			VkDevice logicalDevice,
 			VkImage image,
 			VkImageView& imageView,
+			VkImageViewType viewType,
 			VkFormat imageFormat,
 			VkImageAspectFlags aspectFlags,
 			uint32 mipLevels = 0U,

@@ -99,6 +99,7 @@ void MKSwapchain::CreateSwapchainImageViews()
 			_mkDeviceRef.GetDevice(), 
 			_vkSwapchainImages[i],
 			_vkSwapchainImageViews[i],
+			VK_IMAGE_VIEW_TYPE_2D,
 			_vkSwapchainImageFormat, 
 			VK_IMAGE_ASPECT_COLOR_BIT, 
 			1
@@ -129,6 +130,7 @@ void MKSwapchain::CreateDepthResources()
 		_mkDeviceRef.GetDevice(),
 		_vkDepthImage.image,
 		_vkDepthImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
 		depthFormat,
 		VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
 		1

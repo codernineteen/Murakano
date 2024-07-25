@@ -44,7 +44,7 @@ Renderer::~Renderer()
 	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
 
 	// destroy offscreen render pass resources
-	DestroyOffscreenRenderPassResources();
+	// DestroyOffscreenRenderPassResources();
 
 	// destroy allocator instance
 	delete GAllocator;
@@ -297,6 +297,7 @@ void Renderer::CreateOffscreenRenderPass()
 		_mkDevice.GetDevice(),
 		_vkOffscreenColorImage.image,
 		_vkOffscreenColorImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
 		_vkOffscreenColorFormat,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_REMAINING_MIP_LEVELS
@@ -323,6 +324,7 @@ void Renderer::CreateOffscreenRenderPass()
 		_mkDevice.GetDevice(),
 		_vkOffscreenDepthImage.image,
 		_vkOffscreenDepthImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
 		_vkOffscreenDepthFormat,
 		VK_IMAGE_ASPECT_DEPTH_BIT,
 		1, // mip levels

@@ -84,13 +84,14 @@ namespace mk
 			VkDevice logicalDevice,
 			VkImage image,
 			VkImageView& imageView,
+			VkImageViewType viewType,
 			VkFormat imageFormat,
 			VkImageAspectFlags aspectFlags,
 			uint32 mipLevels,
 			uint32 layerCount
 		)
 		{
-			VkImageViewCreateInfo imageViewCreateInfo = vkinfo::GetImageViewCreateInfo(image, imageFormat, aspectFlags, mipLevels, layerCount);
+			VkImageViewCreateInfo imageViewCreateInfo = vkinfo::GetImageViewCreateInfo(image, viewType, imageFormat, aspectFlags, mipLevels, layerCount);
 			MK_CHECK(vkCreateImageView(logicalDevice, &imageViewCreateInfo, nullptr, &imageView));
 		}
 

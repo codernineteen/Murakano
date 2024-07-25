@@ -342,6 +342,7 @@ namespace vkinfo
 
 	VkImageViewCreateInfo GetImageViewCreateInfo(
 		VkImage image,
+		VkImageViewType viewType,
 		VkFormat format,
 		VkImageAspectFlags aspectFlags,
 		uint32 mipLevels,
@@ -351,7 +352,7 @@ namespace vkinfo
 		VkImageViewCreateInfo imageViewCreateInfo{};
 		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		imageViewCreateInfo.image = image;
-		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;			// 2D image in most cases.
+		imageViewCreateInfo.viewType = viewType;		             	// 2D image in most cases.
 		imageViewCreateInfo.format = format;						    // follw the format of the given swapchain image
 		imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;		// first array layer accessible to the view
