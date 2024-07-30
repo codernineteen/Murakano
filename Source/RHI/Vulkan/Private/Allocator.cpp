@@ -34,7 +34,7 @@ void Allocator::CreateBuffer(
 )
 {
 	// specify buffer creation info
-	VkBufferCreateInfo bufferInfo = vkinfo::GetBufferCreateInfo(size, bufferUsage, VK_SHARING_MODE_EXCLUSIVE);
+	VkBufferCreateInfo bufferInfo = mk::vkinfo::GetBufferCreateInfo(size, bufferUsage, VK_SHARING_MODE_EXCLUSIVE);
 
 	VmaAllocationCreateInfo bufferAllocInfo{};
 	bufferAllocInfo.usage = memoryUsage;
@@ -59,7 +59,7 @@ void Allocator::CreateImage(
 )
 {
 	// specify image creation info
-	VkImageCreateInfo imageInfo = vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
+	VkImageCreateInfo imageInfo = mk::vkinfo::GetImageCreateInfo(width, height, format, tiling, usage, layout);
 
 	VmaAllocationCreateInfo imageAllocInfo{};
 	imageAllocInfo.usage = memoryUsage;

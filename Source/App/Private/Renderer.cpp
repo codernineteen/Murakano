@@ -6,7 +6,7 @@ Renderer::Renderer()
 	_mkInstance(), 
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
-	_mkGraphicsPipeline(_mkDevice, _mkSwapchain),
+	_mkGraphicsPipeline(_mkDevice),
 	_objModel(_mkDevice),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
@@ -123,8 +123,11 @@ void Renderer::Setup()
 	//CreateOffscreenRenderPass();
 
 	// build graphics pipeline
-	std::vector<VkDescriptorSetLayout> layouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
-	_mkGraphicsPipeline.BuildPipeline(layouts, _vkPushConstantRanges, _vkRenderPass);
+	std::vector<VkDescriptorSetLayout> descriptorLayouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
+	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
+	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
+	_mkGraphicsPipeline.CreateDefaultPipelineLayout(descriptorLayouts, _vkPushConstantRanges); // gather create infos
+	_mkGraphicsPipeline.BuildPipeline(_vkRenderPass);
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -223,7 +226,7 @@ void Renderer::CreateFrameBuffers()
 			_mkSwapchain.GetDepthImageView(),
 		};
 
-		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_vkRenderPass, attachments, _mkSwapchain.GetSwapchainExtent());
+		VkFramebufferCreateInfo framebufferInfo = mk::vkinfo::GetFramebufferCreateInfo(_vkRenderPass, attachments, _mkSwapchain.GetSwapchainExtent());
 		MK_CHECK(vkCreateFramebuffer(_mkDevice.GetDevice(), &framebufferInfo, nullptr, &_vkFramebuffers[it]));
 	}
 }
@@ -378,7 +381,7 @@ void Renderer::CreateOffscreenRenderPass()
 	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
 
 	VkExtent2D extent = { WIDTH, HEIGHT };
-	VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(_vkOffscreenRednerPass, attachments, extent);
+	VkFramebufferCreateInfo framebufferInfo = mk::vkinfo::GetFramebufferCreateInfo(_vkOffscreenRednerPass, attachments, extent);
 	
 	// create framebuffer
 	MK_CHECK(vkCreateFramebuffer(_mkDevice.GetDevice(), &framebufferInfo, nullptr, &_vkOffscreenFramebuffer));
@@ -609,11 +612,11 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = 0;					// Optional
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	beginInfo.pInheritanceInfo = nullptr;	// Optional
 
 	// get rendering resource from pipeline
-	MKGraphicsPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
+	MKPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
 
 	auto commandBuffer = *(renderingResource.commandBuffer);
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
@@ -714,7 +717,7 @@ void Renderer::Rasterize()
 	Update();
 
 	// 1. wait for the previous frame to be finished
-	MKGraphicsPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
+	MKPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
 	vkWaitForFences(_mkDevice.GetDevice(), 1, &renderingResource.inFlightFence, VK_TRUE, UINT64_MAX);
 
 	// 2. get available image from swapchain
@@ -732,7 +735,7 @@ void Renderer::Rasterize()
 		OnResizeWindow();
 		return;
 	}
-	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // 2. error by another reason
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // 2.2 error by another reason
 	{
 		MK_THROW("Failed to acquire swap chain image!.")
 	}

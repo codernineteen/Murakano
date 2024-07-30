@@ -44,7 +44,7 @@ void MKValidationLayer::SetupDebugMessenger(VkInstance instance)
     return;
 #endif
 
-    VkDebugUtilsMessengerCreateInfoEXT debugMessengerInfo = vkinfo::GetDebugMessengerCreateInfo(DebugCallback);
+    VkDebugUtilsMessengerCreateInfoEXT debugMessengerInfo = mk::vkinfo::GetDebugMessengerCreateInfo(DebugCallback);
     if (CreateDebugUtilsMessengerEXT(instance, &debugMessengerInfo, nullptr) != VK_SUCCESS) 
         throw std::runtime_error("failed to set up debug messenger");
 }

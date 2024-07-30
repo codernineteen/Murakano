@@ -16,7 +16,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 
 	for (uint32 queueFamily : uniqueQueueFamilies)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo = vkinfo::GetDeviceQueueCreateInfo(queueFamily);
+		VkDeviceQueueCreateInfo queueCreateInfo = mk::vkinfo::GetDeviceQueueCreateInfo(queueFamily);
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
@@ -48,7 +48,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;*/
 
 	// specify device creation info
-	VkDeviceCreateInfo deviceCreateInfo = vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures2, deviceExtensions);
+	VkDeviceCreateInfo deviceCreateInfo = mk::vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures2, deviceExtensions);
 	MK_CHECK(vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkLogicalDevice));
 
 	// retrieve queue handles from logical device

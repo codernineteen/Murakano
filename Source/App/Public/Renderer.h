@@ -9,7 +9,7 @@
 #include "ValidationLayer.h"
 #include "Device.h"
 #include "Swapchain.h"
-#include "GraphicsPipeline.h"
+#include "Pipeline.h"
 #include "CommandService.h"
 #include "Allocator.h"
 #include "RenderPassUtil.h"
@@ -82,11 +82,11 @@ private:
 
 private:
 	/* RHI Instance */
-	MKWindow			_mkWindow;
-	MKInstance			_mkInstance;
-	MKDevice			_mkDevice;
-	MKSwapchain	        _mkSwapchain;
-	MKGraphicsPipeline	_mkGraphicsPipeline;
+	MKWindow	_mkWindow;
+	MKInstance	_mkInstance;
+	MKDevice	_mkDevice;
+	MKSwapchain	_mkSwapchain;
+	MKPipeline	_mkGraphicsPipeline;
 
 	/* device properties */
 	VkPhysicalDeviceProperties _vkDeviceProperties;

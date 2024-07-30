@@ -66,7 +66,7 @@ void MKSwapchain::CreateSwapchain()
 	uint32 queueFamilyIndices[]          = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 	bool isExclusive                     = indices.graphicsFamily.value() == indices.presentFamily.value();
 
-	VkSwapchainCreateInfoKHR swapchainCreateInfo = vkinfo::GetSwapchainCreateInfo(
+	VkSwapchainCreateInfoKHR swapchainCreateInfo = mk::vkinfo::GetSwapchainCreateInfo(
 		_mkDeviceRef.GetSurface(),
 		surfaceFormat,
 		supportDetails.capabilities,
