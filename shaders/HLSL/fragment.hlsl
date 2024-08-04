@@ -32,6 +32,11 @@ struct PSInput
     float2 TexCoord    : TEXCOORD0;
 };
 
+//struct PSOutput
+//{
+//    float4 OutColor;
+//};
+
 struct PushConstantRaster 
 {
     float4x4 ModelMat;
