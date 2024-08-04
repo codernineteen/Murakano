@@ -249,16 +249,8 @@ namespace mk
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
 			barrier.image = image;                                           // specify image to transition layout
 
-			// set proper aspect mask based on the layout
-			if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-			{
-				barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-				if (format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT) // check if format has stencil component
-					barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-			}
-			else
-				barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
+			// specify subresource range.
+			barrier.subresourceRange.aspectMask = subresourceRange.aspectMask;
 			barrier.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
 			barrier.subresourceRange.levelCount = subresourceRange.levelCount;
 			barrier.subresourceRange.baseArrayLayer = subresourceRange.baseArrayLayer;

@@ -7,6 +7,7 @@ Renderer::Renderer()
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
 	_mkGraphicsPipeline(_mkDevice),
+	_mkPostPipeline(_mkDevice),
 	_objModel(_mkDevice),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
@@ -36,6 +37,7 @@ Renderer::~Renderer()
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkBaseDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkSamplerDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkPostDescriptorSetLayout, nullptr);
 
 	// destroy frame buffers
 	DestroyFrameBuffers();
@@ -44,7 +46,7 @@ Renderer::~Renderer()
 	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
 
 	// destroy offscreen render pass resources
-	// DestroyOffscreenRenderPassResources();
+	DestroyOffscreenRenderPassResources();
 
 	// destroy allocator instance
 	delete GAllocator;
@@ -108,26 +110,43 @@ void Renderer::Setup()
 
 	// create uniform buffers
 	CreateUniformBuffers();
+	
+	// create offscreen render pass
+	CreateOffscreenRenderPass({WIDTH, HEIGHT});
 
-	// create required descriptor sets
+	// create descriptor sets for graphics pipeline
 	CreateBaseDescriptorSet();
 	CreateSamplerDescriptorSet();
+	WriteBaseDescriptor();    // update model descriptor set
+	WriteSamplerDescriptor(); // update sampler descriptor set
 
-	// update model descriptor set
-	WriteBaseDescriptor();
-	
-	// update sampler descriptor set
-	WriteSamplerDescriptor();
+	// create descriptor set for post processing pipeline
+	CreatePostDescriptorSet();
+	WritePostDescriptor(); // update post descriptor set
 
-	// create offscreen render pass
-	//CreateOffscreenRenderPass();
 
 	// build graphics pipeline
 	std::vector<VkDescriptorSetLayout> descriptorLayouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
 	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
 	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
 	_mkGraphicsPipeline.CreateDefaultPipelineLayout(descriptorLayouts, _vkPushConstantRanges); // gather create infos
-	_mkGraphicsPipeline.BuildPipeline(_vkRenderPass);
+	_mkGraphicsPipeline.BuildPipeline(_vkOffscreenRednerPass); // use offscreen render pass for graphics pipeline
+
+	// build post processing pipeline
+	std::vector<VkDescriptorSetLayout> postDescriptorLayouts = { _vkPostDescriptorSetLayout };
+	std::vector<VkPushConstantRange> postPushConstantRanges{};
+	VkPushConstantRange pcRange{};
+	pcRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	pcRange.offset = 0;
+	pcRange.size = sizeof(float);
+	postPushConstantRanges.push_back(pcRange);
+	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
+	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
+	_mkPostPipeline.CreateDefaultPipelineLayout(postDescriptorLayouts, postPushConstantRanges);
+	_mkPostPipeline.rasterizer.cullMode = VK_CULL_MODE_NONE; // disable culling
+	_mkPostPipeline.vertexInput = {};                        // no vertex input
+	_mkPostPipeline.vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	_mkPostPipeline.BuildPipeline(_vkRenderPass);            // use default render pass for post processing pipeline
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -256,7 +275,20 @@ void Renderer::CreateBaseDescriptorSet()
 	GDescriptorManager->AllocateDescriptorSet(_vkBaseDescriptorSets, _vkBaseDescriptorSetLayout);
 }
 
-void Renderer::CreateOffscreenRenderPass()
+void Renderer::CreatePostDescriptorSet()
+{
+	GDescriptorManager->AddDescriptorSetLayoutBinding(
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		0, // binding point
+		1  // count
+	);
+
+	GDescriptorManager->CreateDescriptorSetLayout(_vkPostDescriptorSetLayout);
+	GDescriptorManager->AllocateDescriptorSet(_vkPostDescriptorSets, _vkPostDescriptorSetLayout);
+}
+
+void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 {
 	if (_vkOffscreenColorImage.image != VK_NULL_HANDLE)
 	{
@@ -286,7 +318,7 @@ void Renderer::CreateOffscreenRenderPass()
 	// create color image
 	GAllocator->CreateImage(
 		&_vkOffscreenColorImage,
-		WIDTH, HEIGHT,
+		extent.width, extent.height,
 		_vkOffscreenColorFormat, 
 		VK_IMAGE_TILING_OPTIMAL, 
 		colorImageUsages, // for storage image, sampler and framebuffer resolver
@@ -307,13 +339,13 @@ void Renderer::CreateOffscreenRenderPass()
 	);
 	
 	// create offscreen color sampler
-	VkSamplerCreateInfo samplerInfo{};
 	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
 
+	
 	// create depth image
 	GAllocator->CreateImage(
 		&_vkOffscreenDepthImage,
-		WIDTH, HEIGHT,
+		extent.width, extent.height,
 		_vkOffscreenDepthFormat,
 		VK_IMAGE_TILING_OPTIMAL,
 		depthImageUsages,
@@ -339,6 +371,7 @@ void Renderer::CreateOffscreenRenderPass()
 	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 	VkCommandBuffer cmdBuffer;
 	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
+
 	mk::vk::TransitionImageLayout(
 		cmdBuffer,
 		_vkOffscreenColorImage.image,
@@ -353,11 +386,11 @@ void Renderer::CreateOffscreenRenderPass()
 		_vkOffscreenDepthImage.image,
 		_vkOffscreenDepthFormat,
 		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		{ VK_IMAGE_ASPECT_DEPTH_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
 	);
 
-	GCommandService->EndSingleTimeCommands(cmdBuffer);
+	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
 
 	// create offscreen render pass
 	if (_vkOffscreenRednerPass == VK_NULL_HANDLE)
@@ -378,9 +411,8 @@ void Renderer::CreateOffscreenRenderPass()
 	std::array<VkImageView, 2> attachments = { _vkOffscreenColorImageView, _vkOffscreenDepthImageView };
 	
 	// destroy framebuffer
-	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
-
-	VkExtent2D extent = { WIDTH, HEIGHT };
+	if(_vkOffscreenFramebuffer != VK_NULL_HANDLE)
+		vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
 	VkFramebufferCreateInfo framebufferInfo = mk::vkinfo::GetFramebufferCreateInfo(_vkOffscreenRednerPass, attachments, extent);
 	
 	// create framebuffer
@@ -558,6 +590,21 @@ void Renderer::WriteSamplerDescriptor()
 	}
 }
 
+void Renderer::WritePostDescriptor()
+{
+	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
+	{
+		GDescriptorManager->WriteCombinedImageSamplerToDescriptorSet(
+			_vkOffscreenColorImageView,
+			_vkOffscreenColorSampler,
+			VK_IMAGE_LAYOUT_GENERAL,
+			0
+		);
+
+		GDescriptorManager->UpdateDescriptorSet(_vkPostDescriptorSets[it]);
+	}
+}
+
 void Renderer::Update()
 {
 	// timer update
@@ -595,7 +642,14 @@ void Renderer::OnResizeWindow()
 	_mkSwapchain.CreateSwapchain();
 	_mkSwapchain.CreateSwapchainImageViews();
 	_mkSwapchain.CreateDepthResources();
+
+	// recreate swapchain frame buffer
 	CreateFrameBuffers();
+
+	// recreate offscreen render pass (recreation of offscreen buffer included in here)
+	auto extent = _mkSwapchain.GetSwapchainExtent();
+	CreateOffscreenRenderPass(extent);
+
 }
 
 void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz)
@@ -607,6 +661,121 @@ void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, 
 		vkCmdCopyBuffer(commandBuffer, src.buffer, dst.buffer, 1, &copyRegion);
 	});
 }
+
+/**
+----------------- Draw -----------------
+*/
+void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
+{
+	// set viewport and scissor
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(extent.width);
+	viewport.height = static_cast<float>(extent.height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = extent;
+	vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+	// bind graphics pipeline
+	vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
+
+	// bind base descriptor sets
+	vkCmdBindDescriptorSets(
+		cmdBuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		_mkGraphicsPipeline.GetPipelineLayout(),
+		0,                                          // set index 0
+		1,
+		&_vkBaseDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		0,
+		nullptr
+	);
+
+	// bind sampler descriptor set
+	vkCmdBindDescriptorSets(
+		cmdBuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		_mkGraphicsPipeline.GetPipelineLayout(),
+		1,                                             // set index 1
+		1,
+		&_vkSamplerDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		0,
+		nullptr
+	);
+
+	// bind push constants
+	uint32 pushConstantOffset = 0;
+	uint32 pushConstantSize = sizeof(VkPushConstantRaster);
+	vkCmdPushConstants(
+		cmdBuf,
+		_mkGraphicsPipeline.GetPipelineLayout(),
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		pushConstantOffset,
+		pushConstantSize,
+		&_vkPushConstantRaster
+	);
+
+	// bind vertex and index buffer
+	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);			      // bind vertex buffer
+	vkCmdBindIndexBuffer(cmdBuf, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32); // bind index buffer
+
+	// record draw command
+	vkCmdDrawIndexed(cmdBuf, _objModel.indices.size(), 1, 0, 0, 0);
+}
+
+void Renderer::DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
+{
+		// set viewport and scissor
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = static_cast<float>(extent.width);
+	viewport.height = static_cast<float>(extent.height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = extent;
+	vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+	float aspectRatio = static_cast<float>(extent.width) / static_cast<float>(extent.height);
+	
+	vkCmdBindPipeline(
+		cmdBuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		_mkPostPipeline.GetPipeline()
+	);
+	vkCmdPushConstants(
+		cmdBuf,
+		_mkPostPipeline.GetPipelineLayout(),
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		0,
+		sizeof(float),
+		&aspectRatio
+	);
+	vkCmdBindDescriptorSets(
+		cmdBuf,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		_mkPostPipeline.GetPipelineLayout(),
+		0,
+		1,
+		&_vkPostDescriptorSets[_currentFrameIndex],
+		0,
+		nullptr
+	);
+	vkCmdDraw(cmdBuf, 3, 1, 0, 0); // draw full quad
+}
+
 
 void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 {
@@ -624,94 +793,54 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	// 4. prepare render pass begin info
 	auto swapchainExtent = _mkSwapchain.GetSwapchainExtent(); // store swapchain extent for common usage.
 
-
 	const auto clearColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]} };   // clear values for color
 	clearValues[1] = { 1.0f, 0 };                                                        // clear value for depth and stencil attachment
 
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.renderPass = _vkRenderPass;
-	renderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
-	renderPassBeginInfo.renderArea.offset = { 0, 0 };
-	renderPassBeginInfo.renderArea.extent = swapchainExtent;
-	renderPassBeginInfo.clearValueCount = static_cast<uint32>(clearValues.size());
-	renderPassBeginInfo.pClearValues = clearValues.data();
+	// 1. begin offscreen render pass
+	{
+		VkRenderPassBeginInfo offRenderBeginInfo{};
+		offRenderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		offRenderBeginInfo.renderPass = _vkOffscreenRednerPass;
+		offRenderBeginInfo.framebuffer = _vkOffscreenFramebuffer;
+		offRenderBeginInfo.renderArea.offset = { 0, 0 };
+		offRenderBeginInfo.renderArea.extent = swapchainExtent;
+		offRenderBeginInfo.clearValueCount = static_cast<uint32>(clearValues.size());
+		offRenderBeginInfo.pClearValues = clearValues.data();
 
-	// 5. begin render pass
-	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		// begin offscreen render pass
+		vkCmdBeginRenderPass(commandBuffer, &offRenderBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	// 6. set viewport and scissor for drawing
-	VkViewport viewport{};
-	viewport.x        = 0.0f;
-	viewport.y        = 0.0f;
-	viewport.width    = static_cast<float>(swapchainExtent.width);
-	viewport.height   = static_cast<float>(swapchainExtent.height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		// rasterize
+		Rasterize(commandBuffer, swapchainExtent);
 
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = swapchainExtent;
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		vkCmdEndRenderPass(commandBuffer);
+	}
 
-	// 7. bind graphics pipeline
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
-	
-	// 8. bind base descriptor sets
-	vkCmdBindDescriptorSets(
-		commandBuffer,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		_mkGraphicsPipeline.GetPipelineLayout(),
-		0,                                          // set index 0
-		1,
-		&_vkBaseDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
-		0,
-		nullptr
-	);
+	// 2. begin post pipeline render pass
+	{
+		VkRenderPassBeginInfo postRenderBeginInfo{};
+		postRenderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		postRenderBeginInfo.renderPass = _vkRenderPass;
+		postRenderBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
+		postRenderBeginInfo.renderArea.offset = { 0, 0 };
+		postRenderBeginInfo.renderArea.extent = swapchainExtent;
+		postRenderBeginInfo.clearValueCount = static_cast<uint32>(clearValues.size());
+		postRenderBeginInfo.pClearValues = clearValues.data();
 
-	// 9. bind sampler descriptor set
-	vkCmdBindDescriptorSets(
-		commandBuffer,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		_mkGraphicsPipeline.GetPipelineLayout(),
-		1,                                             // set index 1
-		1,
-		&_vkSamplerDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
-		0,
-		nullptr
-	);
-
-	// 9. bind push constants
-	uint32 pushConstantOffset = 0;
-	uint32 pushConstantSize = sizeof(VkPushConstantRaster);
-	vkCmdPushConstants(
-		commandBuffer,
-		_mkGraphicsPipeline.GetPipelineLayout(),
-		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		pushConstantOffset,
-		pushConstantSize,
-		&_vkPushConstantRaster
-	);
-
-	// 10. bind vertex and index buffer
-	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);					// bind vertex buffer
-	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);    // bind index buffer
-
-	// 11. record draw command
-	vkCmdDrawIndexed(commandBuffer, _objModel.indices.size(), 1, 0, 0, 0);
-
-	// 12. end up render pass
-	vkCmdEndRenderPass(commandBuffer);
+		// begin post render pass
+		vkCmdBeginRenderPass(commandBuffer, &postRenderBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		// draw post process
+		DrawPostProcess(commandBuffer, swapchainExtent);
+		// end post render pass
+		vkCmdEndRenderPass(commandBuffer);
+	}
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
 
-void Renderer::Rasterize()
+void Renderer::DrawFrame()
 {
 	// update every states
 	Update();
@@ -746,7 +875,7 @@ void Renderer::Rasterize()
 	// 4. reset frame buffer command buffer
 	GCommandService->ResetCommandBuffer(_currentFrameIndex);
 
-	// 5. record frame buffer commands
+	// 5. record frame buffer commands (offscreen rendering -> tone mapper -> UI)
 	RecordFrameBufferCommands(imageIndex);
 
 	// 6. copy rendering resources and submit recorded command buffer to graphics queue
@@ -794,7 +923,7 @@ void Renderer::Render()
 	while (!_mkWindow.ShouldClose()) 
 	{
 		_mkWindow.PollEvents();
-		Rasterize();
+		DrawFrame();
 	}
 
 	_mkDevice.WaitUntilDeviceIdle();

@@ -21,7 +21,7 @@ MKPipeline::~MKPipeline()
 	}
 
 	// destroy pipeline and pipeline layout
-	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkGraphicsPipeline, nullptr);
+	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkPipelineInstance, nullptr);
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
 
 #ifndef NDEBUG
@@ -52,67 +52,67 @@ void MKPipeline::CreateDefaultPipelineLayout(
 	for (auto& shader : _waitShaders)
 	{
 		VkPipelineShaderStageCreateInfo shaderStageInfo = mk::vkinfo::GetPipelineShaderStageCreateInfo(shader.stage, shader.shaderModule, shader.entryPoint);
-		_shaderStages.push_back(shaderStageInfo);
+		shaderStages.push_back(shaderStageInfo);
 	}
 
 	// vertex description
-	_vertexInput = mk::vkinfo::GetPipelineVertexInputStateCreateInfo<3>(_bindingDesc, _attribDesc);
+	vertexInput = mk::vkinfo::GetPipelineVertexInputStateCreateInfo<3>(bindingDesc, attribDesc);
 
 	// input assembly
-	_inputAssembly = mk::vkinfo::GetPipelineInputAssemblyStateCreateInfo();
+	inputAssembly = mk::vkinfo::GetPipelineInputAssemblyStateCreateInfo();
 
 	/**
 	* viewport and scissor rectangle
 	* - viewport : transformation from image to framebuffer
 	* - scissor  : in which regions pixels will be stored
 	*/
-	_viewportState = mk::vkinfo::GetPipelineViewportStateCreateInfo();
-	_dynamicState = mk::vkinfo::GetPipelineDynamicStateCreateInfo(_dynamicStates);
+	viewportState = mk::vkinfo::GetPipelineViewportStateCreateInfo();
+	dynamicState = mk::vkinfo::GetPipelineDynamicStateCreateInfo(dynamicStates);
 
 	// rasterizer
-	_rasterizer = mk::vkinfo::GetPipelineRasterizationStateCreateInfo();
+	rasterizer = mk::vkinfo::GetPipelineRasterizationStateCreateInfo();
 
 	// TODO : multisampling
-	_multisampling = mk::vkinfo::GetPipelineMultisampleStateCreateInfo();
+	multisampling = mk::vkinfo::GetPipelineMultisampleStateCreateInfo();
 
 	// depth and stencil testing (TODO : implement stencil buffer operation for shadow volume)
-	_depthStencil = mk::vkinfo::GetPipelineDepthStencilStateCreateInfo();
+	depthStencil = mk::vkinfo::GetPipelineDepthStencilStateCreateInfo();
 
 	// TODO : color blending
-	_colorBlendAttachment = mk::vkinfo::GetPipelineColorBlendAttachmentState();
+	colorBlendAttachment = mk::vkinfo::GetPipelineColorBlendAttachmentState();
 
 	// TODO : color blending state
-	_colorBlending = mk::vkinfo::GetPipelineColorBlendStateCreateInfo(_colorBlendAttachment);
+	colorBlending = mk::vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	// create pipeline layout
-	_pipelineLayoutInfo = mk::vkinfo::GetPipelineLayoutCreateInfo(
+	pipelineLayoutInfo = mk::vkinfo::GetPipelineLayoutCreateInfo(
 		descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr,
 		static_cast<uint32>(descriptorSetLayouts.size()),
 		pushConstants.size() > 0 ? pushConstants.data() : nullptr,
 		static_cast<uint32>(pushConstants.size())
 	);
-	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &_pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
+	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 }
 
 void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
 {
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = mk::vkinfo::GetGraphicsPipelineCreateInfo(
-		_shaderStages,
-		&_vertexInput,
-		&_inputAssembly,
-		&_viewportState,
-		&_rasterizer,
-		&_multisampling,
-		&_depthStencil,
-		&_colorBlending,
-		&_dynamicState,
+		shaderStages,
+		&vertexInput,
+		&inputAssembly,
+		&viewportState,
+		&rasterizer,
+		&multisampling,
+		&depthStencil,
+		&colorBlending,
+		&dynamicState,
 		_vkPipelineLayout,
 		renderPass
 	);
 
 	// create pipeline instance
-	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkGraphicsPipeline));
+	MK_CHECK(vkCreateGraphicsPipelines(_mkDeviceRef.GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_vkPipelineInstance));
 
 	// destroy shader modules after creating a pipeline.
 	for (auto& shader : _waitShaders)

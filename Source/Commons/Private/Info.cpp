@@ -119,7 +119,7 @@ namespace mk
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = renderPass;
-			framebufferInfo.attachmentCount = SafeStaticCast<size_t, uint32>(attachments.size());
+			framebufferInfo.attachmentCount = static_cast<uint32>(attachments.size());
 			framebufferInfo.pAttachments = attachments.data();
 			framebufferInfo.width = extent.width;
 			framebufferInfo.height = extent.height;
@@ -192,13 +192,14 @@ namespace mk
 		{
 			VkPipelineRasterizationStateCreateInfo rasterizer{};
 			rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-			rasterizer.depthClampEnable = VK_FALSE;					// if true, fragments beyond near and far planes are clamped instead of discarded
-			rasterizer.rasterizerDiscardEnable = VK_FALSE;
 			rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 			rasterizer.lineWidth = 1.0f;							// thickness of lines in terms of number of fragments
 			rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;			// back face culling setting
 			rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // vertex order for faces to be considered front-facing
-			rasterizer.depthBiasEnable = VK_FALSE;
+
+			rasterizer.depthClampEnable = VK_FALSE;					// if true, fragments beyond near and far planes are clamped instead of discarded
+			rasterizer.rasterizerDiscardEnable = VK_FALSE;          // if true, geometry never passes through rasterization stage
+			rasterizer.depthBiasEnable = VK_FALSE;                  // Optional
 			rasterizer.depthBiasConstantFactor = 0.0f;				// Optional
 			rasterizer.depthBiasClamp = 0.0f;						// Optional
 			rasterizer.depthBiasSlopeFactor = 0.0f;					// Optional

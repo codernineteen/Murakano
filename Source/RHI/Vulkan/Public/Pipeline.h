@@ -37,7 +37,7 @@ public:
     /* getters */
     RenderingResource& GetRenderingResource(uint32 index) { return _renderingResources[index]; }
     VkPipelineLayout   GetPipelineLayout() const { return _vkPipelineLayout; }
-    VkPipeline         GetPipeline() const { return _vkGraphicsPipeline; }
+    VkPipeline         GetPipeline() const { return _vkPipelineInstance; }
     
     /* api */
     void AddShader(const char* path, std::string entryPoint, VkShaderStageFlagBits stageBit);
@@ -51,27 +51,28 @@ private:
     /* create rendering resources */
     void            CreateRenderingResources();
 
-private:
+public:
     /* pipeline states */
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-    std::vector<VkDynamicState>                  _dynamicStates{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    std::vector<VkDynamicState>                  dynamicStates{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
-    VkVertexInputBindingDescription                 _bindingDesc = Vertex::GetBindingDescription();
-    std::array<VkVertexInputAttributeDescription,3> _attribDesc = Vertex::GetAttributeDescriptions();
+    VkVertexInputBindingDescription                 bindingDesc = Vertex::GetBindingDescription();
+    std::array<VkVertexInputAttributeDescription, 3> attribDesc = Vertex::GetAttributeDescriptions();
 
-    VkPipelineVertexInputStateCreateInfo   _vertexInput;
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
-    VkPipelineViewportStateCreateInfo      _viewportState;
-    VkPipelineDynamicStateCreateInfo       _dynamicState;
-    VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineMultisampleStateCreateInfo   _multisampling;
-    VkPipelineDepthStencilStateCreateInfo  _depthStencil;
-    VkPipelineColorBlendAttachmentState    _colorBlendAttachment;
-    VkPipelineColorBlendStateCreateInfo    _colorBlending;
-    VkPipelineLayoutCreateInfo             _pipelineLayoutInfo;
+    VkPipelineVertexInputStateCreateInfo   vertexInput;
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+    VkPipelineViewportStateCreateInfo      viewportState;
+    VkPipelineDynamicStateCreateInfo       dynamicState;
+    VkPipelineRasterizationStateCreateInfo rasterizer;
+    VkPipelineMultisampleStateCreateInfo   multisampling;
+    VkPipelineDepthStencilStateCreateInfo  depthStencil;
+    VkPipelineColorBlendAttachmentState    colorBlendAttachment;
+    VkPipelineColorBlendStateCreateInfo    colorBlending;
+    VkPipelineLayoutCreateInfo             pipelineLayoutInfo;
 
+private:
     /* pipeline instance */
-	VkPipeline	      _vkGraphicsPipeline;
+	VkPipeline	      _vkPipelineInstance;
 	VkPipelineLayout  _vkPipelineLayout;
 
     /* rendering resources */
