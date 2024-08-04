@@ -133,29 +133,34 @@ message(STATUS ${DXC_EXEC})
 set(VERTEX_SHADER_MODEL vs_6_0)
 set(FRAGMENT_SHADER_MODEL ps_6_0)
 
-# Compile Vertex Shader
-file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/vertex.hlsl")
-get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
-add_custom_command(
-    OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
-    DEPENDS ${HLSL_VERTEX}
-)
-list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+# Compile Vertex Shaders
+file(GLOB_RECURSE HLSL_VERTEX_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/*vertex.hlsl")
+foreach(HLSL_VERTEX ${HLSL_VERTEX_FILES})
+    get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
+    set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
+    add_custom_command(
+        OUTPUT  ${HLSL_SPIRV_OUTPUT}
+        COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
+        DEPENDS ${HLSL_VERTEX}
+    )
+    list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+endforeach()
 
-# Compile Fragment Shader
-file(GLOB_RECURSE HLSL_FRAG "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/fragment.hlsl")
-get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
-add_custom_command(
-    OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
-    DEPENDS ${HLSL_FRAG}
-)
-list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+# Compile Fragment Shaders
+file(GLOB_RECURSE HLSL_FRAGMENT_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/*fragment.hlsl")
+foreach(HLSL_FRAG ${HLSL_FRAGMENT_FILES})
+    get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
+    set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
+    add_custom_command(
+        OUTPUT  ${HLSL_SPIRV_OUTPUT}
+        COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
+        DEPENDS ${HLSL_FRAG}
+    )
+    list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+endforeach()
 
-
+# Add a target for compiling shaders if needed
+add_custom_target(CompileShaders ALL DEPENDS ${HLSL_SPIRV_BINARY_FILES})
 
 ####################### GLSL Shader build #######################
 
