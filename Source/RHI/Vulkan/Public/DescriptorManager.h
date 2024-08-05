@@ -25,13 +25,16 @@ public:
 	void                   AddDescriptorSetLayoutBinding(VkDescriptorType descriptorType, VkShaderStageFlags shaderStageFlags, uint32_t binding, uint32_t descriptorCount);
 	void                   CreateDescriptorSetLayout(VkDescriptorSetLayout& layout);
 	void                   AllocateDescriptorSet(std::vector<VkDescriptorSet>& descriptorSets, VkDescriptorSetLayout layout);
+	void                   ResetDescriptorPool();
+	
+	/* write api */
 	void                   WriteBufferToDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteImageToDescriptorSet(VkImageView imageView, VkImageLayout imageLayout, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteImageArrayToDescriptorSet(VkDescriptorImageInfo* imageInfosPtr, uint32 sizeOfArray, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteSamplerToDescriptorSet(VkSampler sampler, uint32 dstBinding, VkDescriptorType descriptorType);
 	void                   WriteAccelerationStructureToDescriptorSet(const VkAccelerationStructureKHR* as, uint32 dstBinding);
+	void                   WriteCombinedImageSamplerToDescriptorSet(VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, uint32 dstBinding);
 	void                   UpdateDescriptorSet(VkDescriptorSet descriptorSet);
-	void                   ResetDescriptorPool();
 
 private:
 	/* create depth buffer resources */

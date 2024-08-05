@@ -70,10 +70,6 @@ void MKCommandService::ExecuteCommands(std::queue<VoidLambda>& commandQueue)
 	EndSingleTimeCommands(commandBuffer);
 }
 
-/**
-* ---------------- Private -------------------- 
-*/
-
 void MKCommandService::CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag)
 {
 	// find queue family indices
@@ -122,7 +118,7 @@ void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, V
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 }
 
-void MKCommandService::EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool)
+void MKCommandService::EndSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool)
 {
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 

@@ -4,15 +4,15 @@ MKInstance::MKInstance()
     : _validationLayer()
 {
     // specify application create info
-	VkApplicationInfo appInfo = vkinfo::GetApplicationInfo();
+	VkApplicationInfo appInfo = mk::vkinfo::GetApplicationInfo();
     auto extension = GetRequiredExtensions();
  
     // specify instance create info
 #ifdef NDEBUG
-	VkInstanceCreateInfo instanceInfo = vkinfo::GetInstanceCreateInfo(&appInfo, extension.size(), extension.data());
+	VkInstanceCreateInfo instanceInfo = mk::vkinfo::GetInstanceCreateInfo(&appInfo, extension.size(), extension.data());
 #else
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = vkinfo::GetDebugMessengerCreateInfo(MKValidationLayer::DebugCallback);
-    VkInstanceCreateInfo instanceInfo = vkinfo::GetInstanceCreateInfo(
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = mk::vkinfo::GetDebugMessengerCreateInfo(MKValidationLayer::DebugCallback);
+    VkInstanceCreateInfo instanceInfo = mk::vkinfo::GetInstanceCreateInfo(
         &appInfo, 
         extension.size(), 
         extension.data(), 

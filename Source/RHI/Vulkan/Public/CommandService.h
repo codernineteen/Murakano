@@ -25,10 +25,10 @@ public:
 			VkQueue loadedQueue, 												  
 			VkFence fence = nullptr												  
 		 );
-	void ResetCommandBuffer(uint32 currentFrame);                                 // reset command buffer for reuse
+	void ResetCommandBuffer(uint32 currentFrame); // reset command buffer for reuse
 	void ExecuteCommands(std::queue<VoidLambda>& enqueuedCommands);
-	void BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE);                 // begin single time command buffer
-	void EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE);                    // end single time command buffer and destroy the buffer right away
+	void BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE); // begin single time command buffer
+	void EndSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool = VK_NULL_HANDLE);    // end single time command buffer and destroy the buffer right away
 	void CreateCommandBuffers();
 
 public:

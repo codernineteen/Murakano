@@ -53,7 +53,7 @@ endif()
 
 
 # Define MY_SOURCES to be a list of all the source files for my game 
-file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp")
+file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp")
 
 add_executable("${CMAKE_PROJECT_NAME}")
 
@@ -93,14 +93,14 @@ endif()
 ####################### Include directories #######################
 
 # internal headers include
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/RHI/Vulkan/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/App/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Global/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Data/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Templates/")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Commons/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Scene/Component/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source/Misc/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/RHI/Vulkan/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/App/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Global/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Data/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Templates/")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Commons/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Scene/Component/Public")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Misc/Public")
 
 # third party include
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS}) # include vulkan headers
@@ -133,29 +133,34 @@ message(STATUS ${DXC_EXEC})
 set(VERTEX_SHADER_MODEL vs_6_0)
 set(FRAGMENT_SHADER_MODEL ps_6_0)
 
-# Compile Vertex Shader
-file(GLOB_RECURSE HLSL_VERTEX "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/vertex.hlsl")
-get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
-add_custom_command(
-    OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
-    DEPENDS ${HLSL_VERTEX}
-)
-list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+# Compile Vertex Shaders
+file(GLOB_RECURSE HLSL_VERTEX_FILES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/*vertex.hlsl")
+foreach(HLSL_VERTEX ${HLSL_VERTEX_FILES})
+    get_filename_component(FILE_NAME ${HLSL_VERTEX} NAME_WE)
+    set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/shaders/Output/SPIR-V/${FILE_NAME}.spv")
+    add_custom_command(
+        OUTPUT  ${HLSL_SPIRV_OUTPUT}
+        COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
+        DEPENDS ${HLSL_VERTEX}
+    )
+    list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+endforeach()
 
-# Compile Fragment Shader
-file(GLOB_RECURSE HLSL_FRAG "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/HLSL/fragment.hlsl")
-get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
-set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
-add_custom_command(
-    OUTPUT  ${HLSL_SPIRV_OUTPUT}
-    COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
-    DEPENDS ${HLSL_FRAG}
-)
-list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+# Compile Fragment Shaders
+file(GLOB_RECURSE HLSL_FRAGMENT_FILES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/*fragment.hlsl")
+foreach(HLSL_FRAG ${HLSL_FRAGMENT_FILES})
+    get_filename_component(FILE_NAME ${HLSL_FRAG} NAME_WE)
+    set(HLSL_SPIRV_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Output/SPIR-V/${FILE_NAME}.spv")
+    add_custom_command(
+        OUTPUT  ${HLSL_SPIRV_OUTPUT}
+        COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
+        DEPENDS ${HLSL_FRAG}
+    )
+    list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
+endforeach()
 
-
+# Add a target for compiling shaders if needed
+add_custom_target(CompileShaders ALL DEPENDS ${HLSL_SPIRV_BINARY_FILES})
 
 ####################### GLSL Shader build #######################
 
@@ -193,8 +198,8 @@ endforeach(GLSL)
 
 # Custom target for Shaders
 add_custom_target(
-    Shaders
+    shaders
     DEPENDS ${HLSL_SPIRV_BINARY_FILES} ${SPIRV_BINARY_FILES}
 )
 
-add_dependencies(${CMAKE_PROJECT_NAME} Shaders) # add shader buld as a dependency of the main project
+add_dependencies(${CMAKE_PROJECT_NAME} shaders) # add shader build as a dependency of the main project

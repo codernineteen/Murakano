@@ -32,6 +32,11 @@ struct PSInput
     float2 TexCoord    : TEXCOORD0;
 };
 
+//struct PSOutput
+//{
+//    float4 OutColor;
+//};
+
 struct PushConstantRaster 
 {
     float4x4 ModelMat;
@@ -43,10 +48,10 @@ struct PushConstantRaster
 [[vk::push_constant]]
 PushConstantRaster pc;
 
-[[vk::binding(0, 1)]]                   // sampled image descriptor binding
-Texture2DArray textures : register(t1); // binding array to register t1
+[[vk::binding(1, 0)]]                   // sampled image descriptor binding
+Texture2DArray textures : register(t0); // binding array to register t0
 
-[[vk::binding(1, 0)]]                     // sampler descriptor binding
+[[vk::binding(0, 1)]]                     // sampler descriptor binding
 SamplerState samplerState : register(s0); // binding sampler to register s0
 
 // ------------------ HELPER FUNCTIONS ------------------

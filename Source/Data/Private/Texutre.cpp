@@ -10,7 +10,7 @@ Texture::~Texture()
 {
 }
 
-void Texture::BuildTexture(MKDevice& device, const std::string& name, const std::string& path)
+void Texture::BuildTextureFromExternal(MKDevice& device, const std::string& name, const std::string& path)
 {
     texturePath = path;
     CreateTextureImage(name);
@@ -70,7 +70,7 @@ void Texture::CreateTextureImage(const std::string& name)
 
     std::queue<VoidLambda> commandQueue;
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
-        util::TransitionImageLayout(
+        mk::vk::TransitionImageLayout(
             commandBuffer,                            // command buffer
             image.image,                              // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
@@ -81,7 +81,7 @@ void Texture::CreateTextureImage(const std::string& name)
     });
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
         // copy image data from staging buffer to texture image after layout transition
-        util::CopyBufferToImage(
+        mk::vk::CopyBufferToImage(
             commandBuffer,
             stagingBuffer.buffer,
             image.image,
@@ -90,7 +90,7 @@ void Texture::CreateTextureImage(const std::string& name)
         );
     });
     commandQueue.push([&](VkCommandBuffer commandBuffer) {
-        util::TransitionImageLayout(
+        mk::vk::TransitionImageLayout(
             commandBuffer,                            // command buffer
             image.image,                              // texture image
             VK_FORMAT_R8G8B8A8_SRGB,                  // format
@@ -109,10 +109,11 @@ void Texture::CreateTextureImage(const std::string& name)
 
 void Texture::CreateTextureImageView(MKDevice& device)
 {
-    util::CreateImageView(
+    mk::vk::CreateImageView(
         device.GetDevice(),
         image.image,
         imageView,
+        VK_IMAGE_VIEW_TYPE_2D_ARRAY,
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_ASPECT_COLOR_BIT,
         1

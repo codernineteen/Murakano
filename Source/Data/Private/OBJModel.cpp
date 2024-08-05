@@ -26,7 +26,7 @@ void OBJModel::LoadModel(const std::string& modelPath, const std::vector<Texture
 	for (const auto& metadata : textureParams)
 	{
 		std::unique_ptr<Texture> texture = std::make_unique<Texture>();
-		texture->BuildTexture(_mkDeviceRef, metadata.first, metadata.second);
+		texture->BuildTextureFromExternal(_mkDeviceRef, metadata.first, metadata.second);
 		textures[it] = std::move(texture); // move ownership of texture in this for-loop to textures vector
 		it++;
 	}

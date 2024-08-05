@@ -36,10 +36,6 @@ void MKSwapchain::DestroySwapchainResources()
 {
     DestroyDepthResources();
 
-	// destroy framebuffers
-	for (auto framebuffer : _vkSwapchainFramebuffers)
-		vkDestroyFramebuffer(_mkDeviceRef.GetDevice(), framebuffer, nullptr);
-
 	// destroy image views
 	for (auto imageView : _vkSwapchainImageViews)
 		vkDestroyImageView(_mkDeviceRef.GetDevice(), imageView, nullptr);
@@ -53,32 +49,6 @@ void MKSwapchain::DestroyDepthResources()
 	vmaDestroyImage(_mkDeviceRef.GetVmaAllocator(), _vkDepthImage.image, _vkDepthImage.allocation);
 	vkDestroyImageView(_mkDeviceRef.GetDevice(), _vkDepthImageView, nullptr);
 }
-
-void MKSwapchain::RecreateSwapchain(VkRenderPass renderPass)
-{
-	// handling window minimization
-	int width = 0, height = 0;
-	glfwGetFramebufferSize(_mkDeviceRef.GetWindowRef().GetWindow(), &width, &height);
-	while (width == 0 || height == 0) 
-	{
-		glfwGetFramebufferSize(_mkDeviceRef.GetWindowRef().GetWindow(), &width, &height);
-		glfwWaitEvents();
-	}
-
-	vkDeviceWaitIdle(_mkDeviceRef.GetDevice()); // wait until the device is idle
-
-	DestroySwapchainResources();
-
-	// TODO : recreating render pass may be needed later.
-	CreateSwapchain();
-	CreateSwapchainImageViews();
-	CreateDepthResources();
-	CreateFrameBuffers(renderPass);
-}
-
-/*
------------	PRIVATE ------------
-*/
 
 void MKSwapchain::CreateSwapchain()
 {
@@ -96,7 +66,7 @@ void MKSwapchain::CreateSwapchain()
 	uint32 queueFamilyIndices[]          = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 	bool isExclusive                     = indices.graphicsFamily.value() == indices.presentFamily.value();
 
-	VkSwapchainCreateInfoKHR swapchainCreateInfo = vkinfo::GetSwapchainCreateInfo(
+	VkSwapchainCreateInfoKHR swapchainCreateInfo = mk::vkinfo::GetSwapchainCreateInfo(
 		_mkDeviceRef.GetSurface(),
 		surfaceFormat,
 		supportDetails.capabilities,
@@ -125,10 +95,11 @@ void MKSwapchain::CreateSwapchainImageViews()
 	_vkSwapchainImageViews.resize(_vkSwapchainImages.size());
 	for (size_t i = 0; i < _vkSwapchainImages.size(); i++)
 	{
-		util::CreateImageView(
+		mk::vk::CreateImageView(
 			_mkDeviceRef.GetDevice(), 
 			_vkSwapchainImages[i],
 			_vkSwapchainImageViews[i],
+			VK_IMAGE_VIEW_TYPE_2D,
 			_vkSwapchainImageFormat, 
 			VK_IMAGE_ASPECT_COLOR_BIT, 
 			1
@@ -139,10 +110,10 @@ void MKSwapchain::CreateSwapchainImageViews()
 void MKSwapchain::CreateDepthResources()
 {
 	// find depth format first
-	VkFormat depthFormat = util::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
+	VkFormat depthFormat = mk::vk::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
 
 	// create depth image
-	util::CreateImage(
+	mk::vk::CreateImage(
 		_mkDeviceRef.GetVmaAllocator(),
 		_vkDepthImage,
 		_vkSwapchainExtent.width,
@@ -155,29 +126,14 @@ void MKSwapchain::CreateDepthResources()
 	);
 
 	// create depth image view
-	util::CreateImageView(
+	mk::vk::CreateImageView(
 		_mkDeviceRef.GetDevice(),
 		_vkDepthImage.image,
 		_vkDepthImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
 		depthFormat,
 		VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
 		1
 	);
-}
-
-void MKSwapchain::CreateFrameBuffers(VkRenderPass renderPass)
-{
-	_vkSwapchainFramebuffers.resize(_vkSwapchainImageViews.size()); // resize to size of swap chain image views
-
-	// create frame buffer as much as the number of image views
-	for (size_t i = 0; i < _vkSwapchainImageViews.size(); i++) {
-		std::array<VkImageView, 2> attachments = {
-			_vkSwapchainImageViews[i],
-			_vkDepthImageView,
-		};
-
-		VkFramebufferCreateInfo framebufferInfo = vkinfo::GetFramebufferCreateInfo(renderPass, attachments, _vkSwapchainExtent);
-		MK_CHECK(vkCreateFramebuffer(_mkDeviceRef.GetDevice(), &framebufferInfo, nullptr, &_vkSwapchainFramebuffers[i]));
-	}
 }
 

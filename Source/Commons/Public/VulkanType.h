@@ -35,7 +35,7 @@ struct VkBufferAllocated
 // a struct to wrap a VkImage and its allocation from VMA
 struct VkImageAllocated 
 {
-	VkImage           image;
+	VkImage           image = VK_NULL_HANDLE;
 	VmaAllocation     allocation;
 	VmaAllocationInfo allocationInfo;
 	std::string       name;

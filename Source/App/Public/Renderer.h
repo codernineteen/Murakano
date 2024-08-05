@@ -9,7 +9,7 @@
 #include "ValidationLayer.h"
 #include "Device.h"
 #include "Swapchain.h"
-#include "GraphicsPipeline.h"
+#include "Pipeline.h"
 #include "CommandService.h"
 #include "Allocator.h"
 #include "RenderPassUtil.h"
@@ -53,21 +53,30 @@ private:
 	void CreateVertexBuffer(std::vector<Vertex> vertices);
 	void CreateIndexBuffer(std::vector<uint32> indices);
 	void CreateUniformBuffers();
-	void CreateRenderPass();
-	void CreateImageSampler();
+	void CreateOffscreenRenderPass(VkExtent2D extent);
 	void CreateBaseDescriptorSet();
 	void CreateSamplerDescriptorSet();
+	void CreatePostDescriptorSet();
 	void CreatePushConstantRaster();
+	void CreateFrameBuffers();
+
+	/* destroyer */
+	void DestroyOffscreenRenderPassResources();
+	void DestroyFrameBuffers();
 
 	/* update */
 	void UpdateUniformBuffer();
 	void WriteBaseDescriptor();
 	void WriteSamplerDescriptor();
+	void WritePostDescriptor();
 	void Update();
+	void OnResizeWindow();
 
 	/* draw */
 	void RecordFrameBufferCommands(uint32 swapchainImageIndex);
-	void Rasterize();
+	void Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent);
+	void DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent);
+	void DrawFrame();
 
 	/* cleanup */
 	void Cleanup();
@@ -77,14 +86,34 @@ private:
 
 private:
 	/* RHI Instance */
-	MKWindow			_mkWindow;
-	MKInstance			_mkInstance;
-	MKDevice			_mkDevice;
-	MKSwapchain	        _mkSwapchain;
-	MKGraphicsPipeline	_mkGraphicsPipeline;
+	MKWindow	_mkWindow;
+	MKInstance	_mkInstance;
+	MKDevice	_mkDevice;
+	MKSwapchain	_mkSwapchain;
+	MKPipeline	_mkGraphicsPipeline;
+	MKPipeline  _mkPostPipeline;
+
+	/* device properties */
+	VkPhysicalDeviceProperties _vkDeviceProperties;
 
 	/* source primitives */
 	OBJModel _objModel;
+
+	/* offscreen render pass */
+	VkRenderPass          _vkOffscreenRednerPass{ VK_NULL_HANDLE };
+	VkFormat              _vkOffscreenColorFormat{ VK_FORMAT_R32G32B32A32_SFLOAT };
+	VkFormat              _vkOffscreenDepthFormat{ VK_FORMAT_X8_D24_UNORM_PACK32 };
+	VkImageAllocated      _vkOffscreenColorImage;
+	VkImageView           _vkOffscreenColorImageView;
+	VkSampler             _vkOffscreenColorSampler;
+	VkImageAllocated      _vkOffscreenDepthImage;
+	VkImageView           _vkOffscreenDepthImageView;
+	VkDescriptorImageInfo _vkOffscreenColorDescriptorInfo;
+
+	/* frame buffers */
+	VkFramebuffer    _vkOffscreenFramebuffer{ VK_NULL_HANDLE };
+	std::vector<VkFramebuffer>    _vkFramebuffers;
+	
 
 	/* render pass */
 	VkRenderPass _vkRenderPass;
@@ -99,8 +128,10 @@ private:
 	/* descriptor */
 	VkDescriptorSetLayout _vkBaseDescriptorSetLayout;
 	VkDescriptorSetLayout _vkSamplerDescriptorSetLayout;
+	VkDescriptorSetLayout _vkPostDescriptorSetLayout;
 	std::vector<VkDescriptorSet>  _vkBaseDescriptorSets;
 	std::vector<VkDescriptorSet>  _vkSamplerDescriptorSets;
+	std::vector<VkDescriptorSet>  _vkPostDescriptorSets;
 
 	/* image sampler */
 	VkSampler _vkLinearSampler;

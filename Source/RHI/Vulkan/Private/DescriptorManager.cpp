@@ -216,6 +216,26 @@ void MKDescriptorManager::WriteSamplerToDescriptorSet(VkSampler sampler, uint32 
     _vkWaitingWrites.push_back(descriptorWrite);
 }
 
+void MKDescriptorManager::WriteCombinedImageSamplerToDescriptorSet(VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, uint32 dstBinding)
+{
+    std::shared_ptr<VkDescriptorImageInfo> imageInfo = std::make_shared<VkDescriptorImageInfo>();
+    imageInfo->imageView = imageView;
+    imageInfo->sampler = sampler;
+    imageInfo->imageLayout = imageLayout;
+    _vkWaitingImageInfos.insert(imageInfo); // increment ref count
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = VK_NULL_HANDLE; // specify dst set when update descriptor set
+    descriptorWrite.dstBinding = dstBinding;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pImageInfo = imageInfo.get();
+
+    _vkWaitingWrites.push_back(descriptorWrite);
+}
+
 void MKDescriptorManager::WriteAccelerationStructureToDescriptorSet(const VkAccelerationStructureKHR* as, uint32 dstBinding) 
 {
     std::shared_ptr<VkWriteDescriptorSetAccelerationStructureKHR> descriptorAsInfo = std::make_shared<VkWriteDescriptorSetAccelerationStructureKHR>(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR);
