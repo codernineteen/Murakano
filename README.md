@@ -7,12 +7,13 @@ For anyone who are curious about implementation details, visualized architecture
 
 # Features
 
-- Abstractions for Vulkan API
+- Render Hardware Interface for Vulkan API
+- Direct lighting
 - OBJ format model rendering support
 - HLSL, GLSL shader compilation support (HLSL is a default shader language)
-- Easy to use Global command service interface
 - Vulkan Memory Allocator support
 - Descriptor Manager to allocate descriptor set
+- Post-processing pipeline
 
 # Examples
 
