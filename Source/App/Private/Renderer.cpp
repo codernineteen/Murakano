@@ -144,7 +144,7 @@ void Renderer::Setup()
 	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
 	_mkPostPipeline.CreateDefaultPipelineLayout(postDescriptorLayouts, postPushConstantRanges);
 	_mkPostPipeline.rasterizer.cullMode = VK_CULL_MODE_NONE; // disable culling
-	_mkPostPipeline.vertexInput = {};                        // no vertex input
+	_mkPostPipeline.vertexInput = {};                        // no vertex input - create quad vertices in vertex shader
 	_mkPostPipeline.vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	_mkPostPipeline.BuildPipeline(_vkRenderPass);            // use default render pass for post processing pipeline
 }
@@ -324,7 +324,8 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 		colorImageUsages, // for storage image, sampler and framebuffer resolver
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		"offscreen color image"
 	);
 	
 	// create color image view
@@ -351,7 +352,8 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 		depthImageUsages,
 		VMA_MEMORY_USAGE_GPU_ONLY,
 		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		"offscreen depth image"
 	);
 
 	// create color image view
@@ -649,7 +651,8 @@ void Renderer::OnResizeWindow()
 	// recreate offscreen render pass (recreation of offscreen buffer included in here)
 	auto extent = _mkSwapchain.GetSwapchainExtent();
 	CreateOffscreenRenderPass(extent);
-
+	// update post descriptor set because combined image sampler is dependent on offscreen color image view
+	WritePostDescriptor();
 }
 
 void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz)
@@ -894,12 +897,11 @@ void Renderer::DrawFrame()
 
 	// 7. present image to swapchain
 	VkPresentInfoKHR presentInfo{};
+	VkSwapchainKHR swapChains[] = { _mkSwapchain.GetSwapchain() };
+
 	presentInfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores    = signalSemaphores; // use same signal semaphore to wait on command buffer to finish execution
-
-	// specify the swap chains to present images to and the index of the image for each swap chain
-	VkSwapchainKHR swapChains[] = { _mkSwapchain.GetSwapchain() };
 	presentInfo.swapchainCount  = 1;
 	presentInfo.pSwapchains     = swapChains;
 	presentInfo.pImageIndices   = &imageIndex;
