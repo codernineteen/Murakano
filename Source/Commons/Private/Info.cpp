@@ -35,13 +35,13 @@ namespace mk
 			VkInstanceCreateInfo instanceInfo{};
 			instanceInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 			instanceInfo.pApplicationInfo        = appInfo;
-			instanceInfo.enabledExtensionCount   = static_cast<size_t, uint32>(extensionSize);
+			instanceInfo.enabledExtensionCount   = static_cast<uint32>(extensionSize);
 			instanceInfo.ppEnabledExtensionNames = extensionNames;
 #ifdef NDEBUG
 			instanceInfo.enabledLayerCount = 0;
 			instanceInfo.pNext = nullptr;
 #else
-			instanceInfo.enabledLayerCount   = static_cast<size_t, uint32>(validationLayers.size());
+			instanceInfo.enabledLayerCount   = static_cast<uint32>(validationLayers.size());
 			instanceInfo.ppEnabledLayerNames = validationLayers.data();
 			instanceInfo.pNext               = debugCreateInfo;
 #endif
@@ -54,14 +54,14 @@ namespace mk
 			VkDeviceCreateInfo deviceCreateInfo{};
 			deviceCreateInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 			deviceCreateInfo.pQueueCreateInfos       = queueCreateInfos.data();
-			deviceCreateInfo.queueCreateInfoCount    = static_cast<size_t, uint32>(queueCreateInfos.size());
-			deviceCreateInfo.enabledExtensionCount   = static_cast<size_t, uint32>(deviceExtensions.size());
+			deviceCreateInfo.queueCreateInfoCount    = static_cast<uint32>(queueCreateInfos.size());
+			deviceCreateInfo.enabledExtensionCount   = static_cast<uint32>(deviceExtensions.size());
 			deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
 #ifdef NDEBUG
 			deviceCreateInfo.enabledLayerCount = 0;													        // number of layers
 			deviceCreateInfo.ppEnabledLayerNames = nullptr;											        // layers
 #else
-			deviceCreateInfo.enabledLayerCount   = static_cast<size_t, uint32>(validationLayers.size());
+			deviceCreateInfo.enabledLayerCount   = static_cast<uint32>(validationLayers.size());
 			deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
 #endif
 			deviceCreateInfo.pNext = &deviceFeatures2;													    // pointer to the device features 2
