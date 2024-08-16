@@ -89,7 +89,7 @@ void MKPipeline::InitializePipelineLayout()
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 }
 
-void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
+void MKPipeline::BuildPipeline(VkRenderPass* pRenderPass)
 {
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = mk::vkinfo::GetGraphicsPipelineCreateInfo(
@@ -102,8 +102,9 @@ void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
 		&depthStencil,
 		&colorBlending,
 		&dynamicState,
-		_vkPipelineLayout,
-		renderPass
+		&_vkPipelineLayout,
+		pRenderPass,
+		&renderingInfo
 	);
 
 	// create pipeline instance
@@ -127,6 +128,20 @@ void MKPipeline::AddPushConstantRanges(std::vector<VkPushConstantRange>& pushCon
 {
 	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32>(pushConstants.size());
 	pipelineLayoutInfo.pPushConstantRanges = pushConstants.data();
+}
+
+void MKPipeline::SetRenderingInfo(
+	uint32 colorAttachmentCount, 
+	VkFormat* pColorAttachmentFormats, 
+	VkFormat depthAttachmentFormat, 
+	VkFormat stencilAttachmentFormat
+)
+{
+	renderingInfo.colorAttachmentCount = colorAttachmentCount;
+	renderingInfo.pColorAttachmentFormats = pColorAttachmentFormats;
+	renderingInfo.depthAttachmentFormat = depthAttachmentFormat;
+	renderingInfo.stencilAttachmentFormat = stencilAttachmentFormat;
+	renderingInfo.pNext = nullptr;
 }
 
 void MKPipeline::SetInputTopology(VkPrimitiveTopology topology)
@@ -237,6 +252,5 @@ void MKPipeline::CreateRenderingResources()
 		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].imageAvailableSema));
 		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].renderFinishedSema));
 		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_renderingResources[i].inFlightFence));
-		_renderingResources[i].commandBuffer = GCommandService->GetCommandBuffer(i);
 	}
 }

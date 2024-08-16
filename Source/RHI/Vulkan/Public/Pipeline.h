@@ -28,7 +28,6 @@ public:
         VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
         VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
         VkFence           inFlightFence      = VK_NULL_HANDLE;
-        VkCommandBuffer*  commandBuffer       = nullptr;
     };
 
     MKPipeline(MKDevice& mkDeviceRef);
@@ -48,6 +47,12 @@ public:
     void InitializePipelineLayout();
 
     /* pipeline state modifier */
+    void SetRenderingInfo(
+        uint32 colorAttachmentCount,
+        VkFormat* pColorAttachmentFormats,
+        VkFormat depthAttachmentFormat,
+        VkFormat stencilAttachmentFormat
+    );
     void SetInputTopology(VkPrimitiveTopology topology);
     void SetPolygonMode(VkPolygonMode mode);
     void SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
@@ -60,7 +65,7 @@ public:
     void RemoveVertexInput();
 
     /* finialize pipeline and compile */
-    void BuildPipeline(VkRenderPass& renderPass);
+    void BuildPipeline(VkRenderPass* pRenderPass = nullptr);
 
 private:
     /* create rendering resources */
@@ -74,6 +79,7 @@ public:
     VkVertexInputBindingDescription                 bindingDesc = Vertex::GetBindingDescription();
     std::array<VkVertexInputAttributeDescription, 3> attribDesc = Vertex::GetAttributeDescriptions();
 
+    VkPipelineRenderingCreateInfoKHR       renderingInfo{ .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR };
     VkPipelineVertexInputStateCreateInfo   vertexInput;
     VkPipelineInputAssemblyStateCreateInfo inputAssembly;
     VkPipelineViewportStateCreateInfo      viewportState;
