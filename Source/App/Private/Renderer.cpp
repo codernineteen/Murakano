@@ -16,7 +16,6 @@ Renderer::Renderer()
 	
 	// get device physical properties for later use
 	vkGetPhysicalDeviceProperties(_mkDevice.GetPhysicalDevice(), &_vkDeviceProperties);
-
 }
 
 Renderer::~Renderer()
@@ -39,14 +38,23 @@ Renderer::~Renderer()
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkSamplerDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkPostDescriptorSetLayout, nullptr);
 
-	// destroy frame buffers
-	DestroyFrameBuffers();
+	if (_mkDevice.enableDynamicRendering)
+	{
+		// destroy offscreen rendering resources
+		DestroyOffscreenRenderingResources();
+	}
+	else
+	{
+		// destroy offscreen render pass resources
+		DestroyOffscreenRenderingResources();
+		DestroyOffscreenRenderPassResources();
 
-	// destroy render pass
-	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
+		// destroy frame buffers
+		DestroyFrameBuffers();
 
-	// destroy offscreen render pass resources
-	DestroyOffscreenRenderPassResources();
+		// destroy render pass
+		vkDestroyRenderPass(_mkDevice.GetDevice(), _vkRenderPass, nullptr);
+	}
 
 	// destroy allocator instance
 	delete GAllocator;
@@ -63,18 +71,28 @@ void Renderer::Setup()
 {
 	// query required color & depth attachment formats
 	VkFormat swapchainImageFormat = _mkSwapchain.GetSwapchainImageFormat(); // color attachment format
-	VkFormat depthFormat = mk::vk::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
+	VkFormat swapchinDepthFormat = mk::vk::FindDepthFormat(_mkDevice.GetPhysicalDevice()); // depth attachment format
 	
-	// create render pass
-	mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
+	if (_mkDevice.enableDynamicRendering)
+	{
+		//mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
+		//CreateFrameBuffers();
+		// create offscreen rendering resources (color image and its view / depth image and its view / color sampler)
+		CreateOffscreenRenderResource(_mkSwapchain.GetSwapchainExtent());
+	}
+	else
+	{
+		// create render pass
+		mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, swapchinDepthFormat, &_vkRenderPass);
+		// request creation of frame buffers
+		CreateFrameBuffers();
+		// create offscreen render pass
+		CreateOffscreenRenderPass({WIDTH, HEIGHT});
+	}
 
-	// request creation of frame buffers
-	CreateFrameBuffers();
 
 	// create linear filtering mode image sampler
 	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkLinearSampler, _vkDeviceProperties);
-
-	// prepare model resources
 	
 	// for head rendering
 	_objModel.LoadModel(
@@ -110,9 +128,6 @@ void Renderer::Setup()
 
 	// create uniform buffers
 	CreateUniformBuffers();
-	
-	// create offscreen render pass
-	CreateOffscreenRenderPass({WIDTH, HEIGHT});
 
 	// create descriptor sets for graphics pipeline
 	CreateBaseDescriptorSet();
@@ -125,28 +140,40 @@ void Renderer::Setup()
 	WritePostDescriptor(); // update post descriptor set
 
 
-	// build graphics pipeline
+	// determine stencil format for two pipelines
+	auto offscreenStencilFormat = (!IsDepthOnlyFormat(_vkOffscreenDepthFormat)) ? _vkOffscreenDepthFormat : VK_FORMAT_UNDEFINED;
+	auto swapchainStencilFormat = (!IsDepthOnlyFormat(swapchinDepthFormat)) ? swapchinDepthFormat : VK_FORMAT_UNDEFINED;
+	
+	// configure base pipeline
 	std::vector<VkDescriptorSetLayout> descriptorLayouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
 	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
 	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
-	_mkGraphicsPipeline.CreateDefaultPipelineLayout(descriptorLayouts, _vkPushConstantRanges); // gather create infos
-	_mkGraphicsPipeline.BuildPipeline(_vkOffscreenRednerPass); // use offscreen render pass for graphics pipeline
+	_mkGraphicsPipeline.AddDescriptorSetLayouts(descriptorLayouts);
+	_mkGraphicsPipeline.AddPushConstantRanges(_vkPushConstantRanges);
+	_mkGraphicsPipeline.InitializePipelineLayout();
 
-	// build post processing pipeline
+	// configure post pipeline
 	std::vector<VkDescriptorSetLayout> postDescriptorLayouts = { _vkPostDescriptorSetLayout };
-	std::vector<VkPushConstantRange> postPushConstantRanges{};
-	VkPushConstantRange pcRange{};
-	pcRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	pcRange.offset = 0;
-	pcRange.size = sizeof(float);
-	postPushConstantRanges.push_back(pcRange);
 	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
 	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
-	_mkPostPipeline.CreateDefaultPipelineLayout(postDescriptorLayouts, postPushConstantRanges);
-	_mkPostPipeline.rasterizer.cullMode = VK_CULL_MODE_NONE; // disable culling
-	_mkPostPipeline.vertexInput = {};                        // no vertex input - create quad vertices in vertex shader
-	_mkPostPipeline.vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	_mkPostPipeline.BuildPipeline(_vkRenderPass);            // use default render pass for post processing pipeline
+	_mkPostPipeline.AddDescriptorSetLayouts(postDescriptorLayouts);
+	_mkPostPipeline.InitializePipelineLayout();
+	_mkPostPipeline.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE); // disable culling
+	_mkPostPipeline.RemoveVertexInput();
+
+	if (_mkDevice.enableDynamicRendering)
+	{
+		_mkGraphicsPipeline.SetRenderingInfo(1, &_vkOffscreenColorFormat, _vkOffscreenDepthFormat, offscreenStencilFormat);
+		_mkPostPipeline.SetRenderingInfo(1, &swapchainImageFormat, swapchinDepthFormat, swapchainStencilFormat);
+
+		_mkGraphicsPipeline.BuildPipeline();
+		_mkPostPipeline.BuildPipeline();
+	}
+	else
+	{
+		_mkGraphicsPipeline.BuildPipeline(&_vkOffscreenRednerPass);
+		_mkPostPipeline.BuildPipeline(&_vkRenderPass);
+	}
 }
 
 void Renderer::CreateVertexBuffer(std::vector<Vertex> vertices)
@@ -267,7 +294,6 @@ void Renderer::CreateBaseDescriptorSet()
 		static_cast<uint32>(_objModel.textures.size())
 	);
 
-
 	// create base descriptor set layout based on waiting bindings
 	GDescriptorManager->CreateDescriptorSetLayout(_vkBaseDescriptorSetLayout);
 
@@ -286,6 +312,126 @@ void Renderer::CreatePostDescriptorSet()
 
 	GDescriptorManager->CreateDescriptorSetLayout(_vkPostDescriptorSetLayout);
 	GDescriptorManager->AllocateDescriptorSet(_vkPostDescriptorSets, _vkPostDescriptorSetLayout);
+}
+
+void Renderer::CreateOffscreenRenderResource(VkExtent2D extent)
+{
+	if (_vkOffscreenColorImage.image != VK_NULL_HANDLE)
+	{
+		GAllocator->DestroyImage(_vkOffscreenColorImage);
+		vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenColorImageView, nullptr);
+		vkDestroySampler(_mkDevice.GetDevice(), _vkOffscreenColorSampler, nullptr);
+	}
+
+	if (_vkOffscreenDepthImage.image != VK_NULL_HANDLE)
+	{
+		GAllocator->DestroyImage(_vkOffscreenDepthImage);
+		vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenDepthImageView, nullptr);
+	}
+
+	/**
+	* specify color image usage
+	* - transfer source : for copying image to other image
+	* - transfer destination : for copying image from other image
+	* - color attachment : framebuffer resolver
+	* - sampled image : make image view suitable for texture sampling
+	* - storage image : make image view suitable for storage image
+	*/
+	bool isTransferRequired = false;
+	VkImageUsageFlags transferUsages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	VkImageUsageFlags colorImageUsages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	VkImageUsageFlags depthImageUsages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	if (isTransferRequired)
+	{
+		colorImageUsages |= transferUsages;
+		depthImageUsages |= transferUsages;
+	}
+
+	// create color image
+	GAllocator->CreateImage(
+		&_vkOffscreenColorImage,
+		extent.width, extent.height,
+		_vkOffscreenColorFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		colorImageUsages, // for storage image, sampler and framebuffer resolver
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		"offscreen color image"
+	);
+
+	// create color image view
+	mk::vk::CreateImageView(
+		_mkDevice.GetDevice(),
+		_vkOffscreenColorImage.image,
+		_vkOffscreenColorImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
+		_vkOffscreenColorFormat,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_REMAINING_MIP_LEVELS
+	);
+
+	// create offscreen color sampler
+	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
+
+	// create offscreen color sampler
+	if (_vkOffscreenColorSampler == VK_NULL_HANDLE)
+	{
+		mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
+	}
+
+	// create depth image
+	GAllocator->CreateImage(
+		&_vkOffscreenDepthImage,
+		extent.width, extent.height,
+		_vkOffscreenDepthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		depthImageUsages,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		"offscreen depth image"
+	);
+
+	// create depth image view
+	VkImageAspectFlags depthAspectFlags = (_vkOffscreenDepthFormat >= VK_FORMAT_D16_UNORM_S8_UINT) ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
+
+	mk::vk::CreateImageView(
+		_mkDevice.GetDevice(),
+		_vkOffscreenDepthImage.image,
+		_vkOffscreenDepthImageView,
+		VK_IMAGE_VIEW_TYPE_2D,
+		_vkOffscreenDepthFormat,
+		depthAspectFlags,
+		1, // mip levels
+		1  // layer count
+	);
+
+	// record transition image layout commands
+	VkCommandPool cmdPool;
+	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	VkCommandBuffer commandBufferfer;
+	GCommandService->BeginSingleTimeCommands(commandBufferfer, cmdPool);
+
+	mk::vk::TransitionImageLayout(
+		commandBufferfer,
+		_vkOffscreenColorImage.image,
+		_vkOffscreenColorFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		{ VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+	);
+
+	mk::vk::TransitionImageLayout(
+		commandBufferfer,
+		_vkOffscreenDepthImage.image,
+		_vkOffscreenDepthFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+		{ depthAspectFlags, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
+	);
+
+	GCommandService->EndSingleTimeCommands(commandBufferfer, cmdPool);
 }
 
 void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
@@ -340,8 +486,10 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 	);
 	
 	// create offscreen color sampler
-	mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
-
+	if (_vkOffscreenColorSampler == VK_NULL_HANDLE)
+	{
+		mk::vk::CreateSampler(_mkDevice.GetDevice(), &_vkOffscreenColorSampler, _vkDeviceProperties);
+	}
 	
 	// create depth image
 	GAllocator->CreateImage(
@@ -371,11 +519,11 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 	// record transition image layout commands
 	VkCommandPool cmdPool;
 	GCommandService->CreateCommandPool(&cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-	VkCommandBuffer cmdBuffer;
-	GCommandService->BeginSingleTimeCommands(cmdBuffer, cmdPool);
+	VkCommandBuffer commandBufferfer;
+	GCommandService->BeginSingleTimeCommands(commandBufferfer, cmdPool);
 
 	mk::vk::TransitionImageLayout(
-		cmdBuffer,
+		commandBufferfer,
 		_vkOffscreenColorImage.image,
 		_vkOffscreenColorFormat,
 		VK_IMAGE_LAYOUT_UNDEFINED,
@@ -384,7 +532,7 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 	);
 
 	mk::vk::TransitionImageLayout(
-		cmdBuffer,
+		commandBufferfer,
 		_vkOffscreenDepthImage.image,
 		_vkOffscreenDepthFormat,
 		VK_IMAGE_LAYOUT_UNDEFINED,
@@ -392,7 +540,7 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 		{ VK_IMAGE_ASPECT_DEPTH_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS }
 	);
 
-	GCommandService->EndSingleTimeCommands(cmdBuffer, cmdPool);
+	GCommandService->EndSingleTimeCommands(commandBufferfer, cmdPool);
 
 	// create offscreen render pass
 	if (_vkOffscreenRednerPass == VK_NULL_HANDLE)
@@ -481,11 +629,8 @@ void Renderer::CreatePushConstantRaster()
 /**
 * ----------------- Destroy -----------------
 */
-void Renderer::DestroyOffscreenRenderPassResources()
+void Renderer::DestroyOffscreenRenderingResources()
 {
-	// destroy offscreen render pass
-	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkOffscreenRednerPass, nullptr);
-
 	// destroy offscreen color image
 	GAllocator->DestroyImage(_vkOffscreenColorImage);
 
@@ -500,6 +645,12 @@ void Renderer::DestroyOffscreenRenderPassResources()
 
 	// destroy offscreen depth image view
 	vkDestroyImageView(_mkDevice.GetDevice(), _vkOffscreenDepthImageView, nullptr);
+}
+
+void Renderer::DestroyOffscreenRenderPassResources()
+{
+	// destroy offscreen render pass
+	vkDestroyRenderPass(_mkDevice.GetDevice(), _vkOffscreenRednerPass, nullptr);
 
 	// destroy offscreen framebuffer
 	vkDestroyFramebuffer(_mkDevice.GetDevice(), _vkOffscreenFramebuffer, nullptr);
@@ -650,7 +801,14 @@ void Renderer::OnResizeWindow()
 
 	// recreate offscreen render pass (recreation of offscreen buffer included in here)
 	auto extent = _mkSwapchain.GetSwapchainExtent();
-	CreateOffscreenRenderPass(extent);
+	if (_mkDevice.enableDynamicRendering)
+	{
+		CreateOffscreenRenderResource(extent);
+	}
+	else
+	{ // DEPRECATED
+		CreateOffscreenRenderPass(extent);
+	}
 	// update post descriptor set because combined image sampler is dependent on offscreen color image view
 	WritePostDescriptor();
 }
@@ -668,7 +826,7 @@ void Renderer::CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, 
 /**
 ----------------- Draw -----------------
 */
-void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
+void Renderer::Rasterize(const VkCommandBuffer& commandBuffer, VkExtent2D extent)
 {
 	// set viewport and scissor
 	VkViewport viewport{};
@@ -678,19 +836,19 @@ void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 	viewport.height = static_cast<float>(extent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = extent;
-	vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	// bind graphics pipeline
-	vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
 
 	// bind base descriptor sets
 	vkCmdBindDescriptorSets(
-		cmdBuf,
+		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		_mkGraphicsPipeline.GetPipelineLayout(),
 		0,                                          // set index 0
@@ -702,7 +860,7 @@ void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 
 	// bind sampler descriptor set
 	vkCmdBindDescriptorSets(
-		cmdBuf,
+		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		_mkGraphicsPipeline.GetPipelineLayout(),
 		1,                                             // set index 1
@@ -716,7 +874,7 @@ void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 	uint32 pushConstantOffset = 0;
 	uint32 pushConstantSize = sizeof(VkPushConstantRaster);
 	vkCmdPushConstants(
-		cmdBuf,
+		commandBuffer,
 		_mkGraphicsPipeline.GetPipelineLayout(),
 		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		pushConstantOffset,
@@ -727,16 +885,16 @@ void Renderer::Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 	// bind vertex and index buffer
 	VkBuffer vertexBuffers[] = { _vkVertexBuffer.buffer };
 	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(cmdBuf, 0, 1, vertexBuffers, offsets);			      // bind vertex buffer
-	vkCmdBindIndexBuffer(cmdBuf, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32); // bind index buffer
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);			      // bind vertex buffer
+	vkCmdBindIndexBuffer(commandBuffer, _vkIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32); // bind index buffer
 
 	// record draw command
-	vkCmdDrawIndexed(cmdBuf, _objModel.indices.size(), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, _objModel.indices.size(), 1, 0, 0, 0);
 }
 
-void Renderer::DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
+void Renderer::DrawPostProcess(const VkCommandBuffer& commandBuffer, VkExtent2D extent)
 {
-		// set viewport and scissor
+	// set viewport and scissor
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -744,30 +902,23 @@ void Renderer::DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 	viewport.height = static_cast<float>(extent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = extent;
-	vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	float aspectRatio = static_cast<float>(extent.width) / static_cast<float>(extent.height);
 	
 	vkCmdBindPipeline(
-		cmdBuf,
+		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		_mkPostPipeline.GetPipeline()
 	);
-	vkCmdPushConstants(
-		cmdBuf,
-		_mkPostPipeline.GetPipelineLayout(),
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		0,
-		sizeof(float),
-		&aspectRatio
-	);
+
 	vkCmdBindDescriptorSets(
-		cmdBuf,
+		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		_mkPostPipeline.GetPipelineLayout(),
 		0,
@@ -776,7 +927,7 @@ void Renderer::DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent)
 		0,
 		nullptr
 	);
-	vkCmdDraw(cmdBuf, 3, 1, 0, 0); // draw full quad
+	vkCmdDraw(commandBuffer, 3, 1, 0, 0); // draw full quad
 }
 
 
@@ -785,24 +936,130 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	beginInfo.pInheritanceInfo = nullptr;	// Optional
+	beginInfo.pInheritanceInfo = nullptr;
 
 	// get rendering resource from pipeline
 	MKPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
 
-	auto commandBuffer = *(renderingResource.commandBuffer);
+	auto commandBuffer = *(GCommandService->GetCommandBuffer(_currentFrameIndex));
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 	// 4. prepare render pass begin info
 	auto swapchainExtent = _mkSwapchain.GetSwapchainExtent(); // store swapchain extent for common usage.
 
-	const auto clearColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.0f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
+	const auto clearColor = glm::vec4(0.01f, 0.01f, 0.01f, 1.f); // settings for VK_ATTACHMENT_LOAD_OP_CLEAR in color attachment
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0] = { {clearColor[0], clearColor[1], clearColor[2], clearColor[3]} };   // clear values for color
 	clearValues[1] = { 1.0f, 0 };                                                        // clear value for depth and stencil attachment
 
-	// 1. begin offscreen render pass
+	if (_mkDevice.enableDynamicRendering)
 	{
+		auto vkCmdBeginRenderingKHR = (PFN_vkCmdBeginRenderingKHR)vkGetInstanceProcAddr(_mkInstance.GetVkInstance(), "vkCmdBeginRenderingKHR");
+		auto vkCmdEndRenderingKHR = (PFN_vkCmdEndRenderingKHR)vkGetInstanceProcAddr(_mkInstance.GetVkInstance(), "vkCmdEndRenderingKHR");
+		if (!vkCmdBeginRenderingKHR || !vkCmdEndRenderingKHR)
+		{
+			throw std::runtime_error("Unable to dynamically load vkCmdBeginRenderingKHR and vkCmdEndRenderingKHR");
+		}
+
+		// ----------- offscreen rendering ------------
+		VkImageSubresourceRange colorRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS };
+		VkImageSubresourceRange depthRange = colorRange;
+		depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		VkRenderingAttachmentInfoKHR colorAttachmentInfo = mk::vkinfo::GetRenderingAttachmentInfoKHR();
+		colorAttachmentInfo.imageView   = _vkOffscreenColorImageView;
+		colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		colorAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+		colorAttachmentInfo.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachmentInfo.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachmentInfo.clearValue = clearValues[0];
+
+		VkRenderingAttachmentInfoKHR depthAttachmentInfo = mk::vkinfo::GetRenderingAttachmentInfoKHR();
+		depthAttachmentInfo.imageView   = _vkOffscreenDepthImageView;
+		depthAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+		depthAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+		depthAttachmentInfo.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachmentInfo.storeOp     = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachmentInfo.clearValue  = clearValues[1];
+
+		auto renderArea = VkRect2D{ VkOffset2D{}, swapchainExtent };
+		auto renderInfo = mk::vkinfo::GetRenderingInfoKHR(renderArea, 1, &colorAttachmentInfo);
+		renderInfo.layerCount = 1;
+		renderInfo.pDepthAttachment = &depthAttachmentInfo;
+		if (!IsDepthOnlyFormat(_vkOffscreenDepthFormat))
+		{
+			renderInfo.pStencilAttachment = &depthAttachmentInfo; // if the depth format includes stencil, then use it as stencil attachment
+		}
+
+		vkCmdBeginRenderingKHR(commandBuffer, &renderInfo);
+		Rasterize(commandBuffer, swapchainExtent);
+		vkCmdEndRenderingKHR(commandBuffer);
+
+		// ----------- post pipeline rendering ------------
+		mk::vk::TransitionImageLayout(
+			commandBuffer,
+			_mkSwapchain.GetSwapchainImage(swapchainImageIndex),
+			_mkSwapchain.GetSwapchainImageFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			colorRange
+		);
+		mk::vk::TransitionImageLayout(
+			commandBuffer,
+			_mkSwapchain.GetDepthImage(),
+			_mkSwapchain.GetDepthFormat(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			depthRange
+		);
+
+		VkRenderingAttachmentInfo swapchainColorAttachmentInfo = mk::vkinfo::GetRenderingAttachmentInfoKHR();
+		swapchainColorAttachmentInfo.imageView   = _mkSwapchain.GetSwapchainImageView(swapchainImageIndex);	
+		swapchainColorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		swapchainColorAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+		swapchainColorAttachmentInfo.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		swapchainColorAttachmentInfo.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+		swapchainColorAttachmentInfo.clearValue  = clearValues[0];
+
+		VkRenderingAttachmentInfoKHR swapchainDepthAttachmentInfo = mk::vkinfo::GetRenderingAttachmentInfoKHR();
+		swapchainDepthAttachmentInfo.imageView   = _mkSwapchain.GetDepthImageView();
+		swapchainDepthAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+		swapchainDepthAttachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+		swapchainDepthAttachmentInfo.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		swapchainDepthAttachmentInfo.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+		swapchainDepthAttachmentInfo.clearValue  = clearValues[1];
+
+		auto postRenderArea = VkRect2D{ VkOffset2D{}, swapchainExtent };
+		auto postRenderInfo = mk::vkinfo::GetRenderingInfoKHR(postRenderArea, 1, &swapchainColorAttachmentInfo);
+		postRenderInfo.layerCount = 1;
+		postRenderInfo.pDepthAttachment = &swapchainDepthAttachmentInfo;
+		if (!IsDepthOnlyFormat(_vkOffscreenDepthFormat))
+		{
+			postRenderInfo.pStencilAttachment = &swapchainDepthAttachmentInfo; // if the depth format includes stencil, then use it as stencil attachment
+		}
+
+		// begin post rendering
+		vkCmdBeginRenderingKHR(commandBuffer, &postRenderInfo);
+		// draw post process
+		DrawPostProcess(commandBuffer, swapchainExtent);
+		// end post rendering
+		vkCmdEndRenderingKHR(commandBuffer);
+
+		mk::vk::TransitionImageLayout(
+			commandBuffer,
+			_mkSwapchain.GetSwapchainImage(swapchainImageIndex),
+			_mkSwapchain.GetSwapchainImageFormat(),
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			colorRange
+		);
+	}
+	else
+	{
+		/**
+		* DEPRECATED (rendering with render pass and frame buffer)
+		*/
+		// 1. begin offscreen render pass
 		VkRenderPassBeginInfo offRenderBeginInfo{};
 		offRenderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		offRenderBeginInfo.renderPass = _vkOffscreenRednerPass;
@@ -819,10 +1076,8 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 		Rasterize(commandBuffer, swapchainExtent);
 
 		vkCmdEndRenderPass(commandBuffer);
-	}
 
-	// 2. begin post pipeline render pass
-	{
+		// 2. begin post pipeline render pass
 		VkRenderPassBeginInfo postRenderBeginInfo{};
 		postRenderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		postRenderBeginInfo.renderPass = _vkRenderPass;
@@ -839,6 +1094,8 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 		// end post render pass
 		vkCmdEndRenderPass(commandBuffer);
 	}
+	
+
 
 	MK_CHECK(vkEndCommandBuffer(commandBuffer));
 }
