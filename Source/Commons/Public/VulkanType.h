@@ -36,6 +36,7 @@ struct VkBufferAllocated
 struct VkImageAllocated 
 {
 	VkImage           image = VK_NULL_HANDLE;
+	VkFormat          format;
 	VmaAllocation     allocation;
 	VmaAllocationInfo allocationInfo;
 	std::string       name;

@@ -73,7 +73,7 @@ void Texture::CreateTextureImage(const std::string& name)
         mk::vk::TransitionImageLayout(
             commandBuffer,                            // command buffer
             image.image,                              // texture image
-            VK_FORMAT_R8G8B8A8_SRGB,                  // format
+            image.format,                             // format
             VK_IMAGE_LAYOUT_UNDEFINED,                // old layout
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // new layout
             subresourceRange
@@ -93,7 +93,7 @@ void Texture::CreateTextureImage(const std::string& name)
         mk::vk::TransitionImageLayout(
             commandBuffer,                            // command buffer
             image.image,                              // texture image
-            VK_FORMAT_R8G8B8A8_SRGB,                  // format
+            image.format,                             // format
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,     // old layout
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // new layout
             subresourceRange
