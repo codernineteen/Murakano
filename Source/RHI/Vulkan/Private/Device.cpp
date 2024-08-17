@@ -233,8 +233,10 @@ bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &availableExtensionCount, availableExtensions.data());
 
 	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-	for (const auto& extension : availableExtensions) 
+	for (const auto& extension : availableExtensions)
+	{
 		requiredExtensions.erase(extension.extensionName); // erase extension name from set
+	}
 
 	return requiredExtensions.empty();
 }
