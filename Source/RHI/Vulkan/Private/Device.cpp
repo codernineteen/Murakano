@@ -23,20 +23,16 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	// specify device properties
 	VkPhysicalDeviceProperties2 deviceProperties2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
 	deviceProperties2.pNext = nullptr;
-	/*deviceProperties2.pNext = &_rayTracingProperties;
-	_rayTracingProperties.pNext = nullptr;*/
 
+	// TODO : implement extension add interface later.
 	// specify the set of device features
 	VkPhysicalDeviceFeatures2 deviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-	deviceFeatures2.pNext = nullptr;
 	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-	//VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-	//VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
-	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
-	bufferDeviceAddressFeatures.pNext = nullptr;
-	//bufferDeviceAddressFeatures.pNext = &accelerationStructureFeatures;
-	//accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
-	//rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
+	VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR };
+
+	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; 
+	bufferDeviceAddressFeatures.pNext = &dynamicRenderingFeatures;
+	dynamicRenderingFeatures.pNext = nullptr;
 
 	vkGetPhysicalDeviceProperties2(_vkPhysicalDevice, &deviceProperties2); // initialize device properties with raytracing properties
 	vkGetPhysicalDeviceFeatures2(_vkPhysicalDevice, &deviceFeatures2);
@@ -44,8 +40,7 @@ MKDevice::MKDevice(MKWindow& windowRef,const MKInstance& instanceRef)
 	// activate anisotropic filtering feature, buffer device address feature
 	deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
 	bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
-	/*accelerationStructureFeatures.accelerationStructure = VK_TRUE;
-	rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;*/
+	dynamicRenderingFeatures.dynamicRendering = VK_TRUE;
 
 	// specify device creation info
 	VkDeviceCreateInfo deviceCreateInfo = mk::vkinfo::GetDeviceCreateInfo(queueCreateInfos, deviceFeatures2, deviceExtensions);
@@ -123,15 +118,13 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 	// specify the set of device features
 	VkPhysicalDeviceFeatures2 deviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
-	/*VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };*/
+	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR };
 
 	// features pNext chain
 	deviceFeatures2.pNext = &bufferDeviceAddressFeatures; // attach buffer device address features to device features
-	bufferDeviceAddressFeatures.pNext = nullptr;
-	//accelerationStructureFeatures.pNext = &rayTracingPipelineFeatures;
-	//rayTracingPipelineFeatures.pNext = nullptr;           // no more extension features
-	//
+	bufferDeviceAddressFeatures.pNext = &dynamicRenderingFeatures;
+	dynamicRenderingFeatures.pNext = nullptr;
+
 	vkGetPhysicalDeviceProperties2(device, &deviceProperties2);
 	vkGetPhysicalDeviceFeatures2(device, &deviceFeatures2);
 
@@ -153,7 +146,8 @@ int MKDevice::RateDeviceSuitability(VkPhysicalDevice device)
 		details.formats.empty() || 
 		details.presentModes.empty() ||
 		!deviceFeatures2.features.samplerAnisotropy ||
-		bufferDeviceAddressFeatures.bufferDeviceAddress != VK_TRUE
+		bufferDeviceAddressFeatures.bufferDeviceAddress != VK_TRUE ||
+		dynamicRenderingFeatures.dynamicRendering != VK_TRUE
 	)
 		score = 0;
 
@@ -217,6 +211,20 @@ MKDevice::SwapChainSupportDetails MKDevice::QuerySwapChainSupport(VkPhysicalDevi
 	return details;
 }
 
+void MKDevice::SetDynamicRenderingKHRFunctionPointers()
+{
+#if VK_NO_PROTOTYPES
+	assert(!!_mkInstanceRef.GetVkInstance());
+
+	vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetInstanceProcAddr(_mkInstanceRef.GetVkInstance(), "vkCmdBeginRenderingKHR"));
+	vkCmdEndRenderingKHR   = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetInstanceProcAddr(_mkInstanceRef.GetVkInstance(), "vkCmdEndRenderingKHR"));
+	if (!vkCmdBeginRenderingKHR || !vkCmdEndRenderingKHR)
+	{
+		throw std::runtime_error("Unable to dynamically load vkCmdBeginRenderingKHR and vkCmdEndRenderingKHR");
+	}
+#endif
+}
+
 bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 {
 	uint32 availableExtensionCount;
@@ -225,8 +233,10 @@ bool MKDevice::IsDeviceExtensionSupported(VkPhysicalDevice device)
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &availableExtensionCount, availableExtensions.data());
 
 	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-	for (const auto& extension : availableExtensions) 
+	for (const auto& extension : availableExtensions)
+	{
 		requiredExtensions.erase(extension.extensionName); // erase extension name from set
+	}
 
 	return requiredExtensions.empty();
 }

@@ -12,7 +12,8 @@ public:
 	~MKCommandService();
 
 	/* getter */
-	VkCommandBuffer* GetCommandBuffer(uint32 currentFrame) { return &_vkCommandBuffers[currentFrame]; }
+	VkCommandBuffer* GetCommandBuffer(uint32 currentFrame) { return &_vkDrawCommandBuffers[currentFrame]; }
+	uint32           GetCommandBufferCount() { return static_cast<uint32>(_vkDrawCommandBuffers.size()); }
 
 	/* supported service */
 	void CreateCommandPool(VkCommandPool* commandPoolPtr, VkCommandPoolCreateFlags commandFlag);
@@ -45,5 +46,5 @@ public:
 private:
 	MKDevice*						_mkDevicePtr = nullptr;
 	VkCommandPool					_vkCommandPool = VK_NULL_HANDLE;
-	std::vector<VkCommandBuffer>	_vkCommandBuffers = std::vector<VkCommandBuffer>();
+	std::vector<VkCommandBuffer>	_vkDrawCommandBuffers = std::vector<VkCommandBuffer>();
 };

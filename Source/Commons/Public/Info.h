@@ -43,6 +43,15 @@ namespace mk
 			const std::vector<VkSubpassDescription>& subpasses, 
 			const std::vector<VkSubpassDependency>& dependencies
 		);
+		/* vulkan dynamic rendering KHR info */
+		VkRenderingInfoKHR                    GetRenderingInfoKHR(
+											  	 VkRect2D renderArea = {}, 
+											  	 uint32 colorAttachmentCount = 0, 
+											  	 const VkRenderingAttachmentInfoKHR* pColorAttachments = VK_NULL_HANDLE,
+											  	 VkRenderingFlagsKHR flags = 0
+											  );
+		VkRenderingAttachmentInfoKHR          GetRenderingAttachmentInfoKHR();
+
 		/* pipeline shader stage create info */
 		VkPipelineShaderStageCreateInfo       GetPipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const std::string& entryPoint);
 		/* pipeline vertex input state create info */
@@ -87,8 +96,9 @@ namespace mk
 	                                      		 VkPipelineDepthStencilStateCreateInfo* depthStencil, 
 	                                      		 VkPipelineColorBlendStateCreateInfo* colorBlending, 
 	                                      		 VkPipelineDynamicStateCreateInfo* dynamicState,
-												 const VkPipelineLayout& pipelineLayout,
-												 const VkRenderPass& renderPass
+												 VkPipelineLayout* pipelineLayout,
+												 VkRenderPass* renderPass,
+												 VkPipelineRenderingCreateInfo* renderingInfo
 											   );
 		/* create image info */
 		VkImageCreateInfo                      GetImageCreateInfo(

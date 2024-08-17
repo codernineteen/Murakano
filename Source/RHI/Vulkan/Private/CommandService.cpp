@@ -44,7 +44,7 @@ void MKCommandService::SubmitCommandBufferToQueue(
 	submitInfo.pWaitDstStageMask = waitStages;
 	// specify which command buffers to actually submit for execution
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &_vkCommandBuffers[currentFrame];
+	submitInfo.pCommandBuffers = &_vkDrawCommandBuffers[currentFrame];
 	// specify which semaphores to signal once the command buffer(s) have finished execution
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
@@ -55,7 +55,7 @@ void MKCommandService::SubmitCommandBufferToQueue(
 
 void MKCommandService::ResetCommandBuffer(uint32 currentFrame)
 {
-	MK_CHECK(vkResetCommandBuffer(_vkCommandBuffers[currentFrame], 0));
+	MK_CHECK(vkResetCommandBuffer(_vkDrawCommandBuffers[currentFrame], 0));
 }
 
 void MKCommandService::ExecuteCommands(std::queue<VoidLambda>& commandQueue)
@@ -87,15 +87,15 @@ void MKCommandService::CreateCommandPool(VkCommandPool* commandPoolPtr, VkComman
 void MKCommandService::CreateCommandBuffers()
 {
 	// Note that the command buffer is allocated from the command pool and destoryed when the pool is destroyed.
-	_vkCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	_vkDrawCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.commandPool = _vkCommandPool;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = SafeStaticCast<size_t, uint32>(_vkCommandBuffers.size());
+	allocInfo.commandBufferCount = SafeStaticCast<size_t, uint32>(_vkDrawCommandBuffers.size());
 
-	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, _vkCommandBuffers.data()));
+	MK_CHECK(vkAllocateCommandBuffers(_mkDevicePtr->GetDevice(), &allocInfo, _vkDrawCommandBuffers.data()));
 }
 
 void MKCommandService::BeginSingleTimeCommands(VkCommandBuffer& commandBuffer, VkCommandPool commandPool)

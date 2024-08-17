@@ -19,7 +19,9 @@ public:
 	VkExtent2D     GetSwapchainExtent()	                    const { return _vkSwapchainExtent; }
 	VkImage        GetSwapchainImage(uint32 imageIndex)     const { return _vkSwapchainImages[imageIndex]; }
 	VkImageView    GetSwapchainImageView(uint32 imageIndex) const { return _vkSwapchainImageViews[imageIndex]; }
+	VkImage        GetDepthImage()                          const { return _vkDepthImage.image; }
 	VkImageView    GetDepthImageView()                      const { return _vkDepthImageView; }
+	VkFormat       GetDepthFormat()                         const { return _vkDepthFormat; }
 	size_t         GetImageViewCount()                      const { return _vkSwapchainImageViews.size(); }
 
 	/* setters */
@@ -33,12 +35,19 @@ public:
 
 private:
 	VkSwapchainKHR				_vkSwapchain;
+
+	/* color images */
 	std::vector<VkImage>		_vkSwapchainImages;
 	std::vector<VkImageView>	_vkSwapchainImageViews;
 	VkFormat					_vkSwapchainImageFormat;
-	VkExtent2D					_vkSwapchainExtent;
+
+	/* depth image */
 	VkImageAllocated            _vkDepthImage;
 	VkImageView                 _vkDepthImageView;
+	VkFormat                    _vkDepthFormat;
+
+	/* extent */
+	VkExtent2D					_vkSwapchainExtent;
 
 private:
 	MKDevice& _mkDeviceRef;

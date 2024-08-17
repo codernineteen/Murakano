@@ -44,10 +44,7 @@ void MKPipeline::AddShader(const char* path, std::string entryPoint, VkShaderSta
 	_waitShaders.push_back(shaderDesc);
 }
 
-void MKPipeline::CreateDefaultPipelineLayout(
-	std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
-	std::vector<VkPushConstantRange>& pushConstants
-)
+void MKPipeline::InitializePipelineLayout()
 {
 	for (auto& shader : _waitShaders)
 	{
@@ -85,16 +82,14 @@ void MKPipeline::CreateDefaultPipelineLayout(
 	colorBlending = mk::vkinfo::GetPipelineColorBlendStateCreateInfo(colorBlendAttachment);
 
 	// create pipeline layout
-	pipelineLayoutInfo = mk::vkinfo::GetPipelineLayoutCreateInfo(
-		descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr,
-		static_cast<uint32>(descriptorSetLayouts.size()),
-		pushConstants.size() > 0 ? pushConstants.data() : nullptr,
-		static_cast<uint32>(pushConstants.size())
-	);
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pNext = nullptr;
+
+	// create pipeline layout
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
 }
 
-void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
+void MKPipeline::BuildPipeline(VkRenderPass* pRenderPass)
 {
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = mk::vkinfo::GetGraphicsPipelineCreateInfo(
@@ -107,8 +102,9 @@ void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
 		&depthStencil,
 		&colorBlending,
 		&dynamicState,
-		_vkPipelineLayout,
-		renderPass
+		&_vkPipelineLayout,
+		pRenderPass,
+		&renderingInfo
 	);
 
 	// create pipeline instance
@@ -120,6 +116,120 @@ void MKPipeline::BuildPipeline(VkRenderPass& renderPass)
 		vkDestroyShaderModule(_mkDeviceRef.GetDevice(), shader.shaderModule, nullptr);
 		shader.shaderModule = VK_NULL_HANDLE;
 	}
+}
+
+void MKPipeline::AddDescriptorSetLayouts(std::vector<VkDescriptorSetLayout>& layouts)
+{
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
+}
+
+void MKPipeline::AddPushConstantRanges(std::vector<VkPushConstantRange>& pushConstants)
+{
+	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32>(pushConstants.size());
+	pipelineLayoutInfo.pPushConstantRanges = pushConstants.data();
+}
+
+void MKPipeline::SetRenderingInfo(
+	uint32 colorAttachmentCount, 
+	VkFormat* pColorAttachmentFormats, 
+	VkFormat depthAttachmentFormat, 
+	VkFormat stencilAttachmentFormat
+)
+{
+	renderingInfo.colorAttachmentCount = colorAttachmentCount;
+	renderingInfo.pColorAttachmentFormats = pColorAttachmentFormats;
+	renderingInfo.depthAttachmentFormat = depthAttachmentFormat;
+	renderingInfo.stencilAttachmentFormat = stencilAttachmentFormat;
+	renderingInfo.pNext = nullptr;
+}
+
+void MKPipeline::SetInputTopology(VkPrimitiveTopology topology)
+{
+	inputAssembly.topology = topology;
+}
+
+void MKPipeline::SetPolygonMode(VkPolygonMode mode)
+{
+	rasterizer.polygonMode = mode;
+}
+
+void MKPipeline::SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
+{
+	rasterizer.cullMode  = cullMode;
+	rasterizer.frontFace = frontFace;
+}
+
+void MKPipeline::DisableMultiSampling()
+{
+	multisampling.sampleShadingEnable   = VK_FALSE;
+	multisampling.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+	multisampling.minSampleShading      = 1.0f;
+	multisampling.pSampleMask           = nullptr;
+	multisampling.alphaToCoverageEnable = VK_FALSE;
+	multisampling.alphaToOneEnable      = VK_FALSE;
+}
+
+void MKPipeline::DisableColorBlending()
+{
+	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.blendEnable = VK_FALSE;
+}
+
+void MKPipeline::EnableBlendingAdditive()
+{
+	colorBlendAttachment.blendEnable         = VK_TRUE;
+	colorBlendAttachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+}
+
+void MKPipeline::EnableBlendingAlpha()
+{
+	colorBlendAttachment.blendEnable         = VK_TRUE;
+	colorBlendAttachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+}
+
+void MKPipeline::DisableDepthTest()
+{
+	depthStencil.depthTestEnable       = VK_FALSE;
+	depthStencil.depthWriteEnable      = VK_FALSE;
+	depthStencil.depthCompareOp        = VK_COMPARE_OP_NEVER;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable     = VK_FALSE;
+	depthStencil.front                 = {};
+	depthStencil.back                  = {};
+	depthStencil.minDepthBounds        = 0.f;
+	depthStencil.maxDepthBounds        = 1.f;
+}
+
+void MKPipeline::EnableDepthTest(bool depthWriteEnable, VkCompareOp op)
+{
+	depthStencil.depthTestEnable       = VK_TRUE;
+	depthStencil.depthWriteEnable      = depthWriteEnable;
+	depthStencil.depthCompareOp        = op;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable     = VK_FALSE;
+	depthStencil.front                 = {};
+	depthStencil.back                  = {};
+	depthStencil.minDepthBounds        = 0.f;
+	depthStencil.maxDepthBounds        = 1.f;
+}
+
+void MKPipeline::RemoveVertexInput()
+{
+	vertexInput = {}; // assign empty struct
+	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 }
 
 /*
@@ -142,6 +252,5 @@ void MKPipeline::CreateRenderingResources()
 		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].imageAvailableSema));
 		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].renderFinishedSema));
 		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_renderingResources[i].inFlightFence));
-		_renderingResources[i].commandBuffer = GCommandService->GetCommandBuffer(i);
 	}
 }

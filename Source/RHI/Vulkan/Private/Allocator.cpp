@@ -67,6 +67,7 @@ void Allocator::CreateImage(
 
 	// create image
 	newImage->name = allocationName;
+	newImage->format = format;
 	MK_CHECK(vmaCreateImage(_vmaAllocator, &imageInfo, &imageAllocInfo, &newImage->image, &newImage->allocation, &newImage->allocationInfo));
 }
 

@@ -13,7 +13,7 @@
 #include "Swapchain.h"
 #include "DescriptorManager.h"
 
-class MKPipeline 
+class MKPipeline
 {
 public:
     struct ShaderDesc
@@ -28,7 +28,6 @@ public:
         VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
         VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
         VkFence           inFlightFence      = VK_NULL_HANDLE;
-        VkCommandBuffer*  commandBuffer       = nullptr;
     };
 
     MKPipeline(MKDevice& mkDeviceRef);
@@ -39,17 +38,38 @@ public:
     VkPipelineLayout   GetPipelineLayout() const { return _vkPipelineLayout; }
     VkPipeline         GetPipeline() const { return _vkPipelineInstance; }
     
-    /* api */
+    /**
+    * API 
+    */
     void AddShader(const char* path, std::string entryPoint, VkShaderStageFlagBits stageBit);
-    void CreateDefaultPipelineLayout(
-        std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
-        std::vector<VkPushConstantRange>& pushConstants
+    void AddDescriptorSetLayouts(std::vector<VkDescriptorSetLayout>& layouts);
+    void AddPushConstantRanges(std::vector<VkPushConstantRange>& pushConstants);
+    void InitializePipelineLayout();
+
+    /* pipeline state modifier */
+    void SetRenderingInfo(
+        uint32 colorAttachmentCount,
+        VkFormat* pColorAttachmentFormats,
+        VkFormat depthAttachmentFormat,
+        VkFormat stencilAttachmentFormat
     );
-    void BuildPipeline(VkRenderPass& renderPass);
+    void SetInputTopology(VkPrimitiveTopology topology);
+    void SetPolygonMode(VkPolygonMode mode);
+    void SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void DisableMultiSampling();
+    void DisableColorBlending();
+    void EnableBlendingAdditive();
+    void EnableBlendingAlpha();
+    void DisableDepthTest();
+    void EnableDepthTest(bool depthWriteEnable, VkCompareOp op);
+    void RemoveVertexInput();
+
+    /* finialize pipeline and compile */
+    void BuildPipeline(VkRenderPass* pRenderPass = nullptr);
 
 private:
     /* create rendering resources */
-    void            CreateRenderingResources();
+    void CreateRenderingResources();
 
 public:
     /* pipeline states */
@@ -59,6 +79,7 @@ public:
     VkVertexInputBindingDescription                 bindingDesc = Vertex::GetBindingDescription();
     std::array<VkVertexInputAttributeDescription, 3> attribDesc = Vertex::GetAttributeDescriptions();
 
+    VkPipelineRenderingCreateInfoKHR       renderingInfo{ .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR };
     VkPipelineVertexInputStateCreateInfo   vertexInput;
     VkPipelineInputAssemblyStateCreateInfo inputAssembly;
     VkPipelineViewportStateCreateInfo      viewportState;
@@ -68,7 +89,15 @@ public:
     VkPipelineDepthStencilStateCreateInfo  depthStencil;
     VkPipelineColorBlendAttachmentState    colorBlendAttachment;
     VkPipelineColorBlendStateCreateInfo    colorBlending;
-    VkPipelineLayoutCreateInfo             pipelineLayoutInfo;
+    VkPipelineLayoutCreateInfo             pipelineLayoutInfo{ // initialize with default values
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr
+    };
 
 private:
     /* pipeline instance */

@@ -53,6 +53,7 @@ private:
 	void CreateVertexBuffer(std::vector<Vertex> vertices);
 	void CreateIndexBuffer(std::vector<uint32> indices);
 	void CreateUniformBuffers();
+	void CreateOffscreenRenderResource(VkExtent2D extent);
 	void CreateOffscreenRenderPass(VkExtent2D extent);
 	void CreateBaseDescriptorSet();
 	void CreateSamplerDescriptorSet();
@@ -61,6 +62,7 @@ private:
 	void CreateFrameBuffers();
 
 	/* destroyer */
+	void DestroyOffscreenRenderingResources();
 	void DestroyOffscreenRenderPassResources();
 	void DestroyFrameBuffers();
 
@@ -74,8 +76,8 @@ private:
 
 	/* draw */
 	void RecordFrameBufferCommands(uint32 swapchainImageIndex);
-	void Rasterize(const VkCommandBuffer& cmdBuf, VkExtent2D extent);
-	void DrawPostProcess(const VkCommandBuffer& cmdBuf, VkExtent2D extent);
+	void Rasterize(const VkCommandBuffer& commandBuffer, VkExtent2D extent);
+	void DrawPostProcess(const VkCommandBuffer& commandBuffer, VkExtent2D extent);
 	void DrawFrame();
 
 	/* cleanup */
@@ -83,6 +85,10 @@ private:
 
 	/* helper */
 	void CopyBufferToBuffer(VkBufferAllocated src, VkBufferAllocated dst, VkDeviceSize sz);
+	bool IsDepthOnlyFormat(VkFormat format)
+	{
+		return format == VK_FORMAT_D16_UNORM || format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_X8_D24_UNORM_PACK32;
+	}
 
 private:
 	/* RHI Instance */
@@ -100,23 +106,21 @@ private:
 	OBJModel _objModel;
 
 	/* offscreen render pass */
-	VkRenderPass          _vkOffscreenRednerPass{ VK_NULL_HANDLE };
 	VkFormat              _vkOffscreenColorFormat{ VK_FORMAT_R32G32B32A32_SFLOAT };
 	VkFormat              _vkOffscreenDepthFormat{ VK_FORMAT_X8_D24_UNORM_PACK32 };
 	VkImageAllocated      _vkOffscreenColorImage;
 	VkImageView           _vkOffscreenColorImageView;
-	VkSampler             _vkOffscreenColorSampler;
+	VkSampler             _vkOffscreenColorSampler{ VK_NULL_HANDLE };
 	VkImageAllocated      _vkOffscreenDepthImage;
 	VkImageView           _vkOffscreenDepthImageView;
 	VkDescriptorImageInfo _vkOffscreenColorDescriptorInfo;
-
-	/* frame buffers */
-	VkFramebuffer    _vkOffscreenFramebuffer{ VK_NULL_HANDLE };
-	std::vector<VkFramebuffer>    _vkFramebuffers;
 	
-
-	/* render pass */
+	/* render pass resources */
+	VkRenderPass _vkOffscreenRednerPass{ VK_NULL_HANDLE };
 	VkRenderPass _vkRenderPass;
+	
+	VkFramebuffer              _vkOffscreenFramebuffer{ VK_NULL_HANDLE };
+	std::vector<VkFramebuffer> _vkFramebuffers;
 
 	/* buffers */
 	VkBufferAllocated _vkVertexBuffer;
