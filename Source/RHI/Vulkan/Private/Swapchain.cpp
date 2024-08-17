@@ -110,7 +110,8 @@ void MKSwapchain::CreateSwapchainImageViews()
 void MKSwapchain::CreateDepthResources()
 {
 	// find depth format first
-	VkFormat depthFormat = mk::vk::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
+	_vkDepthFormat = mk::vk::FindDepthFormat(_mkDeviceRef.GetPhysicalDevice());
+
 
 	// create depth image
 	mk::vk::CreateImage(
@@ -118,7 +119,7 @@ void MKSwapchain::CreateDepthResources()
 		_vkDepthImage,
 		_vkSwapchainExtent.width,
 		_vkSwapchainExtent.height,
-		depthFormat,
+		_vkDepthFormat,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VMA_MEMORY_USAGE_AUTO,
@@ -131,7 +132,7 @@ void MKSwapchain::CreateDepthResources()
 		_vkDepthImage.image,
 		_vkDepthImageView,
 		VK_IMAGE_VIEW_TYPE_2D,
-		depthFormat,
+		_vkDepthFormat,
 		VK_IMAGE_ASPECT_DEPTH_BIT, // set DEPTH aspect flags
 		1
 	);
