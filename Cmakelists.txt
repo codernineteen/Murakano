@@ -101,7 +101,7 @@ target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURC
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Commons/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Scene/Component/Public")
 target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Misc/Public")
-target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Scene/Interfaces")
+target_include_directories("${CMAKE_PROJECT_NAME}" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/source/Scene/Public")
 
 # third party include
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS}) # include vulkan headers
@@ -135,6 +135,9 @@ message(STATUS ${DXC_EXEC})
 set(VERTEX_SHADER_MODEL vs_6_0)
 set(FRAGMENT_SHADER_MODEL ps_6_0)
 
+# Shader header 
+set(HLSL_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/common.hlsl")
+
 # Compile Vertex Shaders
 file(GLOB_RECURSE HLSL_VERTEX_FILES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/HLSL/*vertex.hlsl")
 foreach(HLSL_VERTEX ${HLSL_VERTEX_FILES})
@@ -143,7 +146,7 @@ foreach(HLSL_VERTEX ${HLSL_VERTEX_FILES})
     add_custom_command(
         OUTPUT  ${HLSL_SPIRV_OUTPUT}
         COMMAND ${DXC_EXEC} -spirv -T ${VERTEX_SHADER_MODEL} -E main ${HLSL_VERTEX} -Fo ${HLSL_SPIRV_OUTPUT}
-        DEPENDS ${HLSL_VERTEX}
+        DEPENDS ${HLSL_VERTEX} ${HLSL_HEADER} # should add header dependency here
     )
     list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
 endforeach()
@@ -156,7 +159,7 @@ foreach(HLSL_FRAG ${HLSL_FRAGMENT_FILES})
     add_custom_command(
         OUTPUT  ${HLSL_SPIRV_OUTPUT}
         COMMAND ${DXC_EXEC} -spirv -T ${FRAGMENT_SHADER_MODEL} -E main ${HLSL_FRAG} -Fo ${HLSL_SPIRV_OUTPUT}
-        DEPENDS ${HLSL_FRAG}
+        DEPENDS ${HLSL_FRAG} ${HLSL_HEADER}
     )
     list(APPEND HLSL_SPIRV_BINARY_FILES ${HLSL_SPIRV_OUTPUT})
 endforeach()
