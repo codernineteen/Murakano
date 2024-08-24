@@ -245,8 +245,8 @@ namespace mk
 			barrier.srcAccessMask = GetAccessFlags(oldLayout);
 			barrier.dstAccessMask = GetAccessFlags(newLayout);
 
-			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
-			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no tranfer on any queue, so ignored
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no transfer on any queue, so ignored
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;           // no transfer on any queue, so ignored
 			barrier.image = image;                                           // specify image to transition layout
 
 			// specify subresource range.
