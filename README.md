@@ -1,6 +1,6 @@
 # Murakano
 
-Murakano is a very simple implementation of graphics application that renders OBJ model.
+Murakano is a renderer powered by Vulkan API for the purpose of learning api itself and applying modern rendering algorithms.
 
 If you are interested in my posts about this project, you can check my [devlog](https://github.com/codernineteen/rendering-archive/tree/main/devlog).<br>
 For anyone who are curious about implementation details, visualized architecture and workflows, Refer to [this repository for documentations](https://github.com/codernineteen/rendering-archive/tree/main/rendering/api/vulkan/implementation)
