@@ -46,9 +46,11 @@ public:
 
 public:
 	/* destruction APIs */
-	void DestroyBuffer(VkBufferAllocated& bufferAllocated) const;
-	void DestroyImage(VkImageAllocated& imageAllocated) const;
+	void DestroyBuffer(VkBufferAllocated bufferAllocated) const;
+	void DestroyImage(VkImageAllocated imageAllocated) const;
+	void PushDestruction(std::function<void()> lambda);
 
 private:
 	VmaAllocator _vmaAllocator;
+	std::queue<std::function<void()>> _destroyQueue;
 };

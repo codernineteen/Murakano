@@ -3,6 +3,12 @@
 Allocator::Allocator() {}
 Allocator::~Allocator() 
 {
+	while (!_destroyQueue.empty())
+	{
+		std::function<void()> destroyer = _destroyQueue.front();
+		destroyer();
+		_destroyQueue.pop();
+	}
 	vmaDestroyAllocator(_vmaAllocator);
 }
 
@@ -74,7 +80,7 @@ void Allocator::CreateImage(
 /*
 ----------- Destruction -----------
 */
-void Allocator::DestroyBuffer(VkBufferAllocated& bufferAllocated) const
+void Allocator::DestroyBuffer(VkBufferAllocated bufferAllocated) const
 {
 	vmaDestroyBuffer(_vmaAllocator, bufferAllocated.buffer, bufferAllocated.allocation);
 #ifndef NDEBUG
@@ -83,11 +89,16 @@ void Allocator::DestroyBuffer(VkBufferAllocated& bufferAllocated) const
 #endif
 }
 
-void Allocator::DestroyImage(VkImageAllocated& imageAllocated) const
+void Allocator::DestroyImage(VkImageAllocated imageAllocated) const
 {
 	vmaDestroyImage(_vmaAllocator, imageAllocated.image, imageAllocated.allocation);
 #ifndef NDEBUG
 	std::string msg = "Destroying image with allocation name : " + imageAllocated.name;
 	MK_LOG(msg);
 #endif
+}
+
+void Allocator::PushDestruction(std::function<void()> lambda)
+{
+	_destroyQueue.push(lambda);
 }
