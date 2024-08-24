@@ -3,30 +3,21 @@
 /*
 -----------	PUBLIC ------------
 */
-MKPipeline::MKPipeline(MKDevice& mkDeviceRef)
+MKPipeline::MKPipeline(MKDevice& mkDeviceRef, std::string name)
 	:
-	_mkDeviceRef(mkDeviceRef)
+	_mkDeviceRef(mkDeviceRef), 
+	_pipelineName(name)
 {
-	CreateRenderingResources();
 }
 
 MKPipeline::~MKPipeline()
 {
-	// destroy sync objects
-	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
-	{
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].renderFinishedSema, nullptr);
-		vkDestroySemaphore(_mkDeviceRef.GetDevice(), _renderingResources[i].imageAvailableSema, nullptr);
-		vkDestroyFence(_mkDeviceRef.GetDevice(), _renderingResources[i].inFlightFence, nullptr);
-	}
-
 	// destroy pipeline and pipeline layout
 	vkDestroyPipeline(_mkDeviceRef.GetDevice(), _vkPipelineInstance, nullptr);
 	vkDestroyPipelineLayout(_mkDeviceRef.GetDevice(), _vkPipelineLayout, nullptr);
 
 #ifndef NDEBUG
-	MK_LOG("sync objects destroyed");
-	MK_LOG("graphics pipeline and its layout destroyed");
+	MK_LOG(_pipelineName + " pipeline destroyed.");
 #endif
 }
 
@@ -44,7 +35,7 @@ void MKPipeline::AddShader(const char* path, std::string entryPoint, VkShaderSta
 	_waitShaders.push_back(shaderDesc);
 }
 
-void MKPipeline::InitializePipelineLayout()
+void MKPipeline::SetDefaultPipelineCreateInfo()
 {
 	for (auto& shader : _waitShaders)
 	{
@@ -84,6 +75,13 @@ void MKPipeline::InitializePipelineLayout()
 	// create pipeline layout
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.pNext = nullptr;
+}
+
+void MKPipeline::CreatePipelineLayout()
+{
+	// create pipeline layout
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pNext = nullptr;
 
 	// create pipeline layout
 	MK_CHECK(vkCreatePipelineLayout(_mkDeviceRef.GetDevice(), &pipelineLayoutInfo, nullptr, &_vkPipelineLayout));
@@ -91,6 +89,8 @@ void MKPipeline::InitializePipelineLayout()
 
 void MKPipeline::BuildPipeline(VkRenderPass* pRenderPass)
 {
+	assert(_vkPipelineLayout != VK_NULL_HANDLE && "Pipeline layout is not created yet. Call CreatePipelineLayout() before building a pipeline.");
+
 	// specify graphics pipeline
 	VkGraphicsPipelineCreateInfo pipelineInfo = mk::vkinfo::GetGraphicsPipelineCreateInfo(
 		shaderStages,
@@ -116,6 +116,7 @@ void MKPipeline::BuildPipeline(VkRenderPass* pRenderPass)
 		vkDestroyShaderModule(_mkDeviceRef.GetDevice(), shader.shaderModule, nullptr);
 		shader.shaderModule = VK_NULL_HANDLE;
 	}
+	_waitShaders.clear();
 }
 
 void MKPipeline::AddDescriptorSetLayouts(std::vector<VkDescriptorSetLayout>& layouts)
@@ -142,6 +143,16 @@ void MKPipeline::SetRenderingInfo(
 	renderingInfo.depthAttachmentFormat = depthAttachmentFormat;
 	renderingInfo.stencilAttachmentFormat = stencilAttachmentFormat;
 	renderingInfo.pNext = nullptr;
+}
+
+void MKPipeline::CopyPipelineLayoutCreateInfo(const VkPipelineLayoutCreateInfo& layout)
+{
+	pipelineLayoutInfo.sType = layout.sType;
+	pipelineLayoutInfo.flags = layout.flags;
+	pipelineLayoutInfo.setLayoutCount = layout.setLayoutCount;
+	pipelineLayoutInfo.pSetLayouts = layout.pSetLayouts;
+	pipelineLayoutInfo.pushConstantRangeCount = layout.pushConstantRangeCount;
+	pipelineLayoutInfo.pPushConstantRanges = layout.pPushConstantRanges;
 }
 
 void MKPipeline::SetInputTopology(VkPrimitiveTopology topology)
@@ -230,27 +241,4 @@ void MKPipeline::RemoveVertexInput()
 {
 	vertexInput = {}; // assign empty struct
 	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-}
-
-/*
------------	PRIVATE ------------
-*/
-
-void MKPipeline::CreateRenderingResources()
-{
-	_renderingResources.resize(MAX_FRAMES_IN_FLIGHT);
-
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // create fence as signaled state for the very first frame.
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
-	{
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].imageAvailableSema));
-		MK_CHECK(vkCreateSemaphore(_mkDeviceRef.GetDevice(), &semaphoreInfo, nullptr, &_renderingResources[i].renderFinishedSema));
-		MK_CHECK(vkCreateFence(_mkDeviceRef.GetDevice(), &fenceInfo, nullptr, &_renderingResources[i].inFlightFence));
-	}
 }

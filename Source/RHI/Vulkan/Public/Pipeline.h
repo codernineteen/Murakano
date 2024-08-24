@@ -3,10 +3,7 @@
 // internal
 #include "Utilities.h"
 #include "Global.h"
-#include "OBJModel.h"
-#include "Texture.h"
-#include "FreeCamera.h"
-#include "InputController.h"
+#include "Vertex.h"
 
 // RHI
 #include "Device.h"
@@ -23,20 +20,15 @@ public:
         std::string           entryPoint;
     };
 
-    struct RenderingResource
-    {
-        VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
-        VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
-        VkFence           inFlightFence      = VK_NULL_HANDLE;
-    };
-
-    MKPipeline(MKDevice& mkDeviceRef);
+    MKPipeline(MKDevice& mkDeviceRef, std::string name);
 	~MKPipeline();
 
     /* getters */
-    RenderingResource& GetRenderingResource(uint32 index) { return _renderingResources[index]; }
-    VkPipelineLayout   GetPipelineLayout() const { return _vkPipelineLayout; }
-    VkPipeline         GetPipeline() const { return _vkPipelineInstance; }
+    //RenderingResource&         GetRenderingResource(uint32 index) { return _renderingResources[index]; }
+    VkPipelineLayoutCreateInfo GetPipelineLayoutCreateInfo() const { return pipelineLayoutInfo; }
+    VkPipelineLayout           GetPipelineLayout() const { return _vkPipelineLayout; }
+    VkPipeline                 GetPipeline() const { return _vkPipelineInstance; }
+    VkPipeline*                GetPipelinePtr() { return &_vkPipelineInstance; }
     
     /**
     * API 
@@ -44,9 +36,11 @@ public:
     void AddShader(const char* path, std::string entryPoint, VkShaderStageFlagBits stageBit);
     void AddDescriptorSetLayouts(std::vector<VkDescriptorSetLayout>& layouts);
     void AddPushConstantRanges(std::vector<VkPushConstantRange>& pushConstants);
-    void InitializePipelineLayout();
 
     /* pipeline state modifier */
+    void CopyPipelineLayoutCreateInfo(const VkPipelineLayoutCreateInfo& layout);
+    void CopyPipelineLayout(const VkPipelineLayout& pipelineLayout) { _vkPipelineLayout = pipelineLayout; };
+    void SetDefaultPipelineCreateInfo();
     void SetRenderingInfo(
         uint32 colorAttachmentCount,
         VkFormat* pColorAttachmentFormats,
@@ -65,6 +59,7 @@ public:
     void RemoveVertexInput();
 
     /* finialize pipeline and compile */
+    void CreatePipelineLayout();
     void BuildPipeline(VkRenderPass* pRenderPass = nullptr);
 
 private:
@@ -101,11 +96,9 @@ public:
 
 private:
     /* pipeline instance */
-	VkPipeline	      _vkPipelineInstance;
-	VkPipelineLayout  _vkPipelineLayout;
-
-    /* rendering resources */
-    std::vector<RenderingResource> _renderingResources;
+	VkPipeline	      _vkPipelineInstance{ VK_NULL_HANDLE };
+    VkPipelineLayout  _vkPipelineLayout{ VK_NULL_HANDLE };
+    std::string       _pipelineName;
 
     /* shader stages waiting initialization */
     std::vector<ShaderDesc> _waitShaders;
