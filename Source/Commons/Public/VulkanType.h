@@ -16,8 +16,48 @@ using namespace DirectX::PackedVector;
 * Constants
 */
 
-const VkBufferUsageFlags vkDeviceAddressFlag = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-const VkBufferUsageFlags vkRayTracingFlags = vkDeviceAddressFlag | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+// buffer usage flags
+const VkBufferUsageFlags VK_DEVICE_ADDRESS_USAGE_FLAG = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+const VkBufferUsageFlags VK_RAYTRACING_USAGE_FLAG = VK_DEVICE_ADDRESS_USAGE_FLAG | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+const VkDescriptorPoolSize VK_GLOBAL_DESCRIPTOR_POOL_SIZE = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 };
+
+// shader stage flags
+const VkShaderStageFlags VK_SHADER_VS_FS_FLAG = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+/**
+* Enums
+*/
+
+enum ELightType
+{
+	POINT_LIGHT = 0,
+	DIRECTIONAL_LIGHT = 1,
+	SPOT_LIGHT = 2
+};
+
+enum EShaderBinding
+{
+	UNIFORM_BUFFER = 0,
+	TEXTURE_2D_ARRAY = 1,
+	SAMPLER = 2,
+	COMBINED_IMAGE_SAMPLER = 3,
+};
+
+enum ERtDescriptorBinding
+{
+	TLAS = 2,
+	OUT_IMAGE = 3
+};
+
+enum ERtShaderStages
+{
+	RAYGEN,
+	MISS,
+	CLOSEST_HIT,
+	STAGE_COUNT
+};
+
+
 
 /**
 * Structs
@@ -66,13 +106,6 @@ struct VkStorageImage
 	VkFormat         format;
 };
 
-enum LightType
-{
-	POINT_LIGHT = 0,
-	DIRECTIONAL_LIGHT = 1,
-	SPOT_LIGHT = 2
-};
-
 // rasterization push constant
 struct VkPushConstantRaster
 {
@@ -84,7 +117,7 @@ struct VkPushConstantRaster
 	glm::vec3 lightPosition;
 #endif
 	float     lightIntensity;
-	LightType lightType;
+	ELightType lightType;
 };
 
 // ray push constant
@@ -98,33 +131,4 @@ struct VkPushConstantRay
 	glm::vec4 clearColor;
 	float     lightIntensity;
 	int       lightType;
-};
-
-/**
-* Enums
-*/
-
-enum EVertexShaderBinding
-{
-	UNIFORM_BUFFER = 0,
-};
-
-enum EFragmentShaderBinding
-{
-	SAMPLER = 0,
-	TEXTURE = 1,
-};
-
-enum VkRtxDescriptorBinding 
-{
-	TLAS = 2,
-	OUT_IMAGE = 3
-};
-
-enum VkRtxShaderStages
-{
-	RAYGEN,
-	MISS,
-	CLOSEST_HIT,
-	STAGE_COUNT
 };
