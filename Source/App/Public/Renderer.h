@@ -2,8 +2,7 @@
 
 #include <assert.h>
 
-// internal
-#include "Utilities.h"
+// RHI
 #include "Window.h"
 #include "Instance.h"
 #include "ValidationLayer.h"
@@ -13,6 +12,17 @@
 #include "CommandService.h"
 #include "Allocator.h"
 #include "RenderPassUtil.h"
+
+// Util
+#include "Utilities.h"
+
+// Frontend
+#include "OBJModel.h"
+#include "Texture.h"
+#include "FreeCamera.h"
+#include "InputController.h"
+#include "Scene.h"
+#include "Material.h"
 
 class Renderer
 {
@@ -42,6 +52,13 @@ class Renderer
 		}
 	};
 
+	struct DrawSyncObjects
+	{
+		VkSemaphore       imageAvailableSema = VK_NULL_HANDLE;
+		VkSemaphore       renderFinishedSema = VK_NULL_HANDLE;
+		VkFence           inFlightFence = VK_NULL_HANDLE;
+	};
+
 public:
 	Renderer();
 	~Renderer();
@@ -53,13 +70,14 @@ private:
 	void CreateVertexBuffer(std::vector<Vertex> vertices);
 	void CreateIndexBuffer(std::vector<uint32> indices);
 	void CreateUniformBuffers();
+	void CreateMetallicRoughnessMaterialBuffer();
 	void CreateOffscreenRenderResource(VkExtent2D extent);
-	void CreateOffscreenRenderPass(VkExtent2D extent);
-	void CreateBaseDescriptorSet();
-	void CreateSamplerDescriptorSet();
+	void CreateOffscreenRenderPass(VkExtent2D extent); // DEPRECATED
+	void CreateGlobalDescriptorSet();
 	void CreatePostDescriptorSet();
 	void CreatePushConstantRaster();
 	void CreateFrameBuffers();
+	void CreateSyncObjects();
 
 	/* destroyer */
 	void DestroyOffscreenRenderingResources();
@@ -68,9 +86,9 @@ private:
 
 	/* update */
 	void UpdateUniformBuffer();
-	void WriteBaseDescriptor();
-	void WriteSamplerDescriptor();
+	void WriteGlobalDescriptor();
 	void WritePostDescriptor();
+	void UpdateScene();
 	void Update();
 	void OnResizeWindow();
 
@@ -96,14 +114,21 @@ private:
 	MKInstance	_mkInstance;
 	MKDevice	_mkDevice;
 	MKSwapchain	_mkSwapchain;
-	MKPipeline	_mkGraphicsPipeline;
 	MKPipeline  _mkPostPipeline;
 
 	/* device properties */
 	VkPhysicalDeviceProperties _vkDeviceProperties;
 
+	/* material pipeline */
+	MaterialInstance _defaultData;
+	GLTFMetallicRoughnessPipeline _metalRoughPipeline;
+
 	/* source primitives */
 	OBJModel _objModel;
+
+	/* Main draw context */
+	DrawContext _drawContext;
+	std::unordered_map<std::string, std::shared_ptr<SceneNode>> nodeMap; // mapping between node name and pointer of node instance.
 
 	/* offscreen render pass */
 	VkFormat              _vkOffscreenColorFormat{ VK_FORMAT_R32G32B32A32_SFLOAT };
@@ -130,11 +155,10 @@ private:
 	std::vector<VkBufferAllocated>  _vkUniformBuffers;
 
 	/* descriptor */
-	VkDescriptorSetLayout _vkBaseDescriptorSetLayout;
-	VkDescriptorSetLayout _vkSamplerDescriptorSetLayout;
+	VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
 	VkDescriptorSetLayout _vkPostDescriptorSetLayout;
-	std::vector<VkDescriptorSet>  _vkBaseDescriptorSets;
-	std::vector<VkDescriptorSet>  _vkSamplerDescriptorSets;
+
+	std::vector<VkDescriptorSet>  _vkGlobalDescriptorSets; // set 0, globally shared
 	std::vector<VkDescriptorSet>  _vkPostDescriptorSets;
 
 	/* image sampler */
@@ -156,5 +180,8 @@ private:
 private:
 	/* per frame member */
 	uint32 _currentFrameIndex = 0;
+
+	/* synchronization */
+	std::vector<DrawSyncObjects> _drawSyncObjects;
 };
 

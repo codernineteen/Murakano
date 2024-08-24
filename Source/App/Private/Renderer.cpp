@@ -6,8 +6,8 @@ Renderer::Renderer()
 	_mkInstance(), 
 	_mkDevice(_mkWindow, _mkInstance), 
 	_mkSwapchain(_mkDevice),
-	_mkGraphicsPipeline(_mkDevice),
-	_mkPostPipeline(_mkDevice),
+	_mkPostPipeline(_mkDevice, "post process"),
+	_metalRoughPipeline(_mkDevice),
 	_objModel(_mkDevice),
 	_camera(_mkDevice, _mkSwapchain),
 	_inputController(_mkWindow.GetWindow(), _camera)
@@ -34,9 +34,17 @@ Renderer::~Renderer()
 	_objModel.DestroyModel();
 
 	// destroy descriptor set layout
-	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkBaseDescriptorSetLayout, nullptr);
-	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkSamplerDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkGlobalDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_mkDevice.GetDevice(), _vkPostDescriptorSetLayout, nullptr);
+
+	// destroy sync objects
+	for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkDestroySemaphore(_mkDevice.GetDevice(), _drawSyncObjects[i].renderFinishedSema, nullptr);
+		vkDestroySemaphore(_mkDevice.GetDevice(), _drawSyncObjects[i].imageAvailableSema, nullptr);
+		vkDestroyFence(_mkDevice.GetDevice(), _drawSyncObjects[i].inFlightFence, nullptr);
+	}
+
 
 	if (_mkDevice.enableDynamicRendering)
 	{
@@ -75,8 +83,6 @@ void Renderer::Setup()
 	
 	if (_mkDevice.enableDynamicRendering)
 	{
-		//mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
-		//CreateFrameBuffers();
 		// create offscreen rendering resources (color image and its view / depth image and its view / color sampler)
 		CreateOffscreenRenderResource(_mkSwapchain.GetSwapchainExtent());
 	}
@@ -103,14 +109,6 @@ void Renderer::Setup()
 			{"normal map", "../../../resources/Textures/head_normal.png"}          // normal
 		}
 	);
-	
-	// for viking room rendering
-	//_objModel.LoadModel(
-	//	"../../../resources/Models/viking_room.obj",
-	//	{
-	//		{"diffuse texture", "../../../resources/Textures/viking_room.png"},  // diffuse
-	//	}
-	//);
 
 	// transform model if needed
 	_objModel.Scale(0.05f, 0.05f, 0.05f); // scale down
@@ -130,48 +128,51 @@ void Renderer::Setup()
 	CreateUniformBuffers();
 
 	// create descriptor sets for graphics pipeline
-	CreateBaseDescriptorSet();
-	CreateSamplerDescriptorSet();
-	WriteBaseDescriptor();    // update model descriptor set
-	WriteSamplerDescriptor(); // update sampler descriptor set
+	CreateGlobalDescriptorSet();
+	WriteGlobalDescriptor();  // update model descriptor set
 
 	// create descriptor set for post processing pipeline
 	CreatePostDescriptorSet();
 	WritePostDescriptor(); // update post descriptor set
 
+	// create synchronization objects
+	CreateSyncObjects();
 
 	// determine stencil format for two pipelines
 	auto offscreenStencilFormat = (!IsDepthOnlyFormat(_vkOffscreenDepthFormat)) ? _vkOffscreenDepthFormat : VK_FORMAT_UNDEFINED;
 	auto swapchainStencilFormat = (!IsDepthOnlyFormat(swapchinDepthFormat)) ? swapchinDepthFormat : VK_FORMAT_UNDEFINED;
-	
-	// configure base pipeline
-	std::vector<VkDescriptorSetLayout> descriptorLayouts = { _vkBaseDescriptorSetLayout, _vkSamplerDescriptorSetLayout };
-	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
-	_mkGraphicsPipeline.AddShader("../../../shaders/output/spir-v/fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
-	_mkGraphicsPipeline.AddDescriptorSetLayouts(descriptorLayouts);
-	_mkGraphicsPipeline.AddPushConstantRanges(_vkPushConstantRanges);
-	_mkGraphicsPipeline.InitializePipelineLayout();
+
+	// describe descriptor set layout binding and allocate descriptor sets
+	_metalRoughPipeline.CreateDescriptorSet(static_cast<uint32>(_objModel.textures.size()));
+	// allocate memory for material buffer and write material data
+	CreateMetallicRoughnessMaterialBuffer();   
+	// create material pipeline
+	_metalRoughPipeline.BuildPipeline(
+		_vkPushConstantRanges,
+		_vkGlobalDescriptorSetLayout, 
+		{ _vkOffscreenColorFormat },
+		_vkOffscreenDepthFormat
+	);
 
 	// configure post pipeline
-	std::vector<VkDescriptorSetLayout> postDescriptorLayouts = { _vkPostDescriptorSetLayout };
 	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-vertex.spv", "main", VK_SHADER_STAGE_VERTEX_BIT);
 	_mkPostPipeline.AddShader("../../../shaders/output/spir-v/post-fragment.spv", "main", VK_SHADER_STAGE_FRAGMENT_BIT);
+	_mkPostPipeline.SetDefaultPipelineCreateInfo();
+
+	// configure post pipeline layout
+	std::vector<VkDescriptorSetLayout> postDescriptorLayouts = { _vkPostDescriptorSetLayout };
 	_mkPostPipeline.AddDescriptorSetLayouts(postDescriptorLayouts);
-	_mkPostPipeline.InitializePipelineLayout();
+	_mkPostPipeline.CreatePipelineLayout();
 	_mkPostPipeline.SetCullMode(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE); // disable culling
 	_mkPostPipeline.RemoveVertexInput();
 
 	if (_mkDevice.enableDynamicRendering)
 	{
-		_mkGraphicsPipeline.SetRenderingInfo(1, &_vkOffscreenColorFormat, _vkOffscreenDepthFormat, offscreenStencilFormat);
 		_mkPostPipeline.SetRenderingInfo(1, &swapchainImageFormat, swapchinDepthFormat, swapchainStencilFormat);
-
-		_mkGraphicsPipeline.BuildPipeline();
 		_mkPostPipeline.BuildPipeline();
 	}
 	else
 	{
-		_mkGraphicsPipeline.BuildPipeline(&_vkOffscreenRednerPass);
 		_mkPostPipeline.BuildPipeline(&_vkRenderPass);
 	}
 }
@@ -277,28 +278,21 @@ void Renderer::CreateFrameBuffers()
 	}
 }
 
-void Renderer::CreateBaseDescriptorSet()
+void Renderer::CreateGlobalDescriptorSet()
 {
 	// single uniform buffer descriptor
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		VK_SHADER_STAGE_VERTEX_BIT,
-		EVertexShaderBinding::UNIFORM_BUFFER,
+		VK_SHADER_VS_FS_FLAG,
+		EShaderBinding::UNIFORM_BUFFER,
 		1
-	);
-	// three texture image descriptors
-	GDescriptorManager->AddDescriptorSetLayoutBinding(
-		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		EFragmentShaderBinding::TEXTURE,
-		static_cast<uint32>(_objModel.textures.size())
 	);
 
 	// create base descriptor set layout based on waiting bindings
-	GDescriptorManager->CreateDescriptorSetLayout(_vkBaseDescriptorSetLayout);
+	GDescriptorManager->CreateDescriptorSetLayout(_vkGlobalDescriptorSetLayout);
 
 	// allocate base descriptor set
-	GDescriptorManager->AllocateDescriptorSet(_vkBaseDescriptorSets, _vkBaseDescriptorSetLayout);
+	GDescriptorManager->AllocateDescriptorSet(_vkGlobalDescriptorSets, _vkGlobalDescriptorSetLayout);
 }
 
 void Renderer::CreatePostDescriptorSet()
@@ -306,7 +300,7 @@ void Renderer::CreatePostDescriptorSet()
 	GDescriptorManager->AddDescriptorSetLayoutBinding(
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_SHADER_STAGE_FRAGMENT_BIT,
-		0, // binding point
+		EShaderBinding::COMBINED_IMAGE_SAMPLER, // binding point
 		1  // count
 	);
 
@@ -569,23 +563,6 @@ void Renderer::CreateOffscreenRenderPass(VkExtent2D extent)
 	MK_CHECK(vkCreateFramebuffer(_mkDevice.GetDevice(), &framebufferInfo, nullptr, &_vkOffscreenFramebuffer));
 }
 
-void Renderer::CreateSamplerDescriptorSet()
-{
-	// single sampler descriptor
-	GDescriptorManager->AddDescriptorSetLayoutBinding(
-		VK_DESCRIPTOR_TYPE_SAMPLER,
-		VK_SHADER_STAGE_FRAGMENT_BIT,
-		EFragmentShaderBinding::SAMPLER,
-		1
-	);
-
-	// create sampler descriptor set layout based on waiting bindings
-	GDescriptorManager->CreateDescriptorSetLayout(_vkSamplerDescriptorSetLayout);
-
-	// allocate sampler descriptor set
-	GDescriptorManager->AllocateDescriptorSet(_vkSamplerDescriptorSets, _vkSamplerDescriptorSetLayout);
-}
-
 void Renderer::CreateUniformBuffers()
 {
 	VkDeviceSize perUniformBufferSize = sizeof(UniformBufferObject);
@@ -604,6 +581,42 @@ void Renderer::CreateUniformBuffers()
 	}
 }
 
+void Renderer::CreateMetallicRoughnessMaterialBuffer()
+{
+	// allocate memory for material buffer
+	VkBufferAllocated materialConstantBuffer;
+	GAllocator->CreateBuffer(
+		&materialConstantBuffer,
+		sizeof(GLTFMetallicRoughnessPipeline::MaterialConstants),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VMA_MEMORY_USAGE_CPU_TO_GPU,
+		VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		"material buffer"
+	);
+
+	GLTFMetallicRoughnessPipeline::MaterialConstants constant{};
+	constant.color = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+	constant.metallicRoughness = XMVectorSet(1.0f, 0.5f, 0.0f, 0.0f);
+
+	// copy local stack memory into material buffer
+	memcpy(materialConstantBuffer.allocationInfo.pMappedData, &constant, sizeof(constant));
+	GAllocator->PushDestruction([=,this]() {
+		GAllocator->DestroyBuffer(materialConstantBuffer);
+	});
+
+
+	GLTFMetallicRoughnessPipeline::MaterialResources resources;
+	resources.textureSampler = _vkLinearSampler;
+	for (size_t it = 0; it < _objModel.textures.size(); it++)
+	{
+		resources.textureViews.push_back(_objModel.textures[it]->imageView);
+	}
+	resources.dataBuffer = materialConstantBuffer;
+	resources.dataBufferOffset = 0;
+
+	_defaultData = _metalRoughPipeline.WriteMaterial(EMaterialPass::OPAQUE, resources);
+}
+
 void Renderer::CreatePushConstantRaster()
 {
 	// initialize values in push constant raster
@@ -615,7 +628,7 @@ void Renderer::CreatePushConstantRaster()
 	_vkPushConstantRaster.lightPosition = glm::vec3(2.0f, 2.0f, 2.0f);
 #endif
 	_vkPushConstantRaster.lightIntensity = 1.0f;
-	_vkPushConstantRaster.lightType = LightType::POINT_LIGHT;
+	_vkPushConstantRaster.lightType = ELightType::POINT_LIGHT;
 
 	// create push constant range and insert it into ranges
 	VkPushConstantRange pushConstantRange{};
@@ -624,6 +637,25 @@ void Renderer::CreatePushConstantRaster()
 	pushConstantRange.size = sizeof(VkPushConstantRaster);
 
 	_vkPushConstantRanges.push_back(pushConstantRange);
+}
+
+void Renderer::CreateSyncObjects()
+{
+	_drawSyncObjects.resize(MAX_FRAMES_IN_FLIGHT);
+
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // create fence as signaled state for the very first frame.
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		MK_CHECK(vkCreateSemaphore(_mkDevice.GetDevice(), &semaphoreInfo, nullptr, &_drawSyncObjects[i].imageAvailableSema));
+		MK_CHECK(vkCreateSemaphore(_mkDevice.GetDevice(), &semaphoreInfo, nullptr, &_drawSyncObjects[i].renderFinishedSema));
+		MK_CHECK(vkCreateFence(_mkDevice.GetDevice(), &fenceInfo, nullptr, &_drawSyncObjects[i].inFlightFence));
+	}
 }
 
 /**
@@ -671,13 +703,16 @@ void Renderer::UpdateUniformBuffer()
 	UniformBufferObject ubo{};
 
 #ifdef USE_HLSL
-	auto projViewMat = _camera.GetProjectionMatrix() * _camera.GetViewMatrix();
-
+	// DirectXMath library supports SIMD operation
+	
 	// initialize model transformation
 	auto modelMat = _objModel.GetModelMatrix();
 
-	// Because SIMD operation is supported, i did multiplication in application side, not in shader side.
-	ubo.mvpMat = projViewMat * modelMat;
+	// assign transformations
+	ubo.viewMat = _camera.GetViewMatrix();
+	ubo.projMat = _camera.GetProjectionMatrix();
+	ubo.viewInverseMat = XMMatrixInverse(nullptr, ubo.viewMat);
+	ubo.mvpMat = ubo.projMat * ubo.viewMat * modelMat;
 #else
 	// fill out uniform buffer object members
 	ubo.modelMat = _objModel.GetModelMatrix();
@@ -690,7 +725,7 @@ void Renderer::UpdateUniformBuffer()
 	memcpy(_vkUniformBuffers[_currentFrameIndex].allocationInfo.pMappedData, &ubo, sizeof(ubo));
 }
 
-void Renderer::WriteBaseDescriptor()
+void Renderer::WriteGlobalDescriptor()
 {
 	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
 	{
@@ -699,47 +734,12 @@ void Renderer::WriteBaseDescriptor()
 			_vkUniformBuffers[it].buffer,         // uniform buffer
 			0,                                    // offset
 			sizeof(UniformBufferObject),          // range
-			EVertexShaderBinding::UNIFORM_BUFFER, // binding point
+			EShaderBinding::UNIFORM_BUFFER,       // binding point
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER     // descriptor type
 		);
 
-		// texture image descriptor
-		// - store a set of image infos to write at once
-		std::vector<VkDescriptorImageInfo> imageInfos; 
-		for (size_t tex_it = 0; tex_it < _objModel.textures.size(); tex_it++) 
-		{
-			VkDescriptorImageInfo imageInfo{};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView   = _objModel.textures[tex_it]->imageView;
-			imageInfo.sampler     = nullptr;
-			imageInfos.push_back(imageInfo);
-		}
-		// - call image array write api 
-		GDescriptorManager->WriteImageArrayToDescriptorSet(
-			imageInfos.data(),
-			static_cast<uint32>(imageInfos.size()),
-			EFragmentShaderBinding::TEXTURE,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
-		);
-
 		// update base descriptor set per frame
-		GDescriptorManager->UpdateDescriptorSet(_vkBaseDescriptorSets[it]);
-	}
-}
-
-void Renderer::WriteSamplerDescriptor()
-{
-	for (size_t it = 0; it < MAX_FRAMES_IN_FLIGHT; it++)
-	{
-		// write sampler descriptor
-		GDescriptorManager->WriteSamplerToDescriptorSet(
-			_vkLinearSampler,
-			EFragmentShaderBinding::SAMPLER,
-			VK_DESCRIPTOR_TYPE_SAMPLER
-		);
-
-		// update sampler descriptor set
-		GDescriptorManager->UpdateDescriptorSet(_vkSamplerDescriptorSets[it]);
+		GDescriptorManager->UpdateDescriptorSet(_vkGlobalDescriptorSets[it]);
 	}
 }
 
@@ -751,9 +751,9 @@ void Renderer::WritePostDescriptor()
 			_vkOffscreenColorImageView,
 			_vkOffscreenColorSampler,
 			VK_IMAGE_LAYOUT_GENERAL,
-			0
+			EShaderBinding::COMBINED_IMAGE_SAMPLER
 		);
-
+		
 		GDescriptorManager->UpdateDescriptorSet(_vkPostDescriptorSets[it]);
 	}
 }
@@ -844,28 +844,29 @@ void Renderer::Rasterize(const VkCommandBuffer& commandBuffer, VkExtent2D extent
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	// bind graphics pipeline
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _mkGraphicsPipeline.GetPipeline()); // bind graphics pipeline
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, /*_mkGraphicsPipeline.GetPipeline()*/ _metalRoughPipeline.GetPipeline(EMaterialPass::OPAQUE)); // bind graphics pipeline
 
-	// bind base descriptor sets
+	// bind global descriptor sets
 	vkCmdBindDescriptorSets(
 		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		_mkGraphicsPipeline.GetPipelineLayout(),
-		0,                                          // set index 0
-		1,
-		&_vkBaseDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		_metalRoughPipeline.GetPipelineLayout(EMaterialPass::OPAQUE),
+		0,                                            // set index 0
+		1,                                            // count
+		&_vkGlobalDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
 		0,
 		nullptr
 	);
 
-	// bind sampler descriptor set
+	// bind material descriptor set
+	auto descSet = _metalRoughPipeline.GetDescriptorSet(_currentFrameIndex);
 	vkCmdBindDescriptorSets(
 		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		_mkGraphicsPipeline.GetPipelineLayout(),
+		_metalRoughPipeline.GetPipelineLayout(EMaterialPass::OPAQUE),
 		1,                                             // set index 1
 		1,
-		&_vkSamplerDescriptorSets[_currentFrameIndex], // number of descriptor sets should fit into MAX_FRAMES_IN_FLIGHT
+		&descSet,
 		0,
 		nullptr
 	);
@@ -875,7 +876,7 @@ void Renderer::Rasterize(const VkCommandBuffer& commandBuffer, VkExtent2D extent
 	uint32 pushConstantSize = sizeof(VkPushConstantRaster);
 	vkCmdPushConstants(
 		commandBuffer,
-		_mkGraphicsPipeline.GetPipelineLayout(),
+		_metalRoughPipeline.GetPipelineLayout(EMaterialPass::OPAQUE),
 		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		pushConstantOffset,
 		pushConstantSize,
@@ -939,7 +940,7 @@ void Renderer::RecordFrameBufferCommands(uint32 swapchainImageIndex)
 	beginInfo.pInheritanceInfo = nullptr;
 
 	// get rendering resource from pipeline
-	MKPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
+	DrawSyncObjects syncObjects = _drawSyncObjects[_currentFrameIndex];
 
 	auto commandBuffer = *(GCommandService->GetCommandBuffer(_currentFrameIndex));
 	MK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
@@ -1106,8 +1107,8 @@ void Renderer::DrawFrame()
 	Update();
 
 	// 1. wait for the previous frame to be finished
-	MKPipeline::RenderingResource& renderingResource = _mkGraphicsPipeline.GetRenderingResource(_currentFrameIndex);
-	vkWaitForFences(_mkDevice.GetDevice(), 1, &renderingResource.inFlightFence, VK_TRUE, UINT64_MAX);
+	DrawSyncObjects syncObject = _drawSyncObjects[_currentFrameIndex];
+	vkWaitForFences(_mkDevice.GetDevice(), 1, &syncObject.inFlightFence, VK_TRUE, UINT64_MAX);
 
 	// 2. get available image from swapchain
 	uint32 imageIndex;
@@ -1115,7 +1116,7 @@ void Renderer::DrawFrame()
 		_mkDevice.GetDevice(), 
 		_mkSwapchain.GetSwapchain(), 
 		UINT64_MAX, 
-		renderingResource.imageAvailableSema, 
+		syncObject.imageAvailableSema,
 		VK_NULL_HANDLE, 
 		&imageIndex
 	);
@@ -1130,7 +1131,7 @@ void Renderer::DrawFrame()
 	}
 
 	// 3. reset fence if and only if application is submitting commands
-	vkResetFences(_mkDevice.GetDevice(), 1, &renderingResource.inFlightFence); // make current fence unsignaled
+	vkResetFences(_mkDevice.GetDevice(), 1, &syncObject.inFlightFence); // make current fence unsignaled
 
 	// 4. reset frame buffer command buffer
 	GCommandService->ResetCommandBuffer(_currentFrameIndex);
@@ -1139,9 +1140,9 @@ void Renderer::DrawFrame()
 	RecordFrameBufferCommands(imageIndex);
 
 	// 6. copy rendering resources and submit recorded command buffer to graphics queue
-	VkSemaphore          waitSemaphores[]   = { renderingResource.imageAvailableSema };
+	VkSemaphore          waitSemaphores[]   = { syncObject.imageAvailableSema };
 	VkPipelineStageFlags waitStages[]       = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	VkSemaphore          signalSemaphores[] = { renderingResource.renderFinishedSema };
+	VkSemaphore          signalSemaphores[] = { syncObject.renderFinishedSema };
 
 	GCommandService->SubmitCommandBufferToQueue(
 		_currentFrameIndex,
@@ -1149,7 +1150,7 @@ void Renderer::DrawFrame()
 		waitStages,
 		signalSemaphores,
 		_mkDevice.GetGraphicsQueue(),
-		renderingResource.inFlightFence
+		syncObject.inFlightFence
 	);
 
 	// 7. present image to swapchain
