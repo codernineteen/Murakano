@@ -1,3 +1,5 @@
+#include "common.hlsl"
+
 /*
 * ----- Definition ------
 */
@@ -17,27 +19,8 @@ struct VSOutput
     [[vk::location(3)]] float2 TexCoord    : TEXCOORD0;
 };
 
-struct UBO
-{
-    float4x4 mvpMat;
-    float4x4 viewInverseMat;
-};
-
-struct PushConstantRaster 
-{
-    float4x4 ModelMat;
-    float3   LightPosition;
-    float    LightIntensity;
-    int      LightType;
-};
-
 [[vk::push_constant]]
 PushConstantRaster pc;
-
-cbuffer ubo : register(b0, space0)
-{
-    UBO ubo;
-}
 
 /*
 * ----- Main ------

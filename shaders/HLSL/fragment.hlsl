@@ -21,7 +21,7 @@
 ///     A push constant binding requires a '[[vk::push_constant]]' attribute in HLSL and The push constant struct should be defined in the shader file.
 ///     Also Note that you can only bind a single push constant per shader program.
 
-
+#include "common.hlsl"
 
 // ------------------ DEFINITIONS ------------------
 struct PSInput
@@ -32,27 +32,9 @@ struct PSInput
     float2 TexCoord    : TEXCOORD0;
 };
 
-//struct PSOutput
-//{
-//    float4 OutColor;
-//};
-
-struct PushConstantRaster 
-{
-    float4x4 ModelMat;
-    float3   LightPosition;
-    float    LightIntensity;
-    int      LightType;
-};
-
 [[vk::push_constant]]
 PushConstantRaster pc;
 
-[[vk::binding(1, 0)]]                   // sampled image descriptor binding
-Texture2DArray textures : register(t0); // binding array to register t0
-
-[[vk::binding(0, 1)]]                     // sampler descriptor binding
-SamplerState samplerState : register(s0); // binding sampler to register s0
 
 // ------------------- Constant -------------------------
 static const float PI = 3.14159265f;
@@ -176,11 +158,28 @@ static float microSpecularBRDF(float3 l, float3 v, float3 n, float roughness)
     return F * G2 * D;
 }
 
+static float diffuseBRDF(float3 l, float3 v)
+{
+    float3 h = normalize(l + v);
+
+    float ior = 1.4;
+    float F = schlickApprox(ior, h, l);
+
+    return (1 - F) * 0.5 / PI;
+}
+
+static float lambertianDiffuseBRDF()
+{
+    float ssAlbedo = 0.5;
+    return 0.5 / PI;
+}
+
 // ------------------ HELPER FUNCTIONS ------------------
 static float3 computeDiffuseColor(float4 diffuseColor, float3 viewDir, float3 lightDir, float3 normal)
 {
     float dotNL = dot(lightDir, normal);
-    float3 outColor = diffuseColor.rgb * saturate(dotNL); // saturate function do clamping the value between 0 and 1
+    //float brdf = lambertianDiffuseBRDF();
+    float3 outColor = diffuseColor.rgb * dotNL; // saturate function do clamping the value between 0 and 1
     return outColor;
 }
 
