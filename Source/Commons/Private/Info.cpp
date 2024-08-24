@@ -347,6 +347,8 @@ namespace mk
 			}
 			else
 			{
+				assert(renderingInfo->colorAttachmentCount > 0 && "Color attachment count must be greater than 0.");
+
 				pipelineInfo.pNext      = renderingInfo;
 				pipelineInfo.renderPass = VK_NULL_HANDLE;
 				pipelineInfo.subpass    = 0;
