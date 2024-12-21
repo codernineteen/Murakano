@@ -5,7 +5,7 @@
 #include "Global.h"
 #include "OBJModel.h"
 #include "Texture.h"
-#include "FreeCamera.h"
+#include "Camera.h"
 #include "InputController.h"
 
 // RHI

@@ -145,7 +145,7 @@ private:
 	std::vector<VkPushConstantRange> _vkPushConstantRanges;
 
 	/* camera */
-	FreeCamera _camera;
+	Camera _camera;
 
 	/* input controller */
 	InputController _inputController;

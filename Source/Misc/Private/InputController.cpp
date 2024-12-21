@@ -1,6 +1,6 @@
 #include "InputController.h"
 
-InputController::InputController(GLFWwindow* windowPtr, FreeCamera& camera)
+InputController::InputController(GLFWwindow* windowPtr, Camera& camera)
 :
 	_windowPtr(windowPtr),
 	_camera(camera)
@@ -23,11 +23,15 @@ void InputController::RotateCamera(float deltaTime)
 		_camera.UpdateCameraRotationHorizontal(_rotationSpeed * deltaTime);
 	if (glfwGetKey(_windowPtr, _keyMaps.rotateRight) == GLFW_PRESS)
 		_camera.UpdateCameraRotationHorizontal(-_rotationSpeed * deltaTime);
+
+	if (glfwGetMouseButton(_windowPtr, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+		_camera.OnMouseDown(_windowPtr, deltaTime);
+	else if (glfwGetMouseButton(_windowPtr, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
+		_camera.OnMouseUp();
 }
 
 void InputController::MoveInPlaneXY(float deltaTime)
 {
-	//XMVECTOR forward = _mkWindowRef.GetCamera().GetForward();
 	if (glfwGetKey(_windowPtr, _keyMaps.moveForward) == GLFW_PRESS) 
 		_camera.UpdateCameraPositionZ(_moveSpeed * deltaTime);
 	if (glfwGetKey(_windowPtr, _keyMaps.moveBackward) == GLFW_PRESS) 

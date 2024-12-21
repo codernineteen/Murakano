@@ -9,7 +9,7 @@ Renderer::Renderer()
 	_mkGraphicsPipeline(_mkDevice),
 	_mkPostPipeline(_mkDevice),
 	_objModel(_mkDevice),
-	_camera(_mkDevice, _mkSwapchain),
+	_camera(_mkSwapchain.GetSwapchainExtent()),
 	_inputController(_mkWindow.GetWindow(), _camera)
 {
 	GAllocator->InitVMAAllocator(_mkInstance.GetVkInstance(), _mkDevice.GetPhysicalDevice(), _mkDevice.GetDevice());
@@ -75,8 +75,6 @@ void Renderer::Setup()
 	
 	if (_mkDevice.enableDynamicRendering)
 	{
-		//mk::vk::CreateDefaultRenderPass(_mkDevice.GetDevice(), swapchainImageFormat, depthFormat, &_vkRenderPass);
-		//CreateFrameBuffers();
 		// create offscreen rendering resources (color image and its view / depth image and its view / color sampler)
 		CreateOffscreenRenderResource(_mkSwapchain.GetSwapchainExtent());
 	}
@@ -103,14 +101,6 @@ void Renderer::Setup()
 			{"normal map", "../../../resources/Textures/head_normal.png"}          // normal
 		}
 	);
-	
-	// for viking room rendering
-	//_objModel.LoadModel(
-	//	"../../../resources/Models/viking_room.obj",
-	//	{
-	//		{"diffuse texture", "../../../resources/Textures/viking_room.png"},  // diffuse
-	//	}
-	//);
 
 	// transform model if needed
 	_objModel.Scale(0.05f, 0.05f, 0.05f); // scale down
@@ -789,7 +779,8 @@ void Renderer::OnResizeWindow()
 
 	// destroy resources first
 	_mkSwapchain.DestroySwapchainResources();
-	DestroyFrameBuffers();
+	if(!_mkDevice.enableDynamicRendering)
+		DestroyFrameBuffers();
 
 	// recreate swapchain
 	_mkSwapchain.CreateSwapchain();
@@ -797,7 +788,8 @@ void Renderer::OnResizeWindow()
 	_mkSwapchain.CreateDepthResources();
 
 	// recreate swapchain frame buffer
-	CreateFrameBuffers();
+	if (!_mkDevice.enableDynamicRendering)
+		CreateFrameBuffers();
 
 	// recreate offscreen render pass (recreation of offscreen buffer included in here)
 	auto extent = _mkSwapchain.GetSwapchainExtent();

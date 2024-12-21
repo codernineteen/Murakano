@@ -2,13 +2,13 @@
 
 #include <GLFW/glfw3.h>
 
-#include "FreeCamera.h"
+#include "Camera.h"
 #include "Utilities.h"
 
 class InputController
 {
 public:
-	InputController(GLFWwindow* windowPtr, FreeCamera& camera);
+	InputController(GLFWwindow* windowPtr, Camera& camera);
 	~InputController();
 	void MoveInPlaneXY(float deltaTime);
 	void RotateCamera(float deltaTime);
@@ -30,7 +30,7 @@ public:
 
 private:
 	GLFWwindow* _windowPtr;
-	FreeCamera& _camera;
+	Camera& _camera;
 	KeyboardMappings _keyMaps{};
 	float _moveSpeed = 3.0f;
 	float _rotationSpeed = 30.0f;
